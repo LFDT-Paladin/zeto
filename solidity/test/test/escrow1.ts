@@ -94,15 +94,14 @@ describe("Escrow flow for payment with Zeto_Anon", function () {
 
   it("Alice locks some payment tokens and designates the escrow as the delegate", async function () {
     lockedPayment1 = newUTXO(payment1.value!, Alice);
-    const encodedProof =
-      await zetoAnonTests.prepareProof(
-        circuit,
-        provingKey,
-        Alice,
-        [payment1, ZERO_UTXO],
-        [lockedPayment1, ZERO_UTXO],
-        [Alice, {}],
-      );
+    const encodedProof = await zetoAnonTests.prepareProof(
+      circuit,
+      provingKey,
+      Alice,
+      [payment1, ZERO_UTXO],
+      [lockedPayment1, ZERO_UTXO],
+      [Alice, {}],
+    );
     const tx = await zkPayment
       .connect(Alice.signer)
       .lock(

@@ -1124,15 +1124,14 @@ describe("Zeto based fungible token with anonymity using nullifiers without encr
       // Alice proposes the output ERC20 tokens
       const outputCommitment = newUTXO(90, Alice);
 
-      const { encodedProof } =
-        await prepareNullifierWithdrawProof(
-          Alice,
-          [utxo100, ZERO_UTXO],
-          [nullifier1, ZERO_UTXO],
-          outputCommitment,
-          root.bigInt(),
-          merkleProofs,
-        );
+      const { encodedProof } = await prepareNullifierWithdrawProof(
+        Alice,
+        [utxo100, ZERO_UTXO],
+        [nullifier1, ZERO_UTXO],
+        outputCommitment,
+        root.bigInt(),
+        merkleProofs,
+      );
 
       await expect(
         zeto

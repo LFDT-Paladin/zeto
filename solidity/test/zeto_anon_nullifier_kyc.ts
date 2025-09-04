@@ -1754,7 +1754,8 @@ describe("Zeto based fungible token with anonymity, KYC, using nullifiers withou
     }
     const results: ContractTransactionReceipt | null = await tx.wait();
     console.log(
-      `Time to execute transaction: ${Date.now() - startTx}ms. Gas used: ${results?.gasUsed
+      `Time to execute transaction: ${Date.now() - startTx}ms. Gas used: ${
+        results?.gasUsed
       }`,
     );
     return results;

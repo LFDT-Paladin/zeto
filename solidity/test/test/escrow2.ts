@@ -129,18 +129,17 @@ describe("Escrow flow for payment with Zeto_AnonNullifier", function () {
     ];
 
     lockedPayment1 = newUTXO(payment1.value!, Alice);
-    const encodedProof =
-      await zetoAnonNullifierTests.prepareProof(
-        circuit,
-        provingKey,
-        Alice,
-        [payment1, ZERO_UTXO],
-        [nullifier1, ZERO_UTXO],
-        [lockedPayment1, ZERO_UTXO],
-        root.bigInt(),
-        merkleProofs,
-        [Alice, Alice],
-      );
+    const encodedProof = await zetoAnonNullifierTests.prepareProof(
+      circuit,
+      provingKey,
+      Alice,
+      [payment1, ZERO_UTXO],
+      [nullifier1, ZERO_UTXO],
+      [lockedPayment1, ZERO_UTXO],
+      root.bigInt(),
+      merkleProofs,
+      [Alice, Alice],
+    );
     const tx = await zkPayment
       .connect(Alice.signer)
       .lock(

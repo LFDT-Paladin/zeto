@@ -15,8 +15,8 @@
 // limitations under the License.
 pragma solidity ^0.8.27;
 
-import {Clones} from "@openzeppelin/contracts/proxy/Clones.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
+import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import {IZetoInitializable} from "./lib/interfaces/izeto_initializable.sol";
 
 contract ZetoTokenFactory is Ownable {
@@ -81,16 +81,14 @@ contract ZetoTokenFactory is Ownable {
             address(args.verifiers.batchWithdrawVerifier) != address(0),
             "Factory: batchWithdrawVerifier address is required"
         );
-        address instance = Clones.clone(args.implementation);
-        require(
-            instance != address(0),
-            "Factory: failed to clone implementation"
-        );
-        (IZetoInitializable(instance)).initialize(
-            name,
-            symbol,
-            initialOwner,
-            args.verifiers
+        address instance = address(
+            new ERC1967Proxy(
+                args.implementation,
+                abi.encodeCall(
+                    IZetoInitializable.initialize,
+                    (name, symbol, initialOwner, args.verifiers)
+                )
+            )
         );
         emit ZetoTokenDeployed(instance);
         return instance;
@@ -107,16 +105,14 @@ contract ZetoTokenFactory is Ownable {
             args.implementation != address(0),
             "Factory: failed to find implementation"
         );
-        address instance = Clones.clone(args.implementation);
-        require(
-            instance != address(0),
-            "Factory: failed to clone implementation"
-        );
-        (IZetoInitializable(instance)).initialize(
-            name,
-            symbol,
-            initialOwner,
-            args.verifiers
+        address instance = address(
+            new ERC1967Proxy(
+                args.implementation,
+                abi.encodeCall(
+                    IZetoInitializable.initialize,
+                    (name, symbol, initialOwner, args.verifiers)
+                )
+            )
         );
         emit ZetoTokenDeployed(instance);
         return instance;
