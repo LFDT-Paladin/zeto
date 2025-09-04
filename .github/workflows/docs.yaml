@@ -9,8 +9,6 @@ on:
     paths:
       - 'doc-site/docs/**'
       - '.github/workflows/docs.yaml'
-    tags:
-      - 'v*.*.*'
   pull_request:
     paths:
       - 'doc-site/docs/**'

@@ -3,8 +3,14 @@ name: Circuit Unit Tests
 on:
   push:
     branches: [main]
+    paths-ignore:
+      - 'doc-site/**'
+      - '.github/workflows/docs.yaml'
   pull_request:
     branches: [main]
+    paths-ignore:
+      - 'doc-site/**'
+      - '.github/workflows/docs.yaml'
   workflow_dispatch:
 
 jobs:
