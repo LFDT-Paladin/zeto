@@ -115,5 +115,4 @@ jobs:
           allowUpdates: 'true'
           artifacts: zeto-wasm-and-proving-keys/*.tar.gz
           tag: ${{ env.ZETO_VER }}
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.PAT }}
