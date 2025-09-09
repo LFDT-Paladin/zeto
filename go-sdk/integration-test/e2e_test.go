@@ -165,7 +165,7 @@ func (s *E2ETestSuite) SetupTest() {
 	nullifier2, _ := poseidon.Hash([]*big.Int{s.regularTest.inputValues[1], salt2, sender.PrivateKeyBigInt})
 	s.regularTest.nullifiers = []*big.Int{nullifier1, nullifier2}
 
-	s.regularTest.merkleProofs, s.regularTest.enabled, s.regularTest.root = s.buildMerkleProofs(s.regularTest.inputCommitments)
+	s.regularTest.merkleProofs, s.regularTest.enabled, s.regularTest.root = buildMerkleProofs(s.regularTest.inputCommitments, s.db, s.T())
 
 	salt3 := crypto.NewSalt()
 	output1, _ := poseidon.Hash([]*big.Int{s.regularTest.outputValues[0], salt3, receiver.PublicKey.X, receiver.PublicKey.Y})
@@ -198,7 +198,7 @@ func (s *E2ETestSuite) SetupTest() {
 		s.batchTest.nullifiers = append(s.batchTest.nullifiers, nullifier)
 	}
 
-	s.batchTest.merkleProofs, s.batchTest.enabled, s.batchTest.root = s.buildMerkleProofs(s.batchTest.inputCommitments)
+	s.batchTest.merkleProofs, s.batchTest.enabled, s.batchTest.root = buildMerkleProofs(s.batchTest.inputCommitments, s.db, s.T())
 
 	s.batchTest.outputCommitments = make([]*big.Int, 0, 10)
 	s.batchTest.outputSalts = make([]*big.Int, 0, 10)
@@ -216,29 +216,29 @@ func (s *E2ETestSuite) SetupTest() {
 
 }
 
-func (s *E2ETestSuite) buildMerkleProofs(inputCommitments []*big.Int) ([][]*big.Int, []*big.Int, *big.Int) {
-	mt, err := smt.NewMerkleTree(s.db, MAX_HEIGHT)
-	assert.NoError(s.T(), err)
+func buildMerkleProofs(inputCommitments []*big.Int, db core.Storage, t *testing.T) ([][]*big.Int, []*big.Int, *big.Int) {
+	mt, err := smt.NewMerkleTree(db, MAX_HEIGHT)
+	assert.NoError(t, err)
 
 	for _, commitment := range inputCommitments {
 		idx, _ := node.NewNodeIndexFromBigInt(commitment)
 		utxo := node.NewIndexOnly(idx)
 		n, err := node.NewLeafNode(utxo)
-		assert.NoError(s.T(), err)
+		assert.NoError(t, err)
 		err = mt.AddLeaf(n)
-		assert.NoError(s.T(), err)
+		assert.NoError(t, err)
 	}
 
 	root := mt.Root().BigInt()
 
 	proofs, _, err := mt.GenerateProofs(inputCommitments, nil)
-	assert.NoError(s.T(), err)
+	assert.NoError(t, err)
 
 	smtProofs := make([][]*big.Int, len(proofs))
 	enabled := make([]*big.Int, len(proofs))
 	for i, proof := range proofs {
 		circomProof, err := proof.ToCircomVerifierProof(inputCommitments[i], inputCommitments[i], mt.Root(), MAX_HEIGHT)
-		assert.NoError(s.T(), err)
+		assert.NoError(t, err)
 		proofSiblings := make([]*big.Int, len(circomProof.Siblings)-1)
 		for i, s := range circomProof.Siblings[0 : len(circomProof.Siblings)-1] {
 			proofSiblings[i] = s.BigInt()
