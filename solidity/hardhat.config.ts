@@ -20,8 +20,8 @@ import "@openzeppelin/hardhat-upgrades";
 import crypto from "crypto";
 
 const keys = [
-  crypto.randomBytes(32).toString("hex"),
-  crypto.randomBytes(32).toString("hex"),
+  process.env.ETH_PRIVATE_KEY_1 || crypto.randomBytes(32).toString("hex"),
+  process.env.ETH_PRIVATE_KEY_2 || crypto.randomBytes(32).toString("hex"),
   crypto.randomBytes(32).toString("hex"),
   crypto.randomBytes(32).toString("hex"),
   crypto.randomBytes(32).toString("hex"),
@@ -58,7 +58,10 @@ const config: HardhatUserConfig = {
     besu: {
       url: "http://localhost:8545",
       accounts: keys,
-      gasPrice: 0,
+      gasPrice: 20000000000, // 20 Gwei - increased for better performance
+      // Remove EIP-1559 fields to force legacy transactions and avoid provider fee data issues
+      // maxFeePerGas: 50000000000, // 50 Gwei
+      // maxPriorityFeePerGas: 1000000000, // 1 Gwei (tip)
     },
     sepolia: {
       url: `${SEPOLIA_JSON_RPC_URL}`,
