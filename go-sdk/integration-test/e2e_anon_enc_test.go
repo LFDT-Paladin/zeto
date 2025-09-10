@@ -21,6 +21,7 @@ import (
 	"math/big"
 	"time"
 
+	"github.com/hyperledger-labs/zeto/go-sdk/integration-test/common"
 	"github.com/hyperledger-labs/zeto/go-sdk/internal/testutils"
 	"github.com/hyperledger-labs/zeto/go-sdk/pkg/crypto"
 	"github.com/iden3/go-iden3-crypto/poseidon"
@@ -30,7 +31,7 @@ import (
 
 func (s *E2ETestSuite) TestZeto_anon_enc_SuccessfulProving() {
 	// s.T().Skip()
-	calc, provingKey, err := loadCircuit("anon_enc")
+	calc, provingKey, err := common.LoadCircuit("anon_enc")
 	assert.NoError(s.T(), err)
 	assert.NotNil(s.T(), calc)
 
@@ -38,14 +39,14 @@ func (s *E2ETestSuite) TestZeto_anon_enc_SuccessfulProving() {
 	ephemeralKeypair := testutils.NewKeypair()
 
 	witnessInputs := map[string]interface{}{
-		"inputCommitments":      s.regularTest.inputCommitments,
-		"inputValues":           s.regularTest.inputValues,
-		"inputSalts":            s.regularTest.inputSalts,
+		"inputCommitments":      s.regularTest.InputCommitments,
+		"inputValues":           s.regularTest.InputValues,
+		"inputSalts":            s.regularTest.InputSalts,
 		"inputOwnerPrivateKey":  s.sender.PrivateKeyBigInt,
-		"outputCommitments":     s.regularTest.outputCommitments,
-		"outputValues":          s.regularTest.outputValues,
-		"outputSalts":           s.regularTest.outputSalts,
-		"outputOwnerPublicKeys": s.regularTest.outputOwnerPublicKeys,
+		"outputCommitments":     s.regularTest.OutputCommitments,
+		"outputValues":          s.regularTest.OutputValues,
+		"outputSalts":           s.regularTest.OutputSalts,
+		"outputOwnerPublicKeys": s.regularTest.OutputOwnerPublicKeys,
 		"encryptionNonce":       encryptionNonce,
 		"ecdhPrivateKey":        ephemeralKeypair.PrivateKey.Scalar().BigInt(),
 	}
@@ -79,12 +80,12 @@ func (s *E2ETestSuite) TestZeto_anon_enc_SuccessfulProving() {
 	secret := crypto.GenerateECDHSharedSecret(s.receiver.PrivateKey, ephemeralKeypair.PublicKey)
 	decrypted, err := crypto.PoseidonDecrypt(encryptedValues, []*big.Int{secret.X, secret.Y}, encryptionNonce, 2)
 	assert.NoError(s.T(), err)
-	assert.Equal(s.T(), s.regularTest.outputValues[0].String(), decrypted[0].String())
-	assert.Equal(s.T(), s.regularTest.outputSalts[0].String(), decrypted[1].String())
+	assert.Equal(s.T(), s.regularTest.OutputValues[0].String(), decrypted[0].String())
+	assert.Equal(s.T(), s.regularTest.OutputSalts[0].String(), decrypted[1].String())
 
 	// as the receiver, to check if the decryption was successful, we hash the decrypted
 	// value and salt and compare with the output commitment
 	calculatedHash, err := poseidon.Hash([]*big.Int{decrypted[0], decrypted[1], s.receiver.PublicKey.X, s.receiver.PublicKey.Y})
 	assert.NoError(s.T(), err)
-	assert.Equal(s.T(), s.regularTest.outputCommitments[0].String(), calculatedHash.String())
+	assert.Equal(s.T(), s.regularTest.OutputCommitments[0].String(), calculatedHash.String())
 }

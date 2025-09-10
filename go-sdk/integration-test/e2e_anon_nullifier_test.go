@@ -21,6 +21,7 @@ import (
 	"math/big"
 	"time"
 
+	"github.com/hyperledger-labs/zeto/go-sdk/integration-test/common"
 	"github.com/hyperledger-labs/zeto/go-sdk/pkg/crypto"
 	"github.com/hyperledger-labs/zeto/go-sdk/pkg/sparse-merkle-tree/node"
 	"github.com/hyperledger-labs/zeto/go-sdk/pkg/sparse-merkle-tree/smt"
@@ -31,23 +32,23 @@ import (
 
 func (s *E2ETestSuite) TestZeto_anon_nullifier_SuccessfulProving() {
 	// s.T().Skip()
-	calc, provingKey, err := loadCircuit("anon_nullifier_transfer")
+	calc, provingKey, err := common.LoadCircuit("anon_nullifier_transfer")
 	assert.NoError(s.T(), err)
 	assert.NotNil(s.T(), calc)
 
 	witnessInputs := map[string]interface{}{
-		"nullifiers":            s.regularTest.nullifiers,
-		"inputCommitments":      s.regularTest.inputCommitments,
-		"inputValues":           s.regularTest.inputValues,
-		"inputSalts":            s.regularTest.inputSalts,
+		"nullifiers":            s.regularTest.Nullifiers,
+		"inputCommitments":      s.regularTest.InputCommitments,
+		"inputValues":           s.regularTest.InputValues,
+		"inputSalts":            s.regularTest.InputSalts,
 		"inputOwnerPrivateKey":  s.sender.PrivateKeyBigInt,
-		"root":                  s.regularTest.root,
-		"merkleProof":           s.regularTest.merkleProofs,
-		"enabled":               s.regularTest.enabled,
-		"outputCommitments":     s.regularTest.outputCommitments,
-		"outputValues":          s.regularTest.outputValues,
-		"outputSalts":           s.regularTest.outputSalts,
-		"outputOwnerPublicKeys": s.regularTest.outputOwnerPublicKeys,
+		"root":                  s.regularTest.Root,
+		"merkleProof":           s.regularTest.MerkleProofs,
+		"enabled":               s.regularTest.Enabled,
+		"outputCommitments":     s.regularTest.OutputCommitments,
+		"outputValues":          s.regularTest.OutputValues,
+		"outputSalts":           s.regularTest.OutputSalts,
+		"outputOwnerPublicKeys": s.regularTest.OutputOwnerPublicKeys,
 	}
 
 	startTime := time.Now()
@@ -67,30 +68,30 @@ func (s *E2ETestSuite) TestZeto_anon_nullifier_SuccessfulProving() {
 
 func (s *E2ETestSuite) TestZeto_anon_nullifier_locked_SuccessfulProving() {
 	// s.T().Skip()
-	calc, provingKey, err := loadCircuit("anon_nullifier_transferLocked")
+	calc, provingKey, err := common.LoadCircuit("anon_nullifier_transferLocked")
 	assert.NoError(s.T(), err)
 	assert.NotNil(s.T(), calc)
 
 	senderEthAddress, ok := new(big.Int).SetString("5d093e9b41911be5f5c4cf91b108bac5d130fa83", 16)
 	assert.True(s.T(), ok)
-	_, db, _, _ := newSqliteStorage(s.T())
-	mt, err := smt.NewMerkleTree(db, MAX_HEIGHT)
+	_, db, _, _ := common.NewSqliteStorage(s.T())
+	mt, err := smt.NewMerkleTree(db, common.MAX_HEIGHT)
 	assert.NoError(s.T(), err)
 
-	for i, value := range s.regularTest.inputValues {
-		utxo := node.NewFungible(value, s.sender.PublicKey, s.regularTest.inputSalts[i])
+	for i, value := range s.regularTest.InputValues {
+		utxo := node.NewFungible(value, s.sender.PublicKey, s.regularTest.InputSalts[i])
 		n, err := node.NewLeafNode(utxo, senderEthAddress)
 		assert.NoError(s.T(), err)
 		err = mt.AddLeaf(n)
 		assert.NoError(s.T(), err)
 	}
 
-	proofs, _, err := mt.GenerateProofs(s.regularTest.inputCommitments, nil)
+	proofs, _, err := mt.GenerateProofs(s.regularTest.InputCommitments, nil)
 	assert.NoError(s.T(), err)
 	proofSiblingsArray := make([][]*big.Int, 0, len(proofs))
 	for i, proof := range proofs {
-		input := s.regularTest.inputCommitments[i]
-		circomProof, err := proof.ToCircomVerifierProof(input, senderEthAddress, mt.Root(), MAX_HEIGHT)
+		input := s.regularTest.InputCommitments[i]
+		circomProof, err := proof.ToCircomVerifierProof(input, senderEthAddress, mt.Root(), common.MAX_HEIGHT)
 		assert.NoError(s.T(), err)
 		proofSiblings := make([]*big.Int, len(circomProof.Siblings)-1)
 		for j, s := range circomProof.Siblings[0 : len(circomProof.Siblings)-1] {
@@ -100,18 +101,18 @@ func (s *E2ETestSuite) TestZeto_anon_nullifier_locked_SuccessfulProving() {
 	}
 
 	witnessInputs := map[string]interface{}{
-		"nullifiers":            s.regularTest.nullifiers,
-		"inputCommitments":      s.regularTest.inputCommitments,
-		"inputValues":           s.regularTest.inputValues,
-		"inputSalts":            s.regularTest.inputSalts,
+		"nullifiers":            s.regularTest.Nullifiers,
+		"inputCommitments":      s.regularTest.InputCommitments,
+		"inputValues":           s.regularTest.InputValues,
+		"inputSalts":            s.regularTest.InputSalts,
 		"inputOwnerPrivateKey":  s.sender.PrivateKeyBigInt,
 		"root":                  mt.Root().BigInt(),
 		"merkleProof":           proofSiblingsArray,
-		"enabled":               s.regularTest.enabled,
-		"outputCommitments":     s.regularTest.outputCommitments,
-		"outputValues":          s.regularTest.outputValues,
-		"outputSalts":           s.regularTest.outputSalts,
-		"outputOwnerPublicKeys": s.regularTest.outputOwnerPublicKeys,
+		"enabled":               s.regularTest.Enabled,
+		"outputCommitments":     s.regularTest.OutputCommitments,
+		"outputValues":          s.regularTest.OutputValues,
+		"outputSalts":           s.regularTest.OutputSalts,
+		"outputOwnerPublicKeys": s.regularTest.OutputOwnerPublicKeys,
 		"lockDelegate":          senderEthAddress,
 	}
 
@@ -132,23 +133,23 @@ func (s *E2ETestSuite) TestZeto_anon_nullifier_locked_SuccessfulProving() {
 
 func (s *E2ETestSuite) TestZeto_anon_nullifier_batch_SuccessfulProving() {
 	// s.T().Skip()
-	calc, provingKey, err := loadCircuit("anon_nullifier_transfer_batch")
+	calc, provingKey, err := common.LoadCircuit("anon_nullifier_transfer_batch")
 	assert.NoError(s.T(), err)
 	assert.NotNil(s.T(), calc)
 
 	witnessInputs := map[string]interface{}{
-		"nullifiers":            s.batchTest.nullifiers,
-		"inputCommitments":      s.batchTest.inputCommitments,
-		"inputValues":           s.batchTest.inputValues,
-		"inputSalts":            s.batchTest.inputSalts,
+		"nullifiers":            s.batchTest.Nullifiers,
+		"inputCommitments":      s.batchTest.InputCommitments,
+		"inputValues":           s.batchTest.InputValues,
+		"inputSalts":            s.batchTest.InputSalts,
 		"inputOwnerPrivateKey":  s.sender.PrivateKeyBigInt,
-		"root":                  s.batchTest.root,
-		"merkleProof":           s.batchTest.merkleProofs,
-		"enabled":               s.batchTest.enabled,
-		"outputCommitments":     s.batchTest.outputCommitments,
-		"outputValues":          s.batchTest.outputValues,
-		"outputSalts":           s.batchTest.outputSalts,
-		"outputOwnerPublicKeys": s.batchTest.outputOwnerPublicKeys,
+		"root":                  s.batchTest.Root,
+		"merkleProof":           s.batchTest.MerkleProofs,
+		"enabled":               s.batchTest.Enabled,
+		"outputCommitments":     s.batchTest.OutputCommitments,
+		"outputValues":          s.batchTest.OutputValues,
+		"outputSalts":           s.batchTest.OutputSalts,
+		"outputOwnerPublicKeys": s.batchTest.OutputOwnerPublicKeys,
 	}
 
 	startTime := time.Now()
@@ -168,7 +169,7 @@ func (s *E2ETestSuite) TestZeto_anon_nullifier_batch_SuccessfulProving() {
 
 func (s *E2ETestSuite) TestZeto_anon_nullifier_burn_SuccessfulProving() {
 	// s.T().Skip()
-	calc, provingKey, err := loadCircuit("burn_nullifier")
+	calc, provingKey, err := common.LoadCircuit("burn_nullifier")
 	assert.NoError(s.T(), err)
 	assert.NotNil(s.T(), calc)
 
@@ -185,14 +186,14 @@ func (s *E2ETestSuite) TestZeto_anon_nullifier_burn_SuccessfulProving() {
 	}
 
 	witnessInputs := map[string]interface{}{
-		"nullifiers":       s.regularTest.nullifiers,
-		"inputCommitments": s.regularTest.inputCommitments,
-		"inputValues":      s.regularTest.inputValues,
-		"inputSalts":       s.regularTest.inputSalts,
+		"nullifiers":       s.regularTest.Nullifiers,
+		"inputCommitments": s.regularTest.InputCommitments,
+		"inputValues":      s.regularTest.InputValues,
+		"inputSalts":       s.regularTest.InputSalts,
 		"ownerPrivateKey":  s.sender.PrivateKeyBigInt,
-		"root":             s.regularTest.root,
-		"merkleProof":      s.regularTest.merkleProofs,
-		"enabled":          s.regularTest.enabled,
+		"root":             s.regularTest.Root,
+		"merkleProof":      s.regularTest.MerkleProofs,
+		"enabled":          s.regularTest.Enabled,
 		"outputCommitment": outputCommitments,
 		"outputValue":      outputValues,
 		"outputSalt":       outputSalts,

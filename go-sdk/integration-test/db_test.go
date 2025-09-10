@@ -17,12 +17,11 @@
 package integration_test
 
 import (
-	"fmt"
 	"math/big"
-	"math/rand"
 	"os"
 	"testing"
 
+	"github.com/hyperledger-labs/zeto/go-sdk/integration-test/common"
 	"github.com/hyperledger-labs/zeto/go-sdk/internal/testutils"
 	"github.com/hyperledger-labs/zeto/go-sdk/pkg/crypto"
 	"github.com/hyperledger-labs/zeto/go-sdk/pkg/sparse-merkle-tree/core"
@@ -33,7 +32,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
 	"gorm.io/driver/postgres"
-	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 )
 
@@ -45,37 +43,9 @@ type SqliteTestSuite struct {
 	smtName string
 }
 
-type testSqlProvider struct {
-	db *gorm.DB
-}
-
-func (p *testSqlProvider) DB() *gorm.DB {
-	return p.db
-}
-
-func (p *testSqlProvider) Close() {}
-
-func newSqliteStorage(t *testing.T) (*os.File, core.Storage, *gorm.DB, string) {
-	seq := rand.Intn(1000)
-	testName := fmt.Sprintf("test_%d", seq)
-	dbfile, err := os.CreateTemp("", fmt.Sprintf("gorm-%s.db", testName))
-	assert.NoError(t, err)
-	db, err := gorm.Open(sqlite.Open(dbfile.Name()), &gorm.Config{})
-	assert.NoError(t, err)
-	err = db.Table(core.TreeRootsTable).AutoMigrate(&core.SMTRoot{})
-	assert.NoError(t, err)
-	err = db.Table(core.NodesTablePrefix + testName).AutoMigrate(&core.SMTNode{})
-	assert.NoError(t, err)
-
-	provider := &testSqlProvider{db: db}
-	sqlStorage, err := storage.NewSqlStorage(provider, testName)
-	assert.NoError(t, err)
-	return dbfile, sqlStorage, db, testName
-}
-
 func (s *SqliteTestSuite) SetupTest() {
 	logrus.SetLevel(logrus.DebugLevel)
-	s.dbfile, s.db, s.gormDB, s.smtName = newSqliteStorage(s.T())
+	s.dbfile, s.db, s.gormDB, s.smtName = common.NewSqliteStorage(s.T())
 }
 
 func (s *SqliteTestSuite) TearDownTest() {
@@ -84,7 +54,7 @@ func (s *SqliteTestSuite) TearDownTest() {
 }
 
 func (s *SqliteTestSuite) TestSqliteStorage() {
-	mt, err := smt.NewMerkleTree(s.db, MAX_HEIGHT)
+	mt, err := smt.NewMerkleTree(s.db, common.MAX_HEIGHT)
 	assert.NoError(s.T(), err)
 
 	tokenId := big.NewInt(1001)
@@ -132,11 +102,11 @@ func TestPostgresStorage(t *testing.T) {
 		assert.NoError(t, tx.Error)
 	}()
 
-	provider := &testSqlProvider{db: db}
+	provider := &common.TestSqlProvider{Db: db}
 	s, err := storage.NewSqlStorage(provider, "test_1")
 	assert.NoError(t, err)
 
-	mt, err := smt.NewMerkleTree(s, MAX_HEIGHT)
+	mt, err := smt.NewMerkleTree(s, common.MAX_HEIGHT)
 	assert.NoError(t, err)
 
 	tokenId := big.NewInt(1001)

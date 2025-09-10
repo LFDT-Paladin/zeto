@@ -32,3 +32,37 @@ docker run -d --name postgres -e POSTGRES_PASSWORD=my-secret -p 5432:5432 postgr
 ```console
 $ make e2e
 ```
+
+## Running the Ethereum integration test
+
+The `eth_e2e_test.go` file contains integration tests for interacting with Ethereum networks and Zeto contracts using the Go SDK.
+
+### Environment Variables
+
+The test suite supports the following environment variables:
+
+#### Required
+- `ETH_RPC_URL`: JSON RPC endpoint URL (default: `http://localhost:8545`)
+- `ZETO_CONTRACT_ADDRESS`: Address of the deployed Zeto contract
+
+#### Optional
+- `ETH_PRIVATE_KEY`: ECDSA private key for signing transactions (default: hardcoded test key)
+
+### Running the Tests
+
+#### Prerequisites
+1. Ensure your Ethereum node (e.g., local Besu) is running
+2. Deploy a Zeto contract, using the hardhat scripts in the `solidity` folder, and note its address
+3. Set the required environment variables
+
+#### Example Commands
+
+```bash
+# Set environment variables
+export ETH_RPC_URL="http://localhost:8545"
+export ZETO_CONTRACT_ADDRESS="0x68B1D87F95878fE05B998F19b66F4baba5De1aed"
+export ETH_PRIVATE_KEY="0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
+
+# Run all Ethereum tests
+go test -v ./integration-test -run TestEthE2ETestSuite
+```
