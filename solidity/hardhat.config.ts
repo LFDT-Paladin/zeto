@@ -58,10 +58,7 @@ const config: HardhatUserConfig = {
     besu: {
       url: "http://localhost:8545",
       accounts: keys,
-      gasPrice: 20000000000, // 20 Gwei - increased for better performance
-      // Remove EIP-1559 fields to force legacy transactions and avoid provider fee data issues
-      // maxFeePerGas: 50000000000, // 50 Gwei
-      // maxPriorityFeePerGas: 1000000000, // 1 Gwei (tip)
+      gasPrice: 0,
     },
     sepolia: {
       url: `${SEPOLIA_JSON_RPC_URL}`,
