@@ -1,0 +1,22 @@
+# Besu node configuration
+
+# Network settings
+data-path = "/opt/besu/data"
+genesis-file = "/data/l1-node-config/genesis.json"
+network-id = 1337
+logging = "INFO"
+
+# RPC
+rpc-http-enabled = true
+rpc-http-api = ["ETH", "NET", "WEB3", "QBFT", "DEBUG", "ADMIN", "TXPOOL"]
+rpc-http-cors-origins = ["*"]
+host-allowlist = ["*"]
+
+# P2P
+p2p-port = 30303
+
+# Gas-free settings
+min-gas-price = 0
+strict-tx-replay-protection-enabled = false
+
+node-private-key-file="/config/keys/besu.key"
