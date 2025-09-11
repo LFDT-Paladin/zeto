@@ -30,7 +30,7 @@ import (
 
 func (s *E2ETestSuite) TestZeto_withdraw_SuccessfulProving() {
 	// s.T().Skip()
-	calc, provingKey, err := common.LoadCircuit("withdraw")
+	calc, provingKey, _, err := common.LoadCircuit("withdraw")
 	assert.NoError(s.T(), err)
 	assert.NotNil(s.T(), calc)
 
@@ -69,7 +69,7 @@ func (s *E2ETestSuite) TestZeto_withdraw_SuccessfulProving() {
 
 func (s *E2ETestSuite) TestZeto_withdraw_nullifier_SuccessfulProving() {
 	// s.T().Skip()
-	calc, provingKey, err := common.LoadCircuit("withdraw_nullifier")
+	calc, provingKey, _, err := common.LoadCircuit("withdraw_nullifier")
 	assert.NoError(s.T(), err)
 	assert.NotNil(s.T(), calc)
 

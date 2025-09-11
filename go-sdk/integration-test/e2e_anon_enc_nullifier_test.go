@@ -29,7 +29,7 @@ import (
 
 func (s *E2ETestSuite) TestZeto_anon_enc_nullifier_SuccessfulProving() {
 	// s.T().Skip()
-	calc, provingKey, err := common.LoadCircuit("anon_enc_nullifier")
+	calc, provingKey, _, err := common.LoadCircuit("anon_enc_nullifier")
 	assert.NoError(s.T(), err)
 	assert.NotNil(s.T(), calc)
 

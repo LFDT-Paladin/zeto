@@ -53,10 +53,6 @@ func NewSignals(sender, receiver *testutils.User, isBatch bool, db core.Storage,
 		s.Nullifiers = append(s.Nullifiers, nullifier)
 	}
 
-	if db != nil {
-		s.MerkleProofs, s.Enabled, s.Root = BuildMerkleProofs(s.InputCommitments, db, t)
-	}
-
 	s.OutputCommitments = make([]*big.Int, 0, size)
 	s.OutputSalts = make([]*big.Int, 0, size)
 	for _, value := range s.OutputValues {

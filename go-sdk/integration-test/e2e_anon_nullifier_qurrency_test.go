@@ -32,7 +32,7 @@ import (
 )
 
 func (s *E2ETestSuite) TestZeto_anon_nullifier_qurrency_SuccessfulProving() {
-	calc, provingKey, err := common.LoadCircuit("anon_nullifier_qurrency_transfer")
+	calc, provingKey, _, err := common.LoadCircuit("anon_nullifier_qurrency_transfer")
 	assert.NoError(s.T(), err)
 	assert.NotNil(s.T(), calc)
 

@@ -20,6 +20,8 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"encoding/json"
+	"fmt"
+	"math/big"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -34,8 +36,10 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
 	itestcommon "github.com/hyperledger-labs/zeto/go-sdk/integration-test/common"
+	"github.com/hyperledger-labs/zeto/go-sdk/internal/sparse-merkle-tree/smt"
 	"github.com/hyperledger-labs/zeto/go-sdk/internal/testutils"
 	"github.com/hyperledger-labs/zeto/go-sdk/pkg/sparse-merkle-tree/core"
+	"github.com/hyperledger-labs/zeto/go-sdk/pkg/sparse-merkle-tree/node"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
@@ -67,6 +71,7 @@ type EthE2ETestSuite struct {
 
 	// Zeto contract address from environment variable
 	zetoContractAddress common.Address
+	isQurrencyContract  bool
 	zetoContractABI     abi.ABI
 	contract            *bind.BoundContract
 
@@ -77,9 +82,8 @@ type EthE2ETestSuite struct {
 	numRuns int
 
 	// latency tracking
-	provingTimes   []time.Duration
-	miningTimes    []time.Duration
-	totalLatencies []time.Duration
+	provingTimes []time.Duration // time to generate the proof
+	txTimes      []time.Duration // time to send and mine the transaction
 }
 
 func (s *EthE2ETestSuite) SetupSuite() {
@@ -99,8 +103,17 @@ func (s *EthE2ETestSuite) SetupSuite() {
 		return
 	} else {
 		s.zetoContractAddress = common.HexToAddress(zetoContractAddressStr)
-		s.T().Logf("Zeto contract address loaded: %s", s.zetoContractAddress.Hex())
 	}
+
+	isQurrencyContractStr := os.Getenv("IS_QURRENCY_CONTRACT")
+	if isQurrencyContractStr == "true" {
+		s.isQurrencyContract = true
+		s.T().Logf("Zeto Qurrency contract address loaded: %s", s.zetoContractAddress.Hex())
+	} else {
+		s.isQurrencyContract = false
+		s.T().Logf("Zeto Anon contract address loaded: %s", s.zetoContractAddress.Hex())
+	}
+
 	// Contract binding will be created after ABI is loaded
 
 	// Generate or load ECDSA private key for Ethereum transactions
@@ -137,6 +150,9 @@ func (s *EthE2ETestSuite) SetupSuite() {
 
 	// Load the Zeto_Anon contract artifact
 	artifactPath := filepath.Join("..", "..", "..", "solidity", "artifacts", "contracts", "zeto_anon.sol", "Zeto_Anon.json")
+	if s.isQurrencyContract {
+		artifactPath = filepath.Join("..", "..", "..", "solidity", "artifacts", "contracts", "zeto_anon_nullifier_qurrency.sol", "Zeto_AnonNullifierQurrency.json")
+	}
 	artifact, err := loadContractArtifact(artifactPath)
 	if err != nil {
 		s.T().Skipf("Failed to load contract artifact: %v. Make sure to compile contracts first.", err)
@@ -182,13 +198,31 @@ func (s *EthE2ETestSuite) setupTokensAndSignals() {
 
 	// initialize latency tracking slices
 	s.provingTimes = make([]time.Duration, 0, s.numRuns)
-	s.miningTimes = make([]time.Duration, 0, s.numRuns)
-	s.totalLatencies = make([]time.Duration, 0, s.numRuns)
+	s.txTimes = make([]time.Duration, 0, s.numRuns)
 
 	// setup the signals for the regular circuits with 2 inputs and 2 outputs
 	s.regularTests = make([]*itestcommon.Signals, s.numRuns)
 	for i := 0; i < s.numRuns; i++ {
 		s.regularTests[i] = itestcommon.NewSignals(s.sender, s.receiver, false, s.db, s.T())
+	}
+
+	// prepare the merkle proofs for the regular tests
+	mt, err := smt.NewMerkleTree(s.db, itestcommon.MAX_HEIGHT)
+	assert.NoError(s.T(), err)
+
+	for i := 0; i < s.numRuns; i++ {
+		// in the test we mint the input commitments for each test iteration on demand.
+		for _, commitment := range s.regularTests[i].InputCommitments {
+			s.addCommitmentToMerkleTree(mt, commitment)
+		}
+
+		// in addition, the output commitments from the previous iteration will have been added to the SMT.
+		if i > 0 {
+			for _, commitment := range s.regularTests[i-1].OutputCommitments {
+				s.addCommitmentToMerkleTree(mt, commitment)
+			}
+		}
+		s.regularTests[i].MerkleProofs, s.regularTests[i].Enabled, s.regularTests[i].Root = itestcommon.BuildMerkleProofs(s.regularTests[i].InputCommitments, s.db, s.T())
 	}
 
 	// setup the signals for the batch circuits with 10 inputs and 10 outputs
@@ -212,6 +246,15 @@ func loadContractArtifact(artifactPath string) (*ContractArtifact, error) {
 	}
 
 	return &artifact, nil
+}
+
+func (s *EthE2ETestSuite) addCommitmentToMerkleTree(mt core.SparseMerkleTree, commitment *big.Int) {
+	idx, _ := node.NewNodeIndexFromBigInt(commitment)
+	utxo := node.NewIndexOnly(idx)
+	n, err := node.NewLeafNode(utxo)
+	assert.NoError(s.T(), err)
+	err = mt.AddLeaf(n)
+	assert.NoError(s.T(), err)
 }
 
 // waitForTransactionReceipt waits for a transaction to be mined and returns its receipt
@@ -250,16 +293,16 @@ func (s *EthE2ETestSuite) calculateAndDisplayAverages() {
 	// Initialize min/max with first values
 	minPrep = s.provingTimes[0]
 	maxPrep = s.provingTimes[0]
-	minMining = s.miningTimes[0]
-	maxMining = s.miningTimes[0]
-	minTotal = s.totalLatencies[0]
-	maxTotal = s.totalLatencies[0]
+	minMining = s.txTimes[0]
+	maxMining = s.txTimes[0]
+	minTotal = s.provingTimes[0] + s.txTimes[0]
+	maxTotal = s.provingTimes[0] + s.txTimes[0]
 
 	for i := 0; i < len(s.provingTimes); i++ {
 		// Sum for averages
 		totalPrep += s.provingTimes[i]
-		totalMining += s.miningTimes[i]
-		totalLatency += s.totalLatencies[i]
+		totalMining += s.txTimes[i]
+		totalLatency += s.provingTimes[i] + s.txTimes[i]
 
 		// Update min/max for preparation time
 		if s.provingTimes[i] < minPrep {
@@ -270,19 +313,19 @@ func (s *EthE2ETestSuite) calculateAndDisplayAverages() {
 		}
 
 		// Update min/max for mining time
-		if s.miningTimes[i] < minMining {
-			minMining = s.miningTimes[i]
+		if s.txTimes[i] < minMining {
+			minMining = s.txTimes[i]
 		}
-		if s.miningTimes[i] > maxMining {
-			maxMining = s.miningTimes[i]
+		if s.txTimes[i] > maxMining {
+			maxMining = s.txTimes[i]
 		}
 
 		// Update min/max for total latency
-		if s.totalLatencies[i] < minTotal {
-			minTotal = s.totalLatencies[i]
+		if s.provingTimes[i]+s.txTimes[i] < minTotal {
+			minTotal = s.provingTimes[i] + s.txTimes[i]
 		}
-		if s.totalLatencies[i] > maxTotal {
-			maxTotal = s.totalLatencies[i]
+		if s.provingTimes[i]+s.txTimes[i] > maxTotal {
+			maxTotal = s.provingTimes[i] + s.txTimes[i]
 		}
 	}
 
@@ -293,25 +336,25 @@ func (s *EthE2ETestSuite) calculateAndDisplayAverages() {
 	avgTotal := totalLatency / time.Duration(numRuns)
 
 	// Display results
-	s.T().Logf("")
-	s.T().Logf("=== LATENCY STATISTICS (%d runs) ===", numRuns)
-	s.T().Logf("")
-	s.T().Logf("Proving Time:")
-	s.T().Logf("  Average: %v", avgPrep)
-	s.T().Logf("  Min:     %v", minPrep)
-	s.T().Logf("  Max:     %v", maxPrep)
-	s.T().Logf("")
-	s.T().Logf("Mining Time:")
-	s.T().Logf("  Average: %v", avgMining)
-	s.T().Logf("  Min:     %v", minMining)
-	s.T().Logf("  Max:     %v", maxMining)
-	s.T().Logf("")
-	s.T().Logf("Total Transaction Latency:")
-	s.T().Logf("  Average: %v", avgTotal)
-	s.T().Logf("  Min:     %v", minTotal)
-	s.T().Logf("  Max:     %v", maxTotal)
-	s.T().Logf("")
-	s.T().Logf("=== END LATENCY STATISTICS ===")
+	fmt.Printf("")
+	fmt.Printf("=== LATENCY STATISTICS (%d runs) ===", numRuns)
+	fmt.Printf("")
+	fmt.Printf("Proving Time:")
+	fmt.Printf("  Average: %v", avgPrep)
+	fmt.Printf("  Min:     %v", minPrep)
+	fmt.Printf("  Max:     %v", maxPrep)
+	fmt.Printf("")
+	fmt.Printf("Transaction Time:")
+	fmt.Printf("  Average: %v", avgMining)
+	fmt.Printf("  Min:     %v", minMining)
+	fmt.Printf("  Max:     %v", maxMining)
+	fmt.Printf("")
+	fmt.Printf("Total Transaction Latency:")
+	fmt.Printf("  Average: %v", avgTotal)
+	fmt.Printf("  Min:     %v", minTotal)
+	fmt.Printf("  Max:     %v", maxTotal)
+	fmt.Printf("")
+	fmt.Printf("=== END LATENCY STATISTICS ===")
 }
 
 func TestEthE2ETestSuite(t *testing.T) {

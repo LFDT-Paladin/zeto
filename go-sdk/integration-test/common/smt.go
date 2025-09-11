@@ -6,7 +6,6 @@ import (
 
 	"github.com/hyperledger-labs/zeto/go-sdk/internal/sparse-merkle-tree/smt"
 	"github.com/hyperledger-labs/zeto/go-sdk/pkg/sparse-merkle-tree/core"
-	"github.com/hyperledger-labs/zeto/go-sdk/pkg/sparse-merkle-tree/node"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -15,15 +14,6 @@ const MAX_HEIGHT = 64
 func BuildMerkleProofs(inputCommitments []*big.Int, db core.Storage, t *testing.T) ([][]*big.Int, []*big.Int, *big.Int) {
 	mt, err := smt.NewMerkleTree(db, MAX_HEIGHT)
 	assert.NoError(t, err)
-
-	for _, commitment := range inputCommitments {
-		idx, _ := node.NewNodeIndexFromBigInt(commitment)
-		utxo := node.NewIndexOnly(idx)
-		n, err := node.NewLeafNode(utxo)
-		assert.NoError(t, err)
-		err = mt.AddLeaf(n)
-		assert.NoError(t, err)
-	}
 
 	root := mt.Root().BigInt()
 
