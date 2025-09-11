@@ -1,10 +1,16 @@
 package util
 
 import (
+	"math/big"
+
 	"github.com/hyperledger-labs/zeto/go-sdk/internal/util"
 	"github.com/iden3/go-rapidsnark/types"
 )
 
-func EncodeProofToBytes(proof *types.ZKProof) ([]byte, error) {
-	return util.EncodeProofToBytes(proof)
+func EncodeToBytes_Anon(proof *types.ProofData) ([]byte, error) {
+	return util.EncodeToBytes_Anon(proof)
+}
+
+func EncodeToBytes_Qurrency(root *big.Int, encryptionNonce *big.Int, encryptedValues []*big.Int, encapsulatedSharedSecret [25]*big.Int, proof *types.ProofData) ([]byte, error) {
+	return util.EncodeToBytes_Qurrency(root, encryptionNonce, encryptedValues, encapsulatedSharedSecret, proof)
 }
