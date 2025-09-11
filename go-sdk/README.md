@@ -42,11 +42,13 @@ The `eth_e2e_test.go` file contains integration tests for interacting with Ether
 The test suite supports the following environment variables:
 
 #### Required
-- `ETH_RPC_URL`: JSON RPC endpoint URL (default: `http://localhost:8545`)
 - `ZETO_CONTRACT_ADDRESS`: Address of the deployed Zeto contract
 
 #### Optional
+- `ETH_RPC_URL`: JSON RPC endpoint URL (default: `http://localhost:8545`)
 - `ETH_PRIVATE_KEY`: ECDSA private key for signing transactions (default: hardcoded test key)
+- `IS_QURRENCY_CONTRACT`: is the target token contract is Zeto_AnonNullifierQurrency (default: false)
+- `NUM_RUNS`: how many iterations to run the mint/transfer cycle (default: 10)
 
 ### Running the Tests
 
@@ -64,5 +66,5 @@ export ZETO_CONTRACT_ADDRESS="0x68B1D87F95878fE05B998F19b66F4baba5De1aed"
 export ETH_PRIVATE_KEY="0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
 
 # Run all Ethereum tests
-go test -v ./integration-test -run TestEthE2ETestSuite
+go test -v ./integration-test/eth_e2e -run TestEthE2ETestSuite
 ```

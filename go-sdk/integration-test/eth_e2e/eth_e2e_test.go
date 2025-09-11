@@ -329,7 +329,7 @@ func (s *EthE2ETestSuite) calculateAndDisplayAverages() {
 	fmt.Printf("  Min:     %v\n", minTotal)
 	fmt.Printf("  Max:     %v\n", maxTotal)
 	fmt.Printf("\n")
-	fmt.Printf("=== END LATENCY STATISTICS ===\n")
+	fmt.Printf("=== END LATENCY STATISTICS ===\n\n")
 }
 
 func TestEthE2ETestSuite(t *testing.T) {
