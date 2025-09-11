@@ -29,17 +29,22 @@ func (s *EthE2ETestSuite) generateProof_anon(signals *common.Signals) []byte {
 	}
 
 	// generate the witness binary to feed into the prover
-	startTime := time.Now()
+	witnessStartTime := time.Now()
 	witnessBin, err := calc.CalculateWTNSBin(witnessInputs, true)
+	witnessElapsedTime := time.Since(witnessStartTime)
 	assert.NoError(s.T(), err)
 	assert.NotNil(s.T(), witnessBin)
+	s.T().Logf("Witness generation time: %s\n", witnessElapsedTime)
+	s.witnessTimes = append(s.witnessTimes, witnessElapsedTime)
 
+	// generate the proof
+	proofStartTime := time.Now()
 	proof, err := prover.Groth16Prover(provingKey, witnessBin)
-	elapsedTime := time.Since(startTime)
+	proofElapsedTime := time.Since(proofStartTime)
 	assert.NoError(s.T(), err)
 	assert.NotNil(s.T(), proof)
-	s.T().Logf("Proving time: %s\n", elapsedTime)
-	s.provingTimes = append(s.provingTimes, elapsedTime)
+	s.T().Logf("Proving time: %s\n", proofElapsedTime)
+	s.provingTimes = append(s.provingTimes, proofElapsedTime)
 
 	encodedProof, err := util.EncodeToBytes_Anon(proof.Proof)
 	assert.NoError(s.T(), err)
@@ -82,20 +87,26 @@ func (s *EthE2ETestSuite) generateProof_anon_qurrency(signals *common.Signals) [
 		"randomness":            randomBits,
 	}
 
-	startTime := time.Now()
+	// generate the witness binary to feed into the prover
+	witnessStartTime := time.Now()
 	witnessBin, err := calc.CalculateWTNSBin(witnessInputs, true)
+	witnessElapsedTime := time.Since(witnessStartTime)
 	assert.NoError(s.T(), err)
 	assert.NotNil(s.T(), witnessBin)
+	s.T().Logf("Witness generation time: %s\n", witnessElapsedTime)
+	s.witnessTimes = append(s.witnessTimes, witnessElapsedTime)
 
+	// generate the proof
+	proofStartTime := time.Now()
 	proof, err := prover.Groth16Prover(provingKey, witnessBin)
-	elapsedTime := time.Since(startTime)
-	s.T().Logf("Proving time: %s\n", elapsedTime)
+	proofElapsedTime := time.Since(proofStartTime)
+	s.T().Logf("Proving time: %s\n", proofElapsedTime)
 	assert.NoError(s.T(), err)
 	assert.Equal(s.T(), 3, len(proof.Proof.A))
 	assert.Equal(s.T(), 3, len(proof.Proof.B))
 	assert.Equal(s.T(), 3, len(proof.Proof.C))
 	assert.Equal(s.T(), 48, len(proof.PubSignals))
-	s.provingTimes = append(s.provingTimes, elapsedTime)
+	s.provingTimes = append(s.provingTimes, proofElapsedTime)
 
 	encapsulatedSharedSecret, encryptedValues := common.ExtractSharedSecretAndEncryptedValues(s.T(), proof)
 

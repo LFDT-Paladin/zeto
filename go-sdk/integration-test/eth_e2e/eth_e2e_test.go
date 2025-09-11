@@ -18,7 +18,6 @@ package eth_e2e
 
 import (
 	"context"
-	"crypto/ecdsa"
 	"encoding/json"
 	"fmt"
 	"math/big"
@@ -29,7 +28,6 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum"
-	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -43,48 +41,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
-	"gorm.io/gorm"
 )
-
-// ContractArtifact represents the structure of a Solidity contract artifact
-type ContractArtifact struct {
-	ABI      abi.ABI `json:"abi"`
-	Bytecode string  `json:"bytecode"`
-}
-
-type EthE2ETestSuite struct {
-	suite.Suite
-	db     core.Storage
-	dbfile *os.File
-	gormDB *gorm.DB
-
-	// Ethereum client for JSON RPC communication
-	ethClient *ethclient.Client
-	rpcURL    string
-
-	// ECDSA private key for Ethereum transactions
-	deployerPrivateKey *ecdsa.PrivateKey
-
-	sender        *testutils.User
-	senderAddress common.Address
-	receiver      *testutils.User
-
-	// Zeto contract address from environment variable
-	zetoContractAddress common.Address
-	isQurrencyContract  bool
-	zetoContractABI     abi.ABI
-	contract            *bind.BoundContract
-
-	regularTests []*itestcommon.Signals
-	batchTests   []*itestcommon.Signals
-
-	// how many runs
-	numRuns int
-
-	// latency tracking
-	provingTimes []time.Duration // time to generate the proof
-	txTimes      []time.Duration // time to send and mine the transaction
-}
 
 func (s *EthE2ETestSuite) SetupSuite() {
 	logrus.SetLevel(logrus.DebugLevel)
@@ -197,6 +154,7 @@ func (s *EthE2ETestSuite) setupTokensAndSignals() {
 	}
 
 	// initialize latency tracking slices
+	s.witnessTimes = make([]time.Duration, 0, s.numRuns)
 	s.provingTimes = make([]time.Duration, 0, s.numRuns)
 	s.txTimes = make([]time.Duration, 0, s.numRuns)
 
@@ -287,22 +245,33 @@ func (s *EthE2ETestSuite) calculateAndDisplayAverages() {
 	}
 
 	// Calculate averages
-	var totalPrep, totalMining, totalLatency time.Duration
-	var minPrep, maxPrep, minMining, maxMining, minTotal, maxTotal time.Duration
+	var totalWitness, totalPrep, totalMining, totalLatency time.Duration
+	var minWitness, maxWitness, minPrep, maxPrep, minMining, maxMining, minTotal, maxTotal time.Duration
 
 	// Initialize min/max with first values
+	minWitness = s.witnessTimes[0]
+	maxWitness = s.witnessTimes[0]
 	minPrep = s.provingTimes[0]
 	maxPrep = s.provingTimes[0]
 	minMining = s.txTimes[0]
 	maxMining = s.txTimes[0]
-	minTotal = s.provingTimes[0] + s.txTimes[0]
-	maxTotal = s.provingTimes[0] + s.txTimes[0]
+	minTotal = s.witnessTimes[0] + s.provingTimes[0] + s.txTimes[0]
+	maxTotal = s.witnessTimes[0] + s.provingTimes[0] + s.txTimes[0]
 
 	for i := 0; i < len(s.provingTimes); i++ {
 		// Sum for averages
+		totalWitness += s.witnessTimes[i]
 		totalPrep += s.provingTimes[i]
 		totalMining += s.txTimes[i]
-		totalLatency += s.provingTimes[i] + s.txTimes[i]
+		totalLatency += s.witnessTimes[i] + s.provingTimes[i] + s.txTimes[i]
+
+		// Update min/max for witness time
+		if s.witnessTimes[i] < minWitness {
+			minWitness = s.witnessTimes[i]
+		}
+		if s.witnessTimes[i] > maxWitness {
+			maxWitness = s.witnessTimes[i]
+		}
 
 		// Update min/max for preparation time
 		if s.provingTimes[i] < minPrep {
@@ -321,16 +290,17 @@ func (s *EthE2ETestSuite) calculateAndDisplayAverages() {
 		}
 
 		// Update min/max for total latency
-		if s.provingTimes[i]+s.txTimes[i] < minTotal {
-			minTotal = s.provingTimes[i] + s.txTimes[i]
+		if s.witnessTimes[i]+s.provingTimes[i]+s.txTimes[i] < minTotal {
+			minTotal = s.witnessTimes[i] + s.provingTimes[i] + s.txTimes[i]
 		}
-		if s.provingTimes[i]+s.txTimes[i] > maxTotal {
-			maxTotal = s.provingTimes[i] + s.txTimes[i]
+		if s.witnessTimes[i]+s.provingTimes[i]+s.txTimes[i] > maxTotal {
+			maxTotal = s.witnessTimes[i] + s.provingTimes[i] + s.txTimes[i]
 		}
 	}
 
 	// Calculate averages
 	numRuns := len(s.provingTimes)
+	avgWitness := totalWitness / time.Duration(numRuns)
 	avgPrep := totalPrep / time.Duration(numRuns)
 	avgMining := totalMining / time.Duration(numRuns)
 	avgTotal := totalLatency / time.Duration(numRuns)
@@ -338,6 +308,11 @@ func (s *EthE2ETestSuite) calculateAndDisplayAverages() {
 	// Display results
 	fmt.Printf("")
 	fmt.Printf("=== LATENCY STATISTICS (%d runs) ===", numRuns)
+	fmt.Printf("")
+	fmt.Printf("Witness Generation Time:")
+	fmt.Printf("  Average: %v", avgWitness)
+	fmt.Printf("  Min:     %v", minWitness)
+	fmt.Printf("  Max:     %v", maxWitness)
 	fmt.Printf("")
 	fmt.Printf("Proving Time:")
 	fmt.Printf("  Average: %v", avgPrep)
