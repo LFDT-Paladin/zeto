@@ -52,8 +52,6 @@ func (s *EthE2ETestSuite) TestTransfer() {
 		data := []byte("0x")
 
 		s.T().Logf("=== Testing Transfer Function ===")
-		s.T().Logf("Inputs: %v", s.regularTests[i].InputCommitments)
-		s.T().Logf("Outputs: %v", s.regularTests[i].OutputCommitments)
 
 		// Call the transfer function
 		s.transfer(inputs, s.regularTests[i].OutputCommitments, proof, data)
