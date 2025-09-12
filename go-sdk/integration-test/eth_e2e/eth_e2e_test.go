@@ -190,6 +190,7 @@ func (s *EthE2ETestSuite) setupTokensAndSignals() {
 	s.batchTests = make([]*itestcommon.Signals, s.numRuns)
 	for i := 0; i < s.numRuns; i++ {
 		s.batchTests[i] = itestcommon.NewSignals(s.sender, s.receiver, true, s.db, s.T())
+		// TODO: complete the batch test signals when we have batch tests
 	}
 }
 
