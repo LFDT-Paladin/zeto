@@ -121,6 +121,126 @@ func TestEncodeToBytes_Enc(t *testing.T) {
 	assert.Equal(t, expected, hex.EncodeToString(encodedBytes))
 }
 
+func TestEncodeToBytes_EncNullifier(t *testing.T) {
+	root, _ := new(big.Int).SetString("7960452687607682970912719135522872268495996902454395742049265506804683811656", 10)
+	encryptionNonce, _ := new(big.Int).SetString("160911611728998043494986968818371372568", 10)
+	var ecdhPublicKey [2]*big.Int
+	ecdhPublicKey[0], _ = new(big.Int).SetString("6359820735837026862556135130914439700703832924852302131308106375621140214964", 10)
+	ecdhPublicKey[1], _ = new(big.Int).SetString("13592514894241879877676045947693167682727939188140896914961808720417065043634", 10)
+	encryptedValuesStrs := []string{
+		"9851486292167422875068662590830172335614923394714023978722730714117991234128",
+		"16522442626122975695301040445000069563803956830474584234342861381402375209273",
+		"8328706986101596677790007358374352664193343470805522301904771939057983358785",
+		"2068103918111286245029341332172904327940369267738483915949360019258107885615",
+		"6088619041484011876498281100956596263915261830896965943239901576417109682021",
+		"10825674796350733972369723848433974747018927940183702530857449945711002299305",
+		"16865621828040588116011766774666062480937688583029367635035858971942157516975",
+		"9197529965215160214995084717612369999141467407937010085690048302855719885331",
+	}
+	encryptedValues := make([]*big.Int, len(encryptedValuesStrs))
+	for i, str := range encryptedValuesStrs {
+		encryptedValues[i], _ = new(big.Int).SetString(str, 10)
+	}
+	proof := &types.ProofData{
+		A: []string{
+			"4090125652271829574563180415310104809064690841794602872630192439532582574241",
+			"1446746575539317940252547889134758815580668242449870221639622447464626847115",
+		},
+		B: [][]string{
+			{
+				"5023699183195113460762030252006839829100083332463819116506788602140335914812",
+				"494475523395929417773052451277633729877071478053101273926972678658371620793",
+			},
+			{
+				"15583336527783582814533855434665026658932232186580242830362756147621962047904",
+				"21479940534642524167784765825934188055988130625911441724393493882119851851380",
+			},
+		},
+		C: []string{
+			"12290367772257714592281728957725612211073544433572757079390284031742206773625",
+			"5350297410316421232592105304155242420719999660161451003482756473721836791561",
+		},
+	}
+
+	// Test encoding
+	encodedBytes, err := EncodeToBytes_EncNullifier(root, encryptionNonce, ecdhPublicKey, encryptedValues, proof)
+	assert.NoError(t, err)
+	assert.NotNil(t, encodedBytes)
+	expected := "119974e0b6182bc0b4ef989e88e9f639aa07acc8f2fc96048056ffcee384ab4800000000000000000000000000000000790e72fb06978de3efbcf614cd41a6180e0f87ede80746a4b2d0d726f2dd94a47e88bc8d21b20e34b9be5c6db502f4b41e0d173e7d85d9ede293dc3d66d29fc6fda579dfc1be24b8e49375f2d36886b200000000000000000000000000000000000000000000000000000000000001a0090aedd843d1304c70404ec8b4cb046452a41aba92fc8524c7c1508ce76b98a10332d45cf6fac66320f5525aa9e96f1d717824a7bb4445ec38e2d8986528fd8b0117dcfc8706ad517a9fed0ce386f086c8536337c771fa2262ded5c60a300fb90b1b501f1858ecf67fbb5aee28f6dc5e2d093475183c237e85cd5f6452fdbf3c2f7d372b79970cd44200ecd3c6da501941aeb74c7dde811ecacaa5e3a0b3be742273db1cf88ad32eb977435576ae773dda5d659e0539a7752055f4f654f5e1a01b2c1a0559c6ac4c2079d1472c3b38cf6221528423a078a1a1964367c5e389790bd429389f9f6f1916c3e24c3981c5af22659ddda08241b8cf55f13de127e709000000000000000000000000000000000000000000000000000000000000000815c7be5f7bb3245f2684b9924cafd2f607cd548c56f471fc98f645e60982fa5024875f0221c7b825ef2c63a9a92fd3915e776fb79ed1c1aa40c60d11ce8bc1391269e18fcd1c51f9a8a2193dbff34efff876e24f3581fa7e6b346020e89907410492815dbbb26e2ec8e8a194ae109874efaf107806b5c17d72254ab82665f82f0d760947fa88d6a53a73d462c6a4fb434933c7ad76d9d461aa42ebdb3a6d276517ef1d6366501424be9d956d15501c38d453be97a48aff59c00e79721b84aba925499a8a32864db8317c5e060fd975da1fbad6da40a0178cf10657451cdf80af14559e132e5b37ba004d50d97b827f826086325a5c0cbae00e07be4c457a1a13"
+	assert.Equal(t, expected, hex.EncodeToString(encodedBytes))
+}
+
+func TestEncodeToBytes_EncNullifierNonRepudiation(t *testing.T) {
+	root, _ := new(big.Int).SetString("3558506105027751773195710445361714189081162064409715964159887641129927576301", 10)
+	encryptionNonce, _ := new(big.Int).SetString("96920392419470661954291111285390637164", 10)
+	var ecdhPublicKey [2]*big.Int
+	ecdhPublicKey[0], _ = new(big.Int).SetString("6005804565562346416071234702992521162481876014782753224832372046603499044154", 10)
+	ecdhPublicKey[1], _ = new(big.Int).SetString("19107187055994034448890248707927127180544384087393491906425625936792745099630", 10)
+	encryptedValuesForReceiverStrs := []string{
+		"14931147819147163294702810260292321539418275980380505056600866908074600207586",
+		"959483416524269173530885890561604249099685901304114988010928624184506661043",
+		"11009651235407241357804946421384199473440568750993262440807088721027643432032",
+		"15151910824522513326447672806028167087632233037907420662104771183237618118318",
+		"13169477277866954611587240391089963475002031762210958562193297136179041818229",
+		"13254927368706374396561190188481290003432436395241536360265411145310107731032",
+		"3489759804919525252484997407827506831173843848889684150673412899107593257379",
+		"1235014267227598786929003917160812874094347411038856597801359166999705044222",
+	}
+	encryptedValuesForReceiver := make([]*big.Int, len(encryptedValuesForReceiverStrs))
+	for i, str := range encryptedValuesForReceiverStrs {
+		encryptedValuesForReceiver[i], _ = new(big.Int).SetString(str, 10)
+	}
+	encryptedValuesForAuthorityStrs := []string{
+		"20650796420717260364471772773701727831905403947913595327885662576040413031926",
+		"15008844096143948909889507869561041669533116555980621040094451632878627094442",
+		"19542437188092089946759883762671533133862953218923512222724620567205634024194",
+		"7080558477732687117471054810218831197613595658811334504885089110670118330607",
+		"21721710399471553951087105284584350449727412005057253308628749553012830794910",
+		"6630864871130399245824493581326327838801181510490725687777767664219428775713",
+		"16491796578818700618139675137340170779550157397017058032393692384422076758813",
+		"18641109358272042356946914540280362066370802376801291728499754482607101605111",
+		"16805143080551688119034257107094218866858704800581011494877549584409667091296",
+		"3044979269538567905623919585189421861747877104451586159712861584312028483932",
+		"6945609457383738364597116091306680500624217804896638369061790723279897633412",
+		"7706331115247753419098161883552406320516833007026961507612845794266095415701",
+		"9470759676314657010013166852690973161042347486941074409876277043730385918794",
+		"13882176946387361688282752446449292246947388396434154506894160654399443637383",
+		"19127823861817946169306071493649926296722279532793722043364121529816358585034",
+		"15365622648159315848115902867835102368414050324900673167272637040284045920189",
+	}
+	encryptedValuesForAuthority := make([]*big.Int, len(encryptedValuesForAuthorityStrs))
+	for i, str := range encryptedValuesForAuthorityStrs {
+		encryptedValuesForAuthority[i], _ = new(big.Int).SetString(str, 10)
+	}
+	proof := &types.ProofData{
+		A: []string{
+			"19403454811043915430070709713946109412073158076513293643906800165890069464837",
+			"5253429603261707449884926302711238091696888590765345041490957149358558239217",
+		},
+		B: [][]string{
+			{
+				"14193758042347395514162117161296888218009382527141057075381407236368265854105",
+				"17578145474918445455774317666509716897911625803166004161237612060265219247515",
+			},
+			{
+				"5662639595985893916976652844090716002547804809504520589546713415355009623715",
+				"7116878521278691255148281131000208340483322536705396892662614205927957032528",
+			},
+		},
+		C: []string{
+			"18130118240546620879118623189852427181672395076742619497079887987154820326696",
+			"9924585922261583686840052651121858982020184191776756158638272234572278020876",
+		},
+	}
+
+	// Test encoding
+	encodedBytes, err := EncodeToBytes_EncNullifierNonRepudiation(root, encryptionNonce, ecdhPublicKey, encryptedValuesForReceiver, encryptedValuesForAuthority, proof)
+	assert.NoError(t, err)
+	assert.NotNil(t, encodedBytes)
+	expected := "07de0b0751fda861aebf7819c9d89ac5766f7eacc7461bfbd5146c0a39f80aed0000000000000000000000000000000048ea3047f9718fe853660628df98f86c0d472a3858173bdd2c15f965be783d92c4d204db7b5c033a800e4387bb737d3a2a3e48dd811898a5cbeb142764f6c9b3a458cdcb7dd7df4b9a2cb798d1af416e00000000000000000000000000000000000000000000000000000000000001c000000000000000000000000000000000000000000000000000000000000002e02ae5f75b4c0e6fd2efb4886f6a078264d15aa4765af9a2c1eaf10fbcf7c187050b9d55f5f75a002ec32673d859631acc782fcdabbf7e2a2901dd0ca307e359f126dce0b521e8be0f704c3b52d7effbcbd57616f6af4019e4bef4bc2a2fba4d9b1f6161e252085d39c8951a10774370dfd3a752ae3d385e1a827f9ed477cf3c990fbc02afd925069e128bce46618c37cc505820b36ec562f817ad149a10e96e500c84f0c02f818615c5addd79ca3854272370352f3b1c965573a5065c8e1066a328154884e7bef25a7792b9d656851a9fb9f7165770717e06a8894dc867a8e52815f11dd77572e8742715cadf76e10e5678ed69bf66edaa7f3ee99b55b62e3b0c00000000000000000000000000000000000000000000000000000000000000082102baed46aa6271119cdfdb071dda3de68e0e3ff5d977cf23b67febfdd694e2021f0c61e68a0d3fe2046a62550d728f37f2789f4a54dd6408e6a07cc4c338b318573de4caff5d9d56337e09ab61517122bd6eb8e33b6a03b2f36ba376075c60217fad783ff6f8e6c7ae53502915b0eb942797acde2da0ad6dda7f56a556aeae1d1da8f5343ae1dddda0de659cbe21872e744e51c7c3d7f46f7f2beb0d5856751d4e05e53aad5309b6b33b87263f087293cbbddde86f080055c9738cc78e045807b72251540af84fd05f40ffba821d11268deaf66ec0044c88bf99664fd001a302bafe49297086ff86d8d096201077cc60d36d8262831b44b6f8752a2b7a44fe00000000000000000000000000000000000000000000000000000000000000102da7efc300d091434f7b45a2dc44d1de0f11779d872bd791f35949145b94edf6212eb4685c7b5b3f9ad406097d457fec27f80a50b4d3f52435a23060802c7faa2b34a0a22cc8b898270562fc94da7e94cf13978f7930e3ad99df6d3158a2a3020fa7743e8f1fe60c03cfb61f0ae1a5a8a38b4a9193969597a49ad7702bcda0ef30060d6a2bf5105fbeb0f38e4d2eeb3631ef93b2fd14f0e24df49847ecea749e0ea8efbfa4cc2a818ebbd58796cc8446cd31422c69ffb450e25f242c54b86721247606ad0f76703df1efcc680f6b3de29535367d10d71ee4cc2ba1a7946a3b1d29367e76df96d243b703bc9187fd605f9faee0789c0022f935473101536c74f725275fb8c690a8a2aa12be09b705198b66152e5027bb32c943ef0dfc55a0bb6006bb65ae5a5670bf12aecdd177f17dfc26ef9629f3bb46c4654eb7c80401d15c0f5b135d322d5fd3f4d58fe6800afbea81e028069c1d3de4e061af353b6222841109a0fbb8177a07aa0222bc00a67cd193cbd61133536f52d821292e229df19514f042906e41872dc5714ccec382ee350f9acaf857f1d536e4e312a45ab6db4a1eb108a1250bcc547d79c385a465746ffdb5324036b08f1ee50829b6fbe914872a49f6f32cda664a34bcee25f531c4da27ec88fe07cd1cf5d54d87157ebc02ca21f8a25c5b60bbb276daf655414cc44dd1afbd26114518d2efa176da53cbc7bd"
+	assert.Equal(t, expected, hex.EncodeToString(encodedBytes))
+}
+
 func TestEncodeToBytes_Qurrency(t *testing.T) {
 	root, _ := new(big.Int).SetString("10775511825316780085995526169481784138221921243614872072713961410119594620922", 10)
 	encryptionNonce, _ := new(big.Int).SetString("146086364555214349570504081522936027738", 10)
@@ -205,4 +325,296 @@ func TestEncodeToBytes_Qurrency(t *testing.T) {
 	assert.NotNil(t, encodedBytes)
 	expected := "17d2b93b6488040c7f7e2f9f3caf36d889319f19a94cd4a79da42112606b37fa000000000000000000000000000000006de735dc891b1db17984767b33389a5a000000000000000000000000000000000000000000000000000000000000048000ec11062a8cd53feca232e75f3d20688deea21e27318b0ef37965f6504194b900f347091468a9bcee03f87adfc1c934d8d176384cf154e863d15f32aa5518e8001f97b35dc1e34a1bf7e50ec2f1f4ebcd47048cb857cc0e793579ad74d11849000145a1d9239d89f088b94f9613751bfa093ecc43522f6def0f521743129a0500defeb60aa273b03fcd118cf61bc3ffb5002ffa227bcd29f1aa5addeabef9ba00506904a53875ac3c617e9b3bf8e25925725c1b10644ff7be57bd668ed1921500c49badff25e8d1c19dd5faa76fa709f269049e00802da457970c097232eb8800b427fb807a26e0f3003614761948405532b64ff994dba207684b8b5f29e46e00e08d485235ec98e69a75f5b9b2ba4f2672dea245df437e0cd11cef39ee1596005494b62edb95124f4c65964a7d3f77cea39ebe95467a3699965498e62b478c00b76d51a0597db523f1bcb2ad48e04089cdeee0fc7a2132c15c807f11e5dee5006fcafe9af035b81890dfb8e94f406621d1017e6ca02d1fc290c1b16b5119360006f47b9c9d2464adddb48a107dca6e710bbee4a9f4e31ee7f7e7b2c2e2668500297d2a96ec897315c50a2daaa83c1b216d84ac5fdfa73767f807de164ff7fd00e1c5fc5c9b695314b8925c4dcce60e082d912781f524192070fa85efc77f5a007c65da3b6dd8149c64947cf3024042fd9d03ae4d053b5237cef2037cc118da00cf6b1d8f3652fd8628bf1dc0a82db3bc7dfbbf7aed53cc58ef9693003ab83500d28e340ce49b27a03c1e6c05df88f719ac12c5a2f545adac25439404dd587b00a4f6391ccd06dfb6d2549e6c0e302da7c9b5f271b7e0a6930f4a8b56c9fe6b0040aa4653fbf4c232844d441d13c718983559cacd70f778d45dafee4e62dd03006882cf9dcbaacbb25773677f81ad9eb0e0073a5e4116fcf4f834c4b49419d900c3e862bf63626f29128567b033d21537ae6ad2672a69d0f1fed5e0fe1d7276009478496c3a7f03b62635987ef261db124083bfa477bf353e9f161eb37515c30009715f63013789f6e0fcdbc3400c52a0143d779cba580a69a37ca3ed3f17f30000000000000000725a700d51c61fa546e7f48e18658462461319c14b3fd8b7228ffffc12d0166bbc357026b055e44b90a29565d97a8a9b93a9930e04cc6a0620f737105f4b723598d15dcd62b9529678c4cacb4e53d145d1b52dd4efd7cc1b0825f3f05a951f80a372caab06c31e0f4847f46d42f67770374dc98e3da5b95222df1c4209eb2f1169ecf830730a3f22cdc91e0a2df7b6bf27d4c4232815b4e80c958fec67dc1972df952ce5107bfc5240d781170600f64835206573a62206361b26cf142c71887eac792b44115513fac1a83f3e18f5d963fd5a84d55a7d93910f7866bbf7369e475e30577b9f2a37b726dc70a1f0126f4a0f76dbe6a1949cc228c66b475c968508d264540c79dc9ef649584cbca08afb85578cd5fc1fd4b1eb000000000000000000000000000000000000000000000000000000000000001012d6fa7dc46957938d7a60b7b28c2a62d06335d7da193c5749bf79c4b680587719ef405b00b4beee7197e87726914bd7d6e049c6d7eded8b4d100372444cf41a2ddf93e8ec5b45d339a1dd1f13f8e73ea50d08aa90e49e108bf86a6926fd1ba4060ba6bb0ecb0f5f83155e3c8cb3e5977bb98f68c3fdfb86e7ef6d4f69dd9ee7092d049c44225c01a35915ea8bb2b81b4a92edbfcf431092d97c0d69714df6921247040848f23b9de925d9f7d939402af26899893b7866bc09f27e2df9f72cf325315728167f002997e5b897caf42da5f896c23102a4e7f13e71c243eee5a01427086161edbd6e0d3d1f0c27260fc46ada38ae2b95e47ac83d3287a1f0dffdc22ea2885271f0c3ed5a7cd66470367a0b427e9cfe6fcd387111fe3e311f4927ac21bbf41e8a7c1407b498f96747680367fc85890c9bdd0fabc62ed854fa62b4291b8582c14e1aaef5aeb1d13a930984f89874e64de93b97acf129fb38608e532725a6a837c35dc2275760a244a96a9b64b0500c16656694ac30ad8e9c6ed8440b2b3a76c209951eb9945f7b4ee537b579561048a51574c8cb73e607e3fc6f9eb7142dd7966e6c828ab0b74d9cb709e54eba945f4f36b68ae19f01cd1fd6d77bb12235dcfcb1e7ba7ab7ef3dc2149992aef23dec6431c296c04ea699c3e2512d8404ff2e702548865ebbff746dd22a972229a3b44fb36fb50f91293ca97fe65e26"
 	assert.Equal(t, expected, hex.EncodeToString(encodedBytes))
+}
+
+// Error handling tests
+
+func TestEncodeToBytes_Anon_NilProof(t *testing.T) {
+	encodedBytes, err := EncodeToBytes_Anon(nil)
+	assert.Error(t, err)
+	assert.Nil(t, encodedBytes)
+	assert.Contains(t, err.Error(), "proof cannot be nil")
+}
+
+func TestEncodeToBytes_Nullifier_NilProof(t *testing.T) {
+	root, _ := new(big.Int).SetString("10759239749463985685121762721989308290835056358617431948062611695492264476410", 10)
+	encodedBytes, err := EncodeToBytes_Nullifier(root, nil)
+	assert.Error(t, err)
+	assert.Nil(t, encodedBytes)
+	assert.Contains(t, err.Error(), "proof cannot be nil")
+}
+
+func TestEncodeToBytes_Enc_NilProof(t *testing.T) {
+	encryptionNonce, _ := new(big.Int).SetString("207688642365707617532725050932520947413", 10)
+	var ecdhPublicKey [2]*big.Int
+	ecdhPublicKey[0], _ = new(big.Int).SetString("13294228287998411381270483055023484257359110538597013675185105734073826686948", 10)
+	ecdhPublicKey[1], _ = new(big.Int).SetString("20139898957273255675259353125964622186831454347890170245581831044539265248227", 10)
+	encryptedValues := []*big.Int{new(big.Int).SetInt64(123)}
+
+	encodedBytes, err := EncodeToBytes_Enc(encryptionNonce, ecdhPublicKey, encryptedValues, nil)
+	assert.Error(t, err)
+	assert.Nil(t, encodedBytes)
+	assert.Contains(t, err.Error(), "proof cannot be nil")
+}
+
+func TestEncodeToBytes_EncNullifier_NilProof(t *testing.T) {
+	root, _ := new(big.Int).SetString("7960452687607682970912719135522872268495996902454395742049265506804683811656", 10)
+	encryptionNonce, _ := new(big.Int).SetString("160911611728998043494986968818371372568", 10)
+	var ecdhPublicKey [2]*big.Int
+	ecdhPublicKey[0], _ = new(big.Int).SetString("6359820735837026862556135130914439700703832924852302131308106375621140214964", 10)
+	ecdhPublicKey[1], _ = new(big.Int).SetString("13592514894241879877676045947693167682727939188140896914961808720417065043634", 10)
+	encryptedValues := []*big.Int{new(big.Int).SetInt64(123)}
+
+	encodedBytes, err := EncodeToBytes_EncNullifier(root, encryptionNonce, ecdhPublicKey, encryptedValues, nil)
+	assert.Error(t, err)
+	assert.Nil(t, encodedBytes)
+	assert.Contains(t, err.Error(), "proof cannot be nil")
+}
+
+func TestEncodeToBytes_EncNullifierNonRepudiation_NilProof(t *testing.T) {
+	root, _ := new(big.Int).SetString("3558506105027751773195710445361714189081162064409715964159887641129927576301", 10)
+	encryptionNonce, _ := new(big.Int).SetString("96920392419470661954291111285390637164", 10)
+	var ecdhPublicKey [2]*big.Int
+	ecdhPublicKey[0], _ = new(big.Int).SetString("6005804565562346416071234702992521162481876014782753224832372046603499044154", 10)
+	ecdhPublicKey[1], _ = new(big.Int).SetString("19107187055994034448890248707927127180544384087393491906425625936792745099630", 10)
+	encryptedValuesForReceiver := []*big.Int{new(big.Int).SetInt64(123)}
+	encryptedValuesForAuthority := []*big.Int{new(big.Int).SetInt64(456)}
+
+	encodedBytes, err := EncodeToBytes_EncNullifierNonRepudiation(root, encryptionNonce, ecdhPublicKey, encryptedValuesForReceiver, encryptedValuesForAuthority, nil)
+	assert.Error(t, err)
+	assert.Nil(t, encodedBytes)
+	assert.Contains(t, err.Error(), "proof cannot be nil")
+}
+
+func TestEncodeToBytes_Qurrency_NilProof(t *testing.T) {
+	root, _ := new(big.Int).SetString("10775511825316780085995526169481784138221921243614872072713961410119594620922", 10)
+	encryptionNonce, _ := new(big.Int).SetString("146086364555214349570504081522936027738", 10)
+	encryptedValues := []*big.Int{new(big.Int).SetInt64(123)}
+	var encapsulatedSharedSecret [25]*big.Int
+	encapsulatedSharedSecret[0] = new(big.Int).SetInt64(456)
+
+	encodedBytes, err := EncodeToBytes_Qurrency(root, encryptionNonce, encryptedValues, encapsulatedSharedSecret, nil)
+	assert.Error(t, err)
+	assert.Nil(t, encodedBytes)
+	assert.Contains(t, err.Error(), "proof cannot be nil")
+}
+
+// Tests for invalid proof data structures
+
+func TestEncodeToBytes_Anon_InvalidProofData(t *testing.T) {
+	// Test with proof that has wrong array lengths
+	proof := &types.ProofData{
+		A: []string{"123"}, // Should have 2 elements
+		B: [][]string{
+			{"456", "789"},
+			{"101", "112"},
+		},
+		C: []string{"131", "415"}, // Should have 2 elements
+	}
+
+	// This should panic due to array bounds error
+	assert.Panics(t, func() {
+		_, _ = EncodeToBytes_Anon(proof)
+	}, "Expected panic due to array bounds error")
+}
+
+func TestEncodeToBytes_Anon_EmptyProofData(t *testing.T) {
+	// Test with proof that has empty arrays
+	proof := &types.ProofData{
+		A: []string{},
+		B: [][]string{},
+		C: []string{},
+	}
+
+	// This should panic due to array bounds error
+	assert.Panics(t, func() {
+		_, _ = EncodeToBytes_Anon(proof)
+	}, "Expected panic due to array bounds error with empty arrays")
+}
+
+func TestEncodeToBytes_Anon_MalformedProofData(t *testing.T) {
+	// Test with proof that has malformed B array structure
+	proof := &types.ProofData{
+		A: []string{"123", "456"},
+		B: [][]string{
+			{"789"}, // Should have 2 elements
+			{"101", "112"},
+		},
+		C: []string{"131", "415"},
+	}
+
+	// This should panic due to array bounds error
+	assert.Panics(t, func() {
+		_, _ = EncodeToBytes_Anon(proof)
+	}, "Expected panic due to array bounds error with malformed B array")
+}
+
+func TestEncodeToBytes_Anon_InvalidStringValues(t *testing.T) {
+	// Test with proof that has invalid string values (non-numeric)
+	proof := &types.ProofData{
+		A: []string{"invalid", "456"},
+		B: [][]string{
+			{"789", "101"},
+			{"112", "131"},
+		},
+		C: []string{"415", "161"},
+	}
+
+	// This should panic due to zero value being passed to ABI encoding
+	assert.Panics(t, func() {
+		_, _ = EncodeToBytes_Anon(proof)
+	}, "Expected panic due to zero value from invalid string causing ABI encoding error")
+}
+
+func TestEncodeToBytes_Anon_EmptyStringValues(t *testing.T) {
+	// Test with proof that has empty string values
+	proof := &types.ProofData{
+		A: []string{"", "456"},
+		B: [][]string{
+			{"789", "101"},
+			{"112", "131"},
+		},
+		C: []string{"415", "161"},
+	}
+
+	// This should panic due to zero value being passed to ABI encoding
+	assert.Panics(t, func() {
+		_, _ = EncodeToBytes_Anon(proof)
+	}, "Expected panic due to zero value from empty string causing ABI encoding error")
+}
+
+// Edge case tests
+
+func TestEncodeToBytes_Enc_EmptyEncryptedValues(t *testing.T) {
+	encryptionNonce, _ := new(big.Int).SetString("207688642365707617532725050932520947413", 10)
+	var ecdhPublicKey [2]*big.Int
+	ecdhPublicKey[0], _ = new(big.Int).SetString("13294228287998411381270483055023484257359110538597013675185105734073826686948", 10)
+	ecdhPublicKey[1], _ = new(big.Int).SetString("20139898957273255675259353125964622186831454347890170245581831044539265248227", 10)
+	encryptedValues := []*big.Int{} // Empty array
+
+	proof := &types.ProofData{
+		A: []string{"123", "456"},
+		B: [][]string{
+			{"789", "101"},
+			{"112", "131"},
+		},
+		C: []string{"415", "161"},
+	}
+
+	encodedBytes, err := EncodeToBytes_Enc(encryptionNonce, ecdhPublicKey, encryptedValues, proof)
+	assert.NoError(t, err)
+	assert.NotNil(t, encodedBytes)
+}
+
+func TestEncodeToBytes_Enc_NilEncryptedValues(t *testing.T) {
+	encryptionNonce, _ := new(big.Int).SetString("207688642365707617532725050932520947413", 10)
+	var ecdhPublicKey [2]*big.Int
+	ecdhPublicKey[0], _ = new(big.Int).SetString("13294228287998411381270483055023484257359110538597013675185105734073826686948", 10)
+	ecdhPublicKey[1], _ = new(big.Int).SetString("20139898957273255675259353125964622186831454347890170245581831044539265248227", 10)
+	var encryptedValues []*big.Int // Nil array
+
+	proof := &types.ProofData{
+		A: []string{"123", "456"},
+		B: [][]string{
+			{"789", "101"},
+			{"112", "131"},
+		},
+		C: []string{"415", "161"},
+	}
+
+	encodedBytes, err := EncodeToBytes_Enc(encryptionNonce, ecdhPublicKey, encryptedValues, proof)
+	assert.NoError(t, err)
+	assert.NotNil(t, encodedBytes)
+}
+
+func TestEncodeToBytes_Enc_NilBigIntValues(t *testing.T) {
+	encryptionNonce, _ := new(big.Int).SetString("207688642365707617532725050932520947413", 10)
+	var ecdhPublicKey [2]*big.Int
+	ecdhPublicKey[0] = nil // Nil big.Int
+	ecdhPublicKey[1], _ = new(big.Int).SetString("20139898957273255675259353125964622186831454347890170245581831044539265248227", 10)
+	encryptedValues := []*big.Int{nil, new(big.Int).SetInt64(123)} // Mixed nil and valid values
+
+	proof := &types.ProofData{
+		A: []string{"123", "456"},
+		B: [][]string{
+			{"789", "101"},
+			{"112", "131"},
+		},
+		C: []string{"415", "161"},
+	}
+
+	// This should panic due to nil big.Int being passed to ABI encoding
+	assert.Panics(t, func() {
+		_, _ = EncodeToBytes_Enc(encryptionNonce, ecdhPublicKey, encryptedValues, proof)
+	}, "Expected panic due to nil big.Int causing ABI encoding error")
+}
+
+func TestEncodeToBytes_Qurrency_PartialEncapsulatedSharedSecret(t *testing.T) {
+	root, _ := new(big.Int).SetString("10775511825316780085995526169481784138221921243614872072713961410119594620922", 10)
+	encryptionNonce, _ := new(big.Int).SetString("146086364555214349570504081522936027738", 10)
+	encryptedValues := []*big.Int{new(big.Int).SetInt64(123)}
+	var encapsulatedSharedSecret [25]*big.Int
+	// Only set first few elements, leave rest as nil
+	encapsulatedSharedSecret[0] = new(big.Int).SetInt64(456)
+	encapsulatedSharedSecret[1] = new(big.Int).SetInt64(789)
+	// Rest are nil
+
+	proof := &types.ProofData{
+		A: []string{"123", "456"},
+		B: [][]string{
+			{"789", "101"},
+			{"112", "131"},
+		},
+		C: []string{"415", "161"},
+	}
+
+	// This should panic due to nil big.Int values in the array being passed to ABI encoding
+	assert.Panics(t, func() {
+		_, _ = EncodeToBytes_Qurrency(root, encryptionNonce, encryptedValues, encapsulatedSharedSecret, proof)
+	}, "Expected panic due to nil big.Int values in encapsulated shared secret causing ABI encoding error")
+}
+
+// Tests for convertProof function directly
+
+func TestConvertProof_NilProof(t *testing.T) {
+	proofStruct, err := convertProof(nil)
+	assert.Error(t, err)
+	assert.Nil(t, proofStruct)
+	assert.Contains(t, err.Error(), "proof cannot be nil")
+}
+
+func TestConvertProof_ValidProof(t *testing.T) {
+	proof := &types.ProofData{
+		A: []string{"123", "456"},
+		B: [][]string{
+			{"789", "101"},
+			{"112", "131"},
+		},
+		C: []string{"415", "161"},
+	}
+
+	proofStruct, err := convertProof(proof)
+	assert.NoError(t, err)
+	assert.NotNil(t, proofStruct)
+	assert.NotNil(t, proofStruct.PA)
+	assert.NotNil(t, proofStruct.PB)
+	assert.NotNil(t, proofStruct.PC)
+}
+
+func TestConvertProof_ZeroValues(t *testing.T) {
+	proof := &types.ProofData{
+		A: []string{"0", "0"},
+		B: [][]string{
+			{"0", "0"},
+			{"0", "0"},
+		},
+		C: []string{"0", "0"},
+	}
+
+	proofStruct, err := convertProof(proof)
+	assert.NoError(t, err)
+	assert.NotNil(t, proofStruct)
+	// Should handle zero values correctly
+	assert.Equal(t, big.NewInt(0), proofStruct.PA[0])
+	assert.Equal(t, big.NewInt(0), proofStruct.PA[1])
 }
