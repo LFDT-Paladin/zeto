@@ -608,7 +608,7 @@ function encodeToBytes(
   encryptedValues: any,
   proof: any,
 ) {
-  return new AbiCoder().encode(
+  const bytes = new AbiCoder().encode(
     [
       "uint256 encryptionNonce",
       "uint256[2] ecdhPublicKey",
@@ -617,6 +617,12 @@ function encodeToBytes(
     ],
     [encryptionNonce, ecdhPublicKey, encryptedValues, proof],
   );
+  console.log("Encryption nonce:", encryptionNonce);
+  console.log("ECDH public key:", ecdhPublicKey);
+  console.log("Encrypted values:", encryptedValues);
+  console.log("Proof:", proof);
+  console.log("Encoded proof:", bytes);
+  return bytes;
 }
 
 function encodeToBytesForWithdraw(proof: any) {

@@ -11,6 +11,10 @@ func EncodeToBytes_Anon(proof *types.ProofData) ([]byte, error) {
 	return util.EncodeToBytes_Anon(proof)
 }
 
+func EncodeToBytes_Enc(encryptionNonce *big.Int, ecdhPublicKey [2]*big.Int, encryptedValues []*big.Int, proof *types.ProofData) ([]byte, error) {
+	return util.EncodeToBytes_Enc(encryptionNonce, ecdhPublicKey, encryptedValues, proof)
+}
+
 func EncodeToBytes_Nullifier(root *big.Int, proof *types.ProofData) ([]byte, error) {
 	return util.EncodeToBytes_Nullifier(root, proof)
 }

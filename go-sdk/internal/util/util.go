@@ -86,6 +86,53 @@ func EncodeToBytes_Nullifier(root *big.Int, proof *types.ProofData) ([]byte, err
 	return proofBytes, nil
 }
 
+func EncodeToBytes_Enc(encryptionNonce *big.Int, ecdhPublicKey [2]*big.Int, encryptedValues []*big.Int, proof *types.ProofData) ([]byte, error) {
+	proofStruct, err := convertProof(proof)
+	if err != nil {
+		return nil, err
+	}
+
+	// Create ABI types for each parameter (matching TypeScript AbiCoder.encode approach)
+	encryptionNonceType, err := abi.NewType("uint256", "", nil)
+	if err != nil {
+		return nil, err
+	}
+
+	ecdhPublicKeyType, err := abi.NewType("uint256[2]", "", nil)
+	if err != nil {
+		return nil, err
+	}
+
+	encryptedValuesType, err := abi.NewType("uint256[]", "", nil)
+	if err != nil {
+		return nil, err
+	}
+
+	proofType, err := abi.NewType("tuple", "", []abi.ArgumentMarshaling{
+		{Name: "pA", Type: "uint256[2]"},
+		{Name: "pB", Type: "uint256[2][2]"},
+		{Name: "pC", Type: "uint256[2]"},
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	// Pack the data using ABI encoding (matching TypeScript parameter order)
+	arguments := abi.Arguments{
+		abi.Argument{Type: encryptionNonceType},
+		abi.Argument{Type: ecdhPublicKeyType},
+		abi.Argument{Type: encryptedValuesType},
+		abi.Argument{Type: proofType},
+	}
+
+	proofBytes, err := arguments.Pack(encryptionNonce, ecdhPublicKey, encryptedValues, proofStruct)
+	if err != nil {
+		return nil, err
+	}
+
+	return proofBytes, nil
+}
+
 func EncodeToBytes_Qurrency(root *big.Int, encryptionNonce *big.Int, encryptedValues []*big.Int, encapsulatedSharedSecret [25]*big.Int, proof *types.ProofData) ([]byte, error) {
 	proofStruct, err := convertProof(proof)
 	if err != nil {
