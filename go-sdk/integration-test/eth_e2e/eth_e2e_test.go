@@ -20,7 +20,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"math/big"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -36,8 +35,6 @@ import (
 	itestcommon "github.com/hyperledger-labs/zeto/go-sdk/integration-test/common"
 	"github.com/hyperledger-labs/zeto/go-sdk/internal/sparse-merkle-tree/smt"
 	"github.com/hyperledger-labs/zeto/go-sdk/internal/testutils"
-	"github.com/hyperledger-labs/zeto/go-sdk/pkg/sparse-merkle-tree/core"
-	"github.com/hyperledger-labs/zeto/go-sdk/pkg/sparse-merkle-tree/node"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -177,13 +174,13 @@ func (s *EthE2ETestSuite) setupTokensAndSignals() {
 	for i := 0; i < s.numRuns; i++ {
 		// in the test we mint the input commitments for each test iteration on demand.
 		for _, commitment := range s.regularTests[i].InputCommitments {
-			s.addCommitmentToMerkleTree(mt, commitment)
+			itestcommon.AddCommitmentToMerkleTree(mt, commitment, s.T())
 		}
 
 		// in addition, the output commitments from the previous iteration will have been added to the SMT.
 		if i > 0 {
 			for _, commitment := range s.regularTests[i-1].OutputCommitments {
-				s.addCommitmentToMerkleTree(mt, commitment)
+				itestcommon.AddCommitmentToMerkleTree(mt, commitment, s.T())
 			}
 		}
 		s.regularTests[i].MerkleProofs, s.regularTests[i].Enabled, s.regularTests[i].Root = itestcommon.BuildMerkleProofs(s.regularTests[i].InputCommitments, s.db, s.T())
@@ -210,15 +207,6 @@ func loadContractArtifact(artifactPath string) (*ContractArtifact, error) {
 	}
 
 	return &artifact, nil
-}
-
-func (s *EthE2ETestSuite) addCommitmentToMerkleTree(mt core.SparseMerkleTree, commitment *big.Int) {
-	idx, _ := node.NewNodeIndexFromBigInt(commitment)
-	utxo := node.NewIndexOnly(idx)
-	n, err := node.NewLeafNode(utxo)
-	assert.NoError(s.T(), err)
-	err = mt.AddLeaf(n)
-	assert.NoError(s.T(), err)
 }
 
 // waitForTransactionReceipt waits for a transaction to be mined and returns its receipt
