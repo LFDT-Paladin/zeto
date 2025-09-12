@@ -68,9 +68,6 @@ func (s *EthE2ETestSuite) mint(outputCommitments []*big.Int) {
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
 
-	// Start timing the entire mint process
-	mintStartTime := time.Now()
-
 	// Get the nonce for the sender
 	nonce, err := s.ethClient.PendingNonceAt(ctx, s.senderAddress)
 	assert.NoError(s.T(), err)
@@ -97,12 +94,7 @@ func (s *EthE2ETestSuite) mint(outputCommitments []*big.Int) {
 	assert.NoError(s.T(), err)
 	assert.NotNil(s.T(), tx)
 
-	// Record when transaction was sent
-	txSentTime := time.Now()
-	transactionLatency := txSentTime.Sub(mintStartTime)
-
 	s.T().Logf("Mint transaction sent: %s", tx.Hash().Hex())
-	s.T().Logf("Transaction preparation time: %v", transactionLatency)
 
 	// wait for the transaction to be mined
 	receipt, err := s.waitForTransactionReceipt(ctx, tx.Hash())
@@ -110,12 +102,7 @@ func (s *EthE2ETestSuite) mint(outputCommitments []*big.Int) {
 	assert.NotNil(s.T(), receipt)
 	assert.Equal(s.T(), uint64(1), receipt.Status)
 
-	// Record when transaction was mined
-	txMinedTime := time.Now()
-	miningLatency := txMinedTime.Sub(txSentTime)
-
 	s.T().Logf("Mint transaction mined: %s", tx.Hash().Hex())
-	s.T().Logf("Mining time: %v", miningLatency)
 	s.T().Logf("Gas used: %d", receipt.GasUsed)
 	s.T().Logf("Block number: %d", receipt.BlockNumber.Uint64())
 }
@@ -181,4 +168,6 @@ func (s *EthE2ETestSuite) transfer(inputs []*big.Int, outputs []*big.Int, proof,
 	s.T().Logf("Transfer transaction mined: %s", tx.Hash().Hex())
 	s.T().Logf("Gas used: %d", receipt.GasUsed)
 	s.T().Logf("Block number: %d", receipt.BlockNumber.Uint64())
+
+	s.txGasCosts = append(s.txGasCosts, receipt.GasUsed)
 }

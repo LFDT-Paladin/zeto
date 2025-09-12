@@ -162,6 +162,7 @@ func (s *EthE2ETestSuite) setupTokensAndSignals() {
 	s.witnessTimes = make([]time.Duration, 0, s.numRuns)
 	s.provingTimes = make([]time.Duration, 0, s.numRuns)
 	s.txTimes = make([]time.Duration, 0, s.numRuns)
+	s.txGasCosts = make([]uint64, 0, s.numRuns)
 
 	// setup the signals for the regular circuits with 2 inputs and 2 outputs
 	s.regularTests = make([]*itestcommon.Signals, s.numRuns)
@@ -252,6 +253,8 @@ func (s *EthE2ETestSuite) calculateAndDisplayAverages() {
 	// Calculate averages
 	var totalWitness, totalPrep, totalMining, totalLatency time.Duration
 	var minWitness, maxWitness, minPrep, maxPrep, minMining, maxMining, minTotal, maxTotal time.Duration
+	var totalGasCost uint64
+	var minGasCost, maxGasCost uint64
 
 	// Initialize min/max with first values
 	minWitness = s.witnessTimes[0]
@@ -262,6 +265,8 @@ func (s *EthE2ETestSuite) calculateAndDisplayAverages() {
 	maxMining = s.txTimes[0]
 	minTotal = s.witnessTimes[0] + s.provingTimes[0] + s.txTimes[0]
 	maxTotal = s.witnessTimes[0] + s.provingTimes[0] + s.txTimes[0]
+	minGasCost = s.txGasCosts[0]
+	maxGasCost = s.txGasCosts[0]
 
 	for i := 0; i < len(s.provingTimes); i++ {
 		// Sum for averages
@@ -269,6 +274,7 @@ func (s *EthE2ETestSuite) calculateAndDisplayAverages() {
 		totalPrep += s.provingTimes[i]
 		totalMining += s.txTimes[i]
 		totalLatency += s.witnessTimes[i] + s.provingTimes[i] + s.txTimes[i]
+		totalGasCost += s.txGasCosts[i]
 
 		// Update min/max for witness time
 		if s.witnessTimes[i] < minWitness {
@@ -301,6 +307,14 @@ func (s *EthE2ETestSuite) calculateAndDisplayAverages() {
 		if s.witnessTimes[i]+s.provingTimes[i]+s.txTimes[i] > maxTotal {
 			maxTotal = s.witnessTimes[i] + s.provingTimes[i] + s.txTimes[i]
 		}
+
+		// Update min/max for gas cost
+		if s.txGasCosts[i] < minGasCost {
+			minGasCost = s.txGasCosts[i]
+		}
+		if s.txGasCosts[i] > maxGasCost {
+			maxGasCost = s.txGasCosts[i]
+		}
 	}
 
 	// Calculate averages
@@ -309,6 +323,7 @@ func (s *EthE2ETestSuite) calculateAndDisplayAverages() {
 	avgPrep := totalPrep / time.Duration(numRuns)
 	avgMining := totalMining / time.Duration(numRuns)
 	avgTotal := totalLatency / time.Duration(numRuns)
+	avgGasCost := totalGasCost / uint64(numRuns)
 
 	// Display results
 	fmt.Printf("\n")
@@ -333,6 +348,11 @@ func (s *EthE2ETestSuite) calculateAndDisplayAverages() {
 	fmt.Printf("  Average: %v\n", avgTotal)
 	fmt.Printf("  Min:     %v\n", minTotal)
 	fmt.Printf("  Max:     %v\n", maxTotal)
+	fmt.Printf("\n")
+	fmt.Printf("Transaction Gas Cost:\n")
+	fmt.Printf("  Average: %v\n", avgGasCost)
+	fmt.Printf("  Min:     %v\n", minGasCost)
+	fmt.Printf("  Max:     %v\n", maxGasCost)
 	fmt.Printf("\n")
 	fmt.Printf("=== END LATENCY STATISTICS ===\n\n")
 }

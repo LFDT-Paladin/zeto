@@ -71,4 +71,5 @@ type EthE2ETestSuite struct {
 	witnessTimes []time.Duration // time to generate the witness
 	provingTimes []time.Duration // time to generate the proof
 	txTimes      []time.Duration // time to send and mine the transaction
+	txGasCosts   []uint64        // gas cost of the transaction
 }
