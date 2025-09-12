@@ -57,7 +57,7 @@ type EthE2ETestSuite struct {
 
 	// Zeto contract address from environment variable
 	zetoContractAddress common.Address
-	isQurrencyContract  bool
+	zetoContractName    string
 	zetoContractABI     abi.ABI
 	contract            *bind.BoundContract
 

@@ -40,6 +40,7 @@ import (
 	"github.com/hyperledger-labs/zeto/go-sdk/pkg/sparse-merkle-tree/node"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
 )
 
@@ -62,14 +63,9 @@ func (s *EthE2ETestSuite) SetupSuite() {
 		s.zetoContractAddress = common.HexToAddress(zetoContractAddressStr)
 	}
 
-	isQurrencyContractStr := os.Getenv("IS_QURRENCY_CONTRACT")
-	if isQurrencyContractStr == "true" {
-		s.isQurrencyContract = true
-		s.T().Logf("Zeto Qurrency contract address loaded: %s", s.zetoContractAddress.Hex())
-	} else {
-		s.isQurrencyContract = false
-		s.T().Logf("Zeto Anon contract address loaded: %s", s.zetoContractAddress.Hex())
-	}
+	s.zetoContractName = os.Getenv("ZETO_CONTRACT_NAME")
+	require.NotEmpty(s.T(), s.zetoContractName)
+	s.T().Logf("%s contract address loaded: %s", s.zetoContractName, s.zetoContractAddress.Hex())
 
 	// Contract binding will be created after ABI is loaded
 
@@ -106,10 +102,19 @@ func (s *EthE2ETestSuite) SetupSuite() {
 	}
 
 	// Load the Zeto_Anon contract artifact
-	artifactPath := filepath.Join("..", "..", "..", "solidity", "artifacts", "contracts", "zeto_anon.sol", "Zeto_Anon.json")
-	if s.isQurrencyContract {
+	var artifactPath string
+	switch s.zetoContractName {
+	case "Zeto_Anon":
+		artifactPath = filepath.Join("..", "..", "..", "solidity", "artifacts", "contracts", "zeto_anon.sol", "Zeto_Anon.json")
+	case "Zeto_AnonNullifierQurrency":
 		artifactPath = filepath.Join("..", "..", "..", "solidity", "artifacts", "contracts", "zeto_anon_nullifier_qurrency.sol", "Zeto_AnonNullifierQurrency.json")
+	case "Zeto_AnonNullifier":
+		artifactPath = filepath.Join("..", "..", "..", "solidity", "artifacts", "contracts", "zeto_anon_nullifier.sol", "Zeto_AnonNullifier.json")
+	default:
+		s.T().Skipf("Invalid Zeto contract name: %s", s.zetoContractName)
+		return
 	}
+
 	artifact, err := loadContractArtifact(artifactPath)
 	if err != nil {
 		s.T().Skipf("Failed to load contract artifact: %v. Make sure to compile contracts first.", err)

@@ -13,8 +13,9 @@ import (
 
 // TestTransfer demonstrates how to call the transfer function on the Zeto contract
 func (s *EthE2ETestSuite) TestTransfer() {
+	useNullifier := s.zetoContractName == "Zeto_AnonNullifier" || s.zetoContractName == "Zeto_AnonNullifierQurrency"
 	for i := 0; i < s.numRuns; i++ {
-		if s.isQurrencyContract && i == 0 {
+		if useNullifier && i == 0 {
 			// verify that the onchain merkle tree root is empty by calling getRoot
 			var result []any
 			err := s.contract.Call(nil, &result, "getRoot")
@@ -28,7 +29,7 @@ func (s *EthE2ETestSuite) TestTransfer() {
 		// Example proof bytes - in a real scenario, this would be a valid ZK proof
 		var proof []byte
 		var inputs []*big.Int
-		if s.isQurrencyContract {
+		if useNullifier {
 			// verify that the onchain merkle tree root is empty by calling getRoot
 			var result []any
 			err := s.contract.Call(nil, &result, "getRoot")
@@ -36,7 +37,11 @@ func (s *EthE2ETestSuite) TestTransfer() {
 			require.Equal(s.T(), s.regularTests[i].Root.String(), result[0].(*big.Int).String())
 			s.T().Logf("Onchain SMT root verified to match offchain root: %s", result[0].(*big.Int).String())
 
-			proof = s.generateProof_anon_qurrency(s.regularTests[i])
+			if s.zetoContractName == "Zeto_AnonNullifierQurrency" {
+				proof = s.generateProof_anon_qurrency(s.regularTests[i])
+			} else {
+				proof = s.generateProof_anon_nullifier(s.regularTests[i])
+			}
 			inputs = s.regularTests[i].Nullifiers
 		} else {
 			proof = s.generateProof_anon(s.regularTests[i])

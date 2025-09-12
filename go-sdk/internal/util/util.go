@@ -24,7 +24,7 @@ type EncodedProof_Qurrency struct {
 
 // EncodeProofToBytes encodes the ZKProof to bytes for contract interaction
 func EncodeToBytes_Anon(proof *types.ProofData) ([]byte, error) {
-	pA, pB, pC, err := convertProof(proof)
+	proofStruct, err := convertProof(proof)
 	if err != nil {
 		return nil, err
 	}
@@ -41,17 +41,6 @@ func EncodeToBytes_Anon(proof *types.ProofData) ([]byte, error) {
 		return nil, err
 	}
 
-	// Create the proof struct for ABI encoding
-	proofStruct := EncodedProof{
-		PA: [2]*big.Int{pA[0], pA[1]},
-		PB: [2][2]*big.Int{
-			// note that the order of the elements in the pB array is reversed in the contract
-			{pB[0][1], pB[0][0]},
-			{pB[1][1], pB[1][0]},
-		},
-		PC: [2]*big.Int{pC[0], pC[1]},
-	}
-
 	// Use abi.Arguments to pack the data
 	arguments := abi.Arguments{abi.Argument{Type: args}}
 	proofBytes, err := arguments.Pack(proofStruct)
@@ -62,21 +51,45 @@ func EncodeToBytes_Anon(proof *types.ProofData) ([]byte, error) {
 	return proofBytes, nil
 }
 
-func EncodeToBytes_Qurrency(root *big.Int, encryptionNonce *big.Int, encryptedValues []*big.Int, encapsulatedSharedSecret [25]*big.Int, proof *types.ProofData) ([]byte, error) {
-	pA, pB, pC, err := convertProof(proof)
+func EncodeToBytes_Nullifier(root *big.Int, proof *types.ProofData) ([]byte, error) {
+	proofStruct, err := convertProof(proof)
 	if err != nil {
 		return nil, err
 	}
 
-	// Create the proof struct for ABI encoding (matching TypeScript encodeProof output)
-	proofStruct := EncodedProof{
-		PA: [2]*big.Int{pA[0], pA[1]},
-		PB: [2][2]*big.Int{
-			// note that the order of the elements in the pB array is reversed in the contract
-			{pB[0][1], pB[0][0]},
-			{pB[1][1], pB[1][0]},
-		},
-		PC: [2]*big.Int{pC[0], pC[1]},
+	// Create ABI types for each parameter (matching TypeScript AbiCoder.encode approach)
+	rootType, err := abi.NewType("uint256", "", nil)
+	if err != nil {
+		return nil, err
+	}
+
+	proofType, err := abi.NewType("tuple", "", []abi.ArgumentMarshaling{
+		{Name: "pA", Type: "uint256[2]"},
+		{Name: "pB", Type: "uint256[2][2]"},
+		{Name: "pC", Type: "uint256[2]"},
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	// Pack the data using ABI encoding (matching TypeScript parameter order)
+	arguments := abi.Arguments{
+		abi.Argument{Type: rootType},
+		abi.Argument{Type: proofType},
+	}
+
+	proofBytes, err := arguments.Pack(root, proofStruct)
+	if err != nil {
+		return nil, err
+	}
+
+	return proofBytes, nil
+}
+
+func EncodeToBytes_Qurrency(root *big.Int, encryptionNonce *big.Int, encryptedValues []*big.Int, encapsulatedSharedSecret [25]*big.Int, proof *types.ProofData) ([]byte, error) {
+	proofStruct, err := convertProof(proof)
+	if err != nil {
+		return nil, err
 	}
 
 	// Create ABI types for each parameter (matching TypeScript AbiCoder.encode approach)
@@ -126,9 +139,9 @@ func EncodeToBytes_Qurrency(root *big.Int, encryptionNonce *big.Int, encryptedVa
 	return proofBytes, nil
 }
 
-func convertProof(proof *types.ProofData) ([]*big.Int, [][]*big.Int, []*big.Int, error) {
+func convertProof(proof *types.ProofData) (*EncodedProof, error) {
 	if proof == nil {
-		return nil, nil, nil, fmt.Errorf("proof cannot be nil")
+		return nil, fmt.Errorf("proof cannot be nil")
 	}
 
 	// Convert A (pA) from []string to [2]*big.Int
@@ -155,5 +168,16 @@ func convertProof(proof *types.ProofData) ([]*big.Int, [][]*big.Int, []*big.Int,
 		pC[i], _ = new(big.Int).SetString(val, 10)
 	}
 
-	return pA, pB, pC, nil
+	// Create the proof struct for ABI encoding (matching TypeScript encodeProof output)
+	proofStruct := EncodedProof{
+		PA: [2]*big.Int{pA[0], pA[1]},
+		PB: [2][2]*big.Int{
+			// note that the order of the elements in the pB array is reversed in the contract
+			{pB[0][1], pB[0][0]},
+			{pB[1][1], pB[1][0]},
+		},
+		PC: [2]*big.Int{pC[0], pC[1]},
+	}
+
+	return &proofStruct, nil
 }
