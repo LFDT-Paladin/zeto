@@ -617,11 +617,11 @@ function encodeToBytes(
     ],
     [encryptionNonce, ecdhPublicKey, encryptedValues, proof],
   );
-  console.log("Encryption nonce:", encryptionNonce);
-  console.log("ECDH public key:", ecdhPublicKey);
-  console.log("Encrypted values:", encryptedValues);
-  console.log("Proof:", proof);
-  console.log("Encoded proof:", bytes);
+  // console.log("Encryption nonce:", encryptionNonce);
+  // console.log("ECDH public key:", ecdhPublicKey);
+  // console.log("Encrypted values:", encryptedValues);
+  // console.log("Proof:", proof);
+  // console.log("Encoded proof:", bytes);
   return bytes;
 }
 
