@@ -38,6 +38,12 @@ contract Zeto_AnonNullifierQurrency is Zeto_AnonNullifier {
         uint256[25] encapsulatedSharedSecret;
     }
 
+    // Add storage variable to reduce stack usage
+    _DecodedProof_Qurrency private _dpq;
+    // Additional storage variables to reduce stack usage
+    uint256[] private _publicInputs;
+    uint256 private _piIndex;
+
     function initialize(
         string calldata name,
         string calldata symbol,
@@ -47,23 +53,12 @@ contract Zeto_AnonNullifierQurrency is Zeto_AnonNullifier {
         __ZetoAnonNullifier_init(name, symbol, initialOwner, verifiers);
     }
 
-    /**
-     * @dev the main function of the contract.
-     *
-     * @param nullifiers Array of nullifiers that are secretly bound to UTXOs to be spent by the transaction.
-     * @param outputs Array of new UTXOs to generate, for future transactions to spend.
-     * @param proof A zero knowledge proof that the submitter is authorized to spend the inputs, and
-     *      that the outputs are valid in terms of obeying mass conservation rules.
-     *
-     * Emits a {UTXOTransfer} and a {UTXOTransferWithMlkemEncryptedValues} event.
-     */
-    function transfer(
-        uint256[] calldata nullifiers,
-        uint256[] calldata outputs,
-        bytes calldata proof,
-        bytes calldata data
-    ) public override {
-        super.transfer(nullifiers, outputs, proof, data);
+    function emitTransferEvent(
+        uint256[] memory nullifiers,
+        uint256[] memory outputs,
+        bytes memory proof,
+        bytes memory data
+    ) internal override {
         (
             _DecodedProof_Qurrency memory dp,
             Commonlib.Proof memory proofStruct
@@ -95,14 +90,17 @@ contract Zeto_AnonNullifierQurrency is Zeto_AnonNullifier {
             _DecodedProof_Qurrency memory dp,
             Commonlib.Proof memory proofStruct
         ) = decodeProof_Qurrency(proof);
+
+        // Store the decoded proof in storage to reduce stack usage
+        _dpq = dp;
+
         uint256 size = _calculatePublicInputsSize(
             nullifiers,
             outputs,
-            inputsLocked,
-            dp
+            inputsLocked
         );
 
-        _fillPublicInputs(size, nullifiers, outputs, inputsLocked, dp);
+        _fillPublicInputs(size, nullifiers, outputs, inputsLocked);
         return (_publicInputs, proofStruct);
     }
 
@@ -129,18 +127,11 @@ contract Zeto_AnonNullifierQurrency is Zeto_AnonNullifier {
         return (dp, proofStruct);
     }
 
-    // Add storage variable to reduce stack usage
-    _DecodedProof_Qurrency private _dpq;
-    // Additional storage variables to reduce stack usage
-    uint256[] private _publicInputs;
-    uint256 private _piIndex;
-
     function _calculatePublicInputsSize(
         uint256[] memory nullifiers,
         uint256[] memory outputs,
-        bool inputsLocked,
-        _DecodedProof_Qurrency memory dp
-    ) internal pure returns (uint256) {
+        bool inputsLocked
+    ) internal view returns (uint256) {
         // the public inputs for the non-batch proof have the following structure:
         //  - 25 elements for the ML-KEM encapsulated shared secret
         //  - 16 or 64 elements for the encrypted values (3n+1 for 14 or 62 encyrpted elements)
@@ -149,8 +140,8 @@ contract Zeto_AnonNullifierQurrency is Zeto_AnonNullifier {
         //  - 2 or 10 elements for the "enabled" flags (1 for each nullifier)
         //  - 2 or 10 elements for the output commitments
         return
-            dp.encapsulatedSharedSecret.length +
-            dp.encryptedValues.length +
+            _dpq.encapsulatedSharedSecret.length +
+            _dpq.encryptedValues.length +
             (nullifiers.length * 2) + // nullifiers and the enabled flags
             outputs.length +
             2 + // root and encryptionNonce
@@ -161,11 +152,8 @@ contract Zeto_AnonNullifierQurrency is Zeto_AnonNullifier {
         uint256 size,
         uint256[] memory nullifiers,
         uint256[] memory outputs,
-        bool inputsLocked,
-        _DecodedProof_Qurrency memory dp
+        bool inputsLocked
     ) internal {
-        // Store the decoded proof in storage to reduce stack usage
-        _dpq = dp;
         _publicInputs = new uint256[](size);
         _piIndex = 0;
 

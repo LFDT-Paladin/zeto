@@ -125,7 +125,7 @@ contract ZetoNonFungible is ZetoCommon {
      * @param delegate The delegate of the locked output.
      * @param data Additional data to be passed to the lock function.
      *
-     * Emits a {UTXOsLocked} event.
+     * Emits a {UTXOLocked} event.
      */
     function lock(
         uint256 input,
@@ -156,12 +156,12 @@ contract ZetoNonFungible is ZetoCommon {
         processInputsAndOutputs(inputs, outputs, false);
         processLockedOutputs(lockedOutputs, delegate);
 
-        emit UTXOsLocked(
+        emit UTXOLocked(
             inputs,
-            outputs,
             lockedOutputs,
-            delegate,
+            outputs,
             msg.sender,
+            delegate,
             data
         );
     }

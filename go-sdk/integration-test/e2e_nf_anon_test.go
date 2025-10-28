@@ -21,6 +21,7 @@ import (
 	"math/big"
 	"time"
 
+	"github.com/hyperledger-labs/zeto/go-sdk/integration-test/common"
 	"github.com/hyperledger-labs/zeto/go-sdk/internal/testutils"
 	"github.com/hyperledger-labs/zeto/go-sdk/pkg/crypto"
 	"github.com/hyperledger-labs/zeto/go-sdk/pkg/utxo"
@@ -31,7 +32,7 @@ import (
 
 func (s *E2ETestSuite) TestZeto_nf_anon_SuccessfulProving() {
 	// s.T().Skip()
-	calc, provingKey, err := loadCircuit("nf_anon")
+	calc, provingKey, _, err := common.LoadCircuit("nf_anon")
 	assert.NoError(s.T(), err)
 	assert.NotNil(s.T(), calc)
 
@@ -100,7 +101,7 @@ func (s *E2ETestSuite) TestZeto_nf_anon_SuccessfulProvingWithConcurrency() {
 			defer func() {
 				resultChan <- struct{}{}
 			}()
-			calc, provingKey, err := loadCircuit("nf_anon")
+			calc, provingKey, _, err := common.LoadCircuit("nf_anon")
 			assert.NoError(s.T(), err)
 			assert.NotNil(s.T(), calc)
 

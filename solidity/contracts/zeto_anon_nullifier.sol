@@ -62,46 +62,131 @@ contract Zeto_AnonNullifier is ZetoFungibleNullifier, UUPSUpgradeable {
         override
         returns (uint256[] memory, Commonlib.Proof memory)
     {
+        // Decode the proof to extract root and proof structure
         (uint256 root, Commonlib.Proof memory proofStruct) = abi.decode(
             proof,
             (uint256, Commonlib.Proof)
         );
+
+        // Get extra inputs from derived contracts
         uint256[] memory extra = extraInputs();
-        uint256 size = (nullifiers.length * 2) + // nullifiers and enabled flags
-            (inputsLocked ? 1 : 0) +
-            1 + // root
-            extra.length +
-            outputs.length;
+
+        // Calculate the total size needed for public inputs
+        uint256 size = _calculatePublicInputsSize(
+            nullifiers,
+            outputs,
+            extra,
+            inputsLocked
+        );
+
+        // Create and populate the public inputs array
         uint256[] memory publicInputs = new uint256[](size);
+        _fillPublicInputs(
+            publicInputs,
+            nullifiers,
+            outputs,
+            extra,
+            root,
+            inputsLocked
+        );
+
+        return (publicInputs, proofStruct);
+    }
+
+    function _calculatePublicInputsSize(
+        uint256[] memory nullifiers,
+        uint256[] memory outputs,
+        uint256[] memory extra,
+        bool inputsLocked
+    ) internal pure returns (uint256 size) {
+        size =
+            (nullifiers.length * 2) + // nullifiers and enabled flags
+            (inputsLocked ? 1 : 0) + // lock delegate if locked
+            1 + // root
+            extra.length + // extra inputs
+            outputs.length; // output commitments
+    }
+
+    function _fillPublicInputs(
+        uint256[] memory publicInputs,
+        uint256[] memory nullifiers,
+        uint256[] memory outputs,
+        uint256[] memory extra,
+        uint256 root,
+        bool inputsLocked
+    ) internal view {
         uint256 piIndex = 0;
-        // copy input commitments
-        for (uint256 i = 0; i < nullifiers.length; i++) {
-            publicInputs[piIndex++] = nullifiers[i];
-        }
-        // when verifying locked transfers, additional public input
-        // for the lock delegate
+
+        // Copy nullifiers
+        piIndex = _fillNullifiers_Nullifier(publicInputs, nullifiers, piIndex);
+
+        // Add lock delegate if inputs are locked
         if (inputsLocked) {
             publicInputs[piIndex++] = uint256(uint160(msg.sender));
         }
-        // copy root
+
+        // Copy root
         publicInputs[piIndex++] = root;
 
-        // populate enables
+        // Populate enabled flags
+        piIndex = _fillEnabledFlags_Nullifier(
+            publicInputs,
+            nullifiers,
+            piIndex
+        );
+
+        // Copy extra inputs
+        piIndex = _fillExtraInputs_Nullifier(publicInputs, extra, piIndex);
+
+        // Copy output commitments
+        _fillOutputCommitments_Nullifier(publicInputs, outputs, piIndex);
+    }
+
+    function _fillNullifiers_Nullifier(
+        uint256[] memory publicInputs,
+        uint256[] memory nullifiers,
+        uint256 startIndex
+    ) internal pure returns (uint256 nextIndex) {
+        uint256 piIndex = startIndex;
+        for (uint256 i = 0; i < nullifiers.length; i++) {
+            publicInputs[piIndex++] = nullifiers[i];
+        }
+        return piIndex;
+    }
+
+    function _fillEnabledFlags_Nullifier(
+        uint256[] memory publicInputs,
+        uint256[] memory nullifiers,
+        uint256 startIndex
+    ) internal pure returns (uint256 nextIndex) {
+        uint256 piIndex = startIndex;
         for (uint256 i = 0; i < nullifiers.length; i++) {
             publicInputs[piIndex++] = (nullifiers[i] == 0) ? 0 : 1;
         }
+        return piIndex;
+    }
 
-        // insert extra inputs if any
+    function _fillExtraInputs_Nullifier(
+        uint256[] memory publicInputs,
+        uint256[] memory extra,
+        uint256 startIndex
+    ) internal pure returns (uint256 nextIndex) {
+        uint256 piIndex = startIndex;
         for (uint256 i = 0; i < extra.length; i++) {
             publicInputs[piIndex++] = extra[i];
         }
+        return piIndex;
+    }
 
-        // copy output commitments
+    function _fillOutputCommitments_Nullifier(
+        uint256[] memory publicInputs,
+        uint256[] memory outputs,
+        uint256 startIndex
+    ) internal pure {
+        uint256 piIndex = startIndex;
         for (uint256 i = 0; i < outputs.length; i++) {
             publicInputs[piIndex++] = outputs[i];
         }
-
-        return (publicInputs, proofStruct);
     }
 
     function extraInputs() internal view virtual returns (uint256[] memory) {

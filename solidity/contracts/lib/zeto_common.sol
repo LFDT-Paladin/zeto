@@ -139,9 +139,12 @@ abstract contract ZetoCommon is IZeto, IZetoLockable, OwnableUpgradeable {
     }
 
     function checkAndPadCommitments(
-        uint256[] memory commitments
-    ) public pure returns (uint256[] memory) {
-        uint256 len = commitments.length;
+        uint256[] memory inputs,
+        uint256[] memory outputs
+    ) public pure returns (uint256[] memory, uint256[] memory) {
+        uint256 len = (inputs.length > outputs.length)
+            ? inputs.length
+            : outputs.length;
 
         // Check if inputs or outputs exceed batchMax and revert with custom error if necessary
         if (len > MAX_BATCH) {
@@ -162,9 +165,10 @@ abstract contract ZetoCommon is IZeto, IZetoLockable, OwnableUpgradeable {
         }
 
         // Pad commitments to the determined maxLength
-        commitments = Commonlib.padUintArray(commitments, maxLength, 0);
+        inputs = Commonlib.padUintArray(inputs, maxLength, 0);
+        outputs = Commonlib.padUintArray(outputs, maxLength, 0);
 
-        return commitments;
+        return (inputs, outputs);
     }
 
     // this is a utility function that constructs the public inputs for a proof.

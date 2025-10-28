@@ -25,12 +25,12 @@ interface IZetoLockable {
         address currentDelegate,
         address sender
     );
-    event UTXOsLocked(
+    event UTXOLocked(
         uint256[] inputs,
-        uint256[] outputs,
         uint256[] lockedOutputs,
-        address indexed delegate,
+        uint256[] outputs,
         address indexed submitter,
+        address indexed delegate,
         bytes data
     );
     event LockDelegateChanged(

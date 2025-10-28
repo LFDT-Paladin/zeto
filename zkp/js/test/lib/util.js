@@ -14,7 +14,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-const { sha3_256, sha3_512 } = require("@noble/hashes/sha3");
+const { sha3_256, sha3_512 } = require("@noble/hashes/sha3.js");
 const testKeyPair = require("../../lib/testKeypair.js");
 
 // copied from node_modules/mlkem/script/src/mlKemBase.js

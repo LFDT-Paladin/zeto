@@ -183,6 +183,13 @@ export function parseUTXOEvents(
         outputs: event?.args.outputs,
         submitter: event?.args.submitter,
       };
+    } else if (event?.name === "UTXOTransferLocked") {
+      e = {
+        lockedInputs: event?.args.lockedInputs,
+        lockedOutputs: event?.args.lockedOutputs,
+        outputs: event?.args.outputs,
+        submitter: event?.args.submitter,
+      };
     } else if (event?.name === "UTXOTransferWithEncryptedValues") {
       e = {
         inputs: event?.args.inputs,
@@ -222,7 +229,7 @@ export function parseUTXOEvents(
         tradeId: event?.args.tradeId,
         trade: event?.args.trade,
       };
-    } else if (event?.name === "UTXOsLocked") {
+    } else if (event?.name === "UTXOLocked") {
       e = {
         outputs: event?.args.outputs,
         lockedOutputs: event?.args.lockedOutputs,

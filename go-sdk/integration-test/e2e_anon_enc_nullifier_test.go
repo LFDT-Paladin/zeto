@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/hyperledger-labs/zeto/go-sdk/integration-test/common"
 	"github.com/hyperledger-labs/zeto/go-sdk/internal/testutils"
 	"github.com/hyperledger-labs/zeto/go-sdk/pkg/crypto"
 	"github.com/iden3/go-rapidsnark/prover"
@@ -28,7 +29,7 @@ import (
 
 func (s *E2ETestSuite) TestZeto_anon_enc_nullifier_SuccessfulProving() {
 	// s.T().Skip()
-	calc, provingKey, err := loadCircuit("anon_enc_nullifier")
+	calc, provingKey, _, err := common.LoadCircuit("anon_enc_nullifier")
 	assert.NoError(s.T(), err)
 	assert.NotNil(s.T(), calc)
 
@@ -36,18 +37,18 @@ func (s *E2ETestSuite) TestZeto_anon_enc_nullifier_SuccessfulProving() {
 	ephemeralKeypair := testutils.NewKeypair()
 
 	witnessInputs := map[string]interface{}{
-		"nullifiers":            s.regularTest.nullifiers,
-		"inputCommitments":      s.regularTest.inputCommitments,
-		"inputValues":           s.regularTest.inputValues,
-		"inputSalts":            s.regularTest.inputSalts,
+		"nullifiers":            s.regularTest.Nullifiers,
+		"inputCommitments":      s.regularTest.InputCommitments,
+		"inputValues":           s.regularTest.InputValues,
+		"inputSalts":            s.regularTest.InputSalts,
 		"inputOwnerPrivateKey":  s.sender.PrivateKeyBigInt,
-		"root":                  s.regularTest.root,
-		"merkleProof":           s.regularTest.merkleProofs,
-		"enabled":               s.regularTest.enabled,
-		"outputCommitments":     s.regularTest.outputCommitments,
-		"outputValues":          s.regularTest.outputValues,
-		"outputSalts":           s.regularTest.outputSalts,
-		"outputOwnerPublicKeys": s.regularTest.outputOwnerPublicKeys,
+		"root":                  s.regularTest.Root,
+		"merkleProof":           s.regularTest.MerkleProofs,
+		"enabled":               s.regularTest.Enabled,
+		"outputCommitments":     s.regularTest.OutputCommitments,
+		"outputValues":          s.regularTest.OutputValues,
+		"outputSalts":           s.regularTest.OutputSalts,
+		"outputOwnerPublicKeys": s.regularTest.OutputOwnerPublicKeys,
 		"encryptionNonce":       encryptionNonce,
 		"ecdhPrivateKey":        ephemeralKeypair.PrivateKey.Scalar().BigInt(),
 	}

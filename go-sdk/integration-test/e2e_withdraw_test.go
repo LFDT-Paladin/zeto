@@ -21,6 +21,7 @@ import (
 	"math/big"
 	"time"
 
+	"github.com/hyperledger-labs/zeto/go-sdk/integration-test/common"
 	"github.com/hyperledger-labs/zeto/go-sdk/pkg/crypto"
 	"github.com/iden3/go-iden3-crypto/poseidon"
 	"github.com/iden3/go-rapidsnark/prover"
@@ -29,20 +30,20 @@ import (
 
 func (s *E2ETestSuite) TestZeto_withdraw_SuccessfulProving() {
 	// s.T().Skip()
-	calc, provingKey, err := loadCircuit("withdraw")
+	calc, provingKey, _, err := common.LoadCircuit("withdraw")
 	assert.NoError(s.T(), err)
 	assert.NotNil(s.T(), calc)
 
-	// withdraw 35 out of 70, returning 35 to the sender
-	outputValues := []*big.Int{big.NewInt(35)}
+	// withdraw 15 out of 30, returning 15 to the sender
+	outputValues := []*big.Int{big.NewInt(15)}
 	salt3 := crypto.NewSalt()
 	output1, _ := poseidon.Hash([]*big.Int{outputValues[0], salt3, s.receiver.PublicKey.X, s.receiver.PublicKey.Y})
 	outputCommitments := []*big.Int{output1}
 
 	witnessInputs := map[string]interface{}{
-		"inputCommitments":      s.regularTest.inputCommitments,
-		"inputValues":           s.regularTest.inputValues,
-		"inputSalts":            s.regularTest.inputSalts,
+		"inputCommitments":      s.regularTest.InputCommitments,
+		"inputValues":           s.regularTest.InputValues,
+		"inputSalts":            s.regularTest.InputSalts,
 		"inputOwnerPrivateKey":  s.sender.PrivateKeyBigInt,
 		"outputCommitments":     outputCommitments,
 		"outputValues":          outputValues,
@@ -68,26 +69,26 @@ func (s *E2ETestSuite) TestZeto_withdraw_SuccessfulProving() {
 
 func (s *E2ETestSuite) TestZeto_withdraw_nullifier_SuccessfulProving() {
 	// s.T().Skip()
-	calc, provingKey, err := loadCircuit("withdraw_nullifier")
+	calc, provingKey, _, err := common.LoadCircuit("withdraw_nullifier")
 	assert.NoError(s.T(), err)
 	assert.NotNil(s.T(), calc)
 
-	// withdraw 38 out of 70, returning 32 to the sender
-	outputValues := []*big.Int{big.NewInt(32)}
+	// withdraw 18 out of 30, returning 12 to the sender
+	outputValues := []*big.Int{big.NewInt(12)}
 
 	salt3 := crypto.NewSalt()
 	output1, _ := poseidon.Hash([]*big.Int{outputValues[0], salt3, s.receiver.PublicKey.X, s.receiver.PublicKey.Y})
 	outputCommitments := []*big.Int{output1}
 
 	witnessInputs := map[string]interface{}{
-		"nullifiers":            s.regularTest.nullifiers,
-		"inputCommitments":      s.regularTest.inputCommitments,
-		"inputValues":           s.regularTest.inputValues,
-		"inputSalts":            s.regularTest.inputSalts,
+		"nullifiers":            s.regularTest.Nullifiers,
+		"inputCommitments":      s.regularTest.InputCommitments,
+		"inputValues":           s.regularTest.InputValues,
+		"inputSalts":            s.regularTest.InputSalts,
 		"inputOwnerPrivateKey":  s.sender.PrivateKeyBigInt,
-		"root":                  s.regularTest.root,
-		"merkleProof":           s.regularTest.merkleProofs,
-		"enabled":               s.regularTest.enabled,
+		"root":                  s.regularTest.Root,
+		"merkleProof":           s.regularTest.MerkleProofs,
+		"enabled":               s.regularTest.Enabled,
 		"outputCommitments":     outputCommitments,
 		"outputValues":          outputValues,
 		"outputSalts":           []*big.Int{salt3},

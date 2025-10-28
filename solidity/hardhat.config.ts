@@ -20,8 +20,8 @@ import "@openzeppelin/hardhat-upgrades";
 import crypto from "crypto";
 
 const keys = [
-  crypto.randomBytes(32).toString("hex"),
-  crypto.randomBytes(32).toString("hex"),
+  process.env.ETH_PRIVATE_KEY_1 || crypto.randomBytes(32).toString("hex"),
+  process.env.ETH_PRIVATE_KEY_2 || crypto.randomBytes(32).toString("hex"),
   crypto.randomBytes(32).toString("hex"),
   crypto.randomBytes(32).toString("hex"),
   crypto.randomBytes(32).toString("hex"),
