@@ -1472,4 +1472,5 @@ function encodeToBytes(root: any, proof: any) {
 
 module.exports = {
   prepareProof,
+  encodeToBytes,
 };
