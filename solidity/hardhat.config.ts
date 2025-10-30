@@ -17,6 +17,7 @@
 import { HardhatUserConfig, vars } from "hardhat/config";
 import "@nomicfoundation/hardhat-toolbox";
 import "@openzeppelin/hardhat-upgrades";
+import "@fhevm/hardhat-plugin";
 import crypto from "crypto";
 
 const keys = [
@@ -44,6 +45,7 @@ const config: HardhatUserConfig = {
         runs: 25,
       },
       viaIR: true,
+      evmVersion: 'cancun',
     },
   },
   paths: {

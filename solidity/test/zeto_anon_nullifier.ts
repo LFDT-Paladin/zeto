@@ -75,6 +75,10 @@ describe("Zeto based fungible token with anonymity using nullifiers without encr
   let smtBob: Merkletree;
 
   before(async function () {
+    // skip the tests if this is called by other test modules to use the exported test functions
+    if (process.env.SKIP_ZETO_TESTS === "true") {
+      this.skip();
+    }
     if (network.name !== "hardhat") {
       // accommodate for longer block times on public networks
       this.timeout(120000);
@@ -108,6 +112,13 @@ describe("Zeto based fungible token with anonymity using nullifiers without encr
     ({ provingKeyFile: batchProvingKey } = loadProvingKeys(
       "anon_nullifier_transfer_batch",
     ));
+  });
+
+  beforeEach(async function () {
+    // skip the tests if this is called by other test modules to use the exported test functions
+    if (process.env.SKIP_ZETO_TESTS === "true") {
+      this.skip();
+    }
   });
 
   it("onchain SMT root should be equal to the offchain SMT root", async function () {
