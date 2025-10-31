@@ -34,7 +34,7 @@ import {
   parseUTXOEvents,
 } from "./lib/utils";
 import { deployZeto } from "./lib/deploy";
-import { loadProvingKeys } from "./utils";
+import { loadProvingKeys, deployAtomIntance, create2Salt, calculateAtomAddress } from "./utils";
 
 describe("DvP flows between fungible and non-fungible tokens based on Zeto with anonymity without encryption or nullifiers", function () {
   // users interacting with each other in the DvP transactions
@@ -45,8 +45,7 @@ describe("DvP flows between fungible and non-fungible tokens based on Zeto with 
   // instances of the contracts
   let zkPayment: any;
   let fheERC20Contract: any;
-  let AtomFactory: any;
-  let Atom: any;
+  let atomInstanceAddress: string;
 
   // payment UTXOs to be minted and transferred
   let payment1: UTXO;
@@ -57,7 +56,9 @@ describe("DvP flows between fungible and non-fungible tokens based on Zeto with 
   let smtAliceForLocked: Merkletree;
 
   let circuit: any;
+  let circuitForLocked: any;
   let provingKey: string;
+  let provingKeyForLocked: string;
 
   before(async function () {
     if (network.name !== "hardhat") {
@@ -81,17 +82,18 @@ describe("DvP flows between fungible and non-fungible tokens based on Zeto with 
     ({ provingKeyFile: provingKey } = loadProvingKeys(
       "anon_nullifier_transfer",
     ));
+    circuitForLocked = await loadCircuit("anon_nullifier_transferLocked");
+    ({ provingKeyFile: provingKeyForLocked } = loadProvingKeys(
+      "anon_nullifier_transferLocked",
+    ));
 
     const factory = await ethers.getContractFactory("FheERC20");
     fheERC20Contract = await factory.connect(Deployer.signer).deploy();
     console.log(`FHE ERC20 contract deployed at ${fheERC20Contract.target}`);
-
-    AtomFactory = await ethers.getContractFactory("AtomFactory");
-    Atom = await ethers.getContractFactory("Atom");
   });
 
   it("mint to Alice some payment tokens", async function () {
-    payment1 = newUTXO(10, Alice);
+    payment1 = newUTXO(100, Alice);
     payment2 = newUTXO(20, Alice);
     const result = await doMint(zkPayment, Deployer.signer, [payment1, payment2]);
     await smtAlice.add(payment1.hash, payment1.hash);
@@ -124,12 +126,27 @@ describe("DvP flows between fungible and non-fungible tokens based on Zeto with 
     ).to.eventually.equal(1000);
   });
 
-  describe("lock -> delegate -> transfer flow", function () {
+  describe("Trade flow between Alice (using Zeto tokens) and Bob (using FHE ERC20 tokens)", function () {
     let lockedUtxo: UTXO;
+    let encodedCallDataAlice: string;
+    let encodedCallDataBob: string;
+    let sequenceNumber: number;
 
-    it("Alice locks a UTXO to Bob and makes the DvP contract as the delegate ", async function () {
+    before(async function () {
+      sequenceNumber = 0;
+    });
+
+    it("Alice and Bob agrees on an Atom contract address", async function () {
+      atomInstanceAddress = await calculateAtomAddress(sequenceNumber);
+      console.log("Calculated Atom contract address", atomInstanceAddress);
+    });
+
+    it("Alice locks a UTXO to initiate a trade with Bob", async function () {
+      // Alice consumes a Zeto token and locks it
       const nullifier1 = newNullifier(payment1, Alice);
-      lockedUtxo = newUTXO(payment1.value!, Bob);
+      // The locked UTXO is owned by Alice, who is responsible for generating the proof
+      // and giving it to the Atom contract as the delegate.
+      lockedUtxo = newUTXO(payment1.value!, Alice);
       const root = await smtAlice.root();
       const proof1 = await smtAlice.generateCircomVerifierProof(
         payment1.hash,
@@ -149,7 +166,7 @@ describe("DvP flows between fungible and non-fungible tokens based on Zeto with 
         [lockedUtxo, ZERO_UTXO],
         root.bigInt(),
         merkleProofs,
-        [Bob, Bob],
+        [Alice, Alice],
       );
 
       const tx = await zkPayment.connect(Alice.signer).lock(
@@ -157,7 +174,7 @@ describe("DvP flows between fungible and non-fungible tokens based on Zeto with 
         [],
         [lockedUtxo.hash],
         encodeToBytes(root.bigInt(), encodedProof), // encode the root and proof together
-        Alice.ethAddress, // make Alice the temporary delegate, this will be later delegated to the Atom contract
+        atomInstanceAddress,
         "0x",
       );
       const result: ContractTransactionReceipt | null = await tx.wait();
@@ -171,34 +188,16 @@ describe("DvP flows between fungible and non-fungible tokens based on Zeto with 
       );
     });
 
-    it("Alice delegates the lock to Charlie", async function () {
-      const tx = await zeto
-        .connect(Alice.signer)
-        .delegateLock([lockedUtxo2.hash], Charlie.ethAddress, "0x");
-      const result = await tx.wait();
-      const events = parseUTXOEvents(zeto, result);
-      // this should update the existing leaf node value from address of Alice to Charlie
-      await smtBobForLocked.update(
-        events[0].lockedOutputs[0],
-        ethers.toBigInt(events[0].newDelegate),
-      );
-    });
-
-    it("onchain SMT root for the locked UTXOs should be equal to the offchain SMT root", async function () {
-      const root = await smtBobForLocked.root();
-      const onchainRoot = await zeto.getRootForLocked();
-      expect(root.string()).to.equal(onchainRoot.toString());
-    });
-
-    it("an invalid delegate can NOT use the proper proof to spend the locked state", async function () {
-      // Bob generates inclusion proofs for the UTXOs to be spent, as private input to the proof generation
-      const nullifier1 = newNullifier(lockedUtxo2, Bob);
-      const root = await smtBobForLocked.root();
-      const proof1 = await smtBobForLocked.generateCircomVerifierProof(
-        lockedUtxo2.hash,
+    it("Alice prepares a proof to spend the locked state, designating the Atom contract as the delegate", async function () {
+      // Alice generates a nullifier for the locked UTXO
+      const nullifier1 = newNullifier(lockedUtxo, Alice);
+      // Alice generates inclusion proofs for the UTXOs to be spent, as private input to the proof generation
+      const root = await smtAliceForLocked.root();
+      const proof1 = await smtAliceForLocked.generateCircomVerifierProof(
+        lockedUtxo.hash,
         root,
       );
-      const proof2 = await smtBobForLocked.generateCircomVerifierProof(
+      const proof2 = await smtAliceForLocked.generateCircomVerifierProof(
         0n,
         root,
       );
@@ -206,90 +205,79 @@ describe("DvP flows between fungible and non-fungible tokens based on Zeto with 
         proof1.siblings.map((s) => s.bigInt()),
         proof2.siblings.map((s) => s.bigInt()),
       ];
-      // Bob proposes the output UTXOs, attempting to transfer the locked UTXO to Alice
-      const utxo1 = newUTXO(1, Alice);
-      utxo11 = newUTXO(4, Bob);
-
+      // Alice prepares an output UTXO for Bob as the output of the trade
+      const paymentForBob = newUTXO(75, Bob);
+      const changeForAlice = newUTXO(25, Alice);
       const encodedProof = await prepareProof(
         circuitForLocked,
         provingKeyForLocked,
-        Bob,
-        [lockedUtxo2, ZERO_UTXO],
+        Alice,
+        [lockedUtxo, ZERO_UTXO],
         [nullifier1, ZERO_UTXO],
-        [utxo1, utxo11],
+        [paymentForBob, changeForAlice],
         root.bigInt(),
         merkleProofs,
-        [Alice, Bob],
-        Charlie.ethAddress, // current lock delegate
+        [Bob, Alice],
+        atomInstanceAddress, // the Atom contract will be the delegate
       );
       const nullifiers = [nullifier1.hash];
-
-      // Charlie NOT being the delegate can NOT spend the locked state
-      // using the proof generated by the trade counterparty (Bob in this case)
-      await expect(
-        sendTx(
-          Eva,
-          nullifiers,
-          [utxo1.hash, utxo11.hash],
-          root.bigInt(),
-          encodedProof,
-          true,
-        ),
-      ).to.be.rejectedWith("Invalid proof");
+      const outputCommitments = [paymentForBob.hash, changeForAlice.hash];
+      encodedCallDataAlice = zkPayment.interface.encodeFunctionData("transferLocked", [nullifiers, [], outputCommitments, encodeToBytes(root.bigInt(), encodedProof), "0x"]);
     });
 
-    it("Charlie can use the proper proof to spend the locked state", async function () {
-      // Bob generates inclusion proofs for the UTXOs to be spent, as private input to the proof generation
-      const nullifier1 = newNullifier(lockedUtxo2, Bob);
-      const root = await smtBobForLocked.root();
-      const proof1 = await smtBobForLocked.generateCircomVerifierProof(
-        lockedUtxo2.hash,
-        root,
-      );
-      const proof2 = await smtBobForLocked.generateCircomVerifierProof(
-        0n,
-        root,
-      );
-      const merkleProofs = [
-        proof1.siblings.map((s) => s.bigInt()),
-        proof2.siblings.map((s) => s.bigInt()),
-      ];
-      // Bob proposes the output UTXOs, attempting to transfer the locked UTXO to Alice
-      const utxo1 = newUTXO(1, Alice);
-      utxo11 = newUTXO(4, Bob);
+    it("Bob makes the Atom contract the operator on the Confidential ERC20 contract", async function () {
+      const expirationTimestamp = Math.round(Date.now()) + 60 * 60 * 24; // Now + 24 hours
+      const tx = await fheERC20Contract.connect(Bob.signer).setOperator(atomInstanceAddress, expirationTimestamp);
+      await tx.wait();
 
-      const encodedProof = await prepareProof(
-        circuitForLocked,
-        provingKeyForLocked,
-        Bob,
-        [lockedUtxo2, ZERO_UTXO],
-        [nullifier1, ZERO_UTXO],
-        [utxo1, utxo11],
-        root.bigInt(),
-        merkleProofs,
-        [Alice, Bob],
-        Charlie.ethAddress, // current lock delegate
-      );
-      const nullifiers = [nullifier1.hash];
+      // Bob trades 50 of his FHE ERC20 tokens to Alice
+      const encryptedInput = await fhevm
+        .createEncryptedInput(fheERC20Contract.target, atomInstanceAddress)
+        .add64(50)
+        .encrypt();
 
-      // Charlie (in reality this is usually a contract that orchestrates a trade flow) can spend the locked state
-      // using the proof generated by the trade counterparty (Bob in this case)
+      encodedCallDataBob = fheERC20Contract.interface.encodeFunctionData(
+        "confidentialTransferFrom(address,address,bytes32,bytes)",
+        [Bob.ethAddress, Alice.ethAddress, encryptedInput.handles[0], encryptedInput.inputProof]
+      );
+    });
+
+    it("Alice and Bob each produce the encoded call data and initialize the Atom contract", async function () {
+      const operations = [
+        {
+          contractAddress: zkPayment.target,
+          callData: encodedCallDataAlice,
+        },
+        {
+          contractAddress: fheERC20Contract.target,
+          callData: encodedCallDataBob,
+        }
+      ]
+      const deployedAtomAddress = await deployAtomIntance(sequenceNumber, operations);
+      expect(deployedAtomAddress).to.equal(atomInstanceAddress);
+    });
+
+    it("One of Alice or Bob executes the Atom contract to complete the trade", async function () {
+      const atomInstance = await ethers.getContractAt("Atom", atomInstanceAddress);
+      if (Math.random() < 0.5) {
+        const tx = await atomInstance.connect(Alice.signer).execute();
+        await tx.wait();
+      } else {
+        const tx = await atomInstance.connect(Bob.signer).execute();
+        await tx.wait();
+      }
+
+      // check the balance of Alice
+      const balanceAlice = await fheERC20Contract.confidentialBalanceOf(Alice.signer);
       await expect(
-        sendTx(
-          Charlie,
-          nullifiers,
-          [utxo1.hash, utxo11.hash],
-          root.bigInt(),
-          encodedProof,
-          true,
-        ),
-      ).to.be.fulfilled;
+        fhevm.userDecryptEuint(FhevmType.euint64, balanceAlice, fheERC20Contract.target, Alice.signer),
+      ).to.eventually.equal(50);
 
-      // Alice and Bob keep the local SMT in sync
-      await smtAlice.add(utxo1.hash, utxo1.hash);
-      await smtAlice.add(utxo11.hash, utxo11.hash);
-      await smtBob.add(utxo1.hash, utxo1.hash);
-      await smtBob.add(utxo11.hash, utxo11.hash);
+      // check the balance of Bob
+      const balanceBob = await fheERC20Contract.confidentialBalanceOf(Bob.signer);
+      await expect(
+        fhevm.userDecryptEuint(FhevmType.euint64, balanceBob, fheERC20Contract.target, Bob.signer),
+      ).to.eventually.equal(950);
     });
   });
 }).timeout(600000);
