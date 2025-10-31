@@ -231,19 +231,22 @@ describe("DvP flows between FHE based ERC20 tokens and Zeto based fungible token
     });
 
     it("Bob makes the Atom contract the operator on the Confidential ERC20 contract", async function () {
-      const expirationTimestamp = Math.round(Date.now()) + 60 * 60 * 24; // Now + 24 hours
-      const tx = await fheERC20.connect(Bob.signer).setOperator(atomInstanceAddress, expirationTimestamp);
-      await tx.wait();
-
       // Bob trades 50 of his FHE ERC20 tokens to Alice
       const encryptedInput = await fhevm
-        .createEncryptedInput(fheERC20.target, atomInstanceAddress)
+        .createEncryptedInput(fheERC20.target, Bob.ethAddress)
         .add64(50)
         .encrypt();
 
+      const tx1 = await fheERC20.connect(Bob.signer)["confidentialTransfer(address,bytes32,bytes)"](atomInstanceAddress, encryptedInput.handles[0], encryptedInput.inputProof);
+      await tx1.wait();
+
+      const encryptedInput2 = await fhevm
+        .createEncryptedInput(fheERC20.target, atomInstanceAddress)
+        .add64(50)
+        .encrypt();
       encodedCallDataBob = fheERC20.interface.encodeFunctionData(
         "confidentialTransferFrom(address,address,bytes32,bytes)",
-        [Bob.ethAddress, Alice.ethAddress, encryptedInput.handles[0], encryptedInput.inputProof]
+        [atomInstanceAddress, Alice.ethAddress, encryptedInput2.handles[0], encryptedInput2.inputProof]
       );
     });
 
