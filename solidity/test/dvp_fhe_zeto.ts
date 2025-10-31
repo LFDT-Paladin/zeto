@@ -16,7 +16,7 @@
 
 import { ethers, fhevm, network } from "hardhat";
 import { FhevmType } from '@fhevm/hardhat-plugin';
-import { Signer, encodeBytes32String, ZeroHash, ContractTransactionReceipt } from "ethers";
+import { ContractTransactionReceipt } from "ethers";
 import { expect } from "chai";
 import { Merkletree, InMemoryDB, str2Bytes } from "@iden3/js-merkletree";
 import { loadCircuit } from "zeto-js";
@@ -34,20 +34,20 @@ import {
   parseUTXOEvents,
 } from "./lib/utils";
 import { deployZeto } from "./lib/deploy";
-import { loadProvingKeys, deployAtomIntance, create2Salt, calculateAtomAddress } from "./utils";
+import { loadProvingKeys, deployAtomIntance, calculateAtomAddress } from "./utils";
 
-describe("DvP flows between fungible and non-fungible tokens based on Zeto with anonymity without encryption or nullifiers", function () {
+describe("DvP flows between FHE based ERC20 tokens and Zeto based fungible tokens", function () {
   // users interacting with each other in the DvP transactions
-  let Deployer: User;
-  let Alice: User;
-  let Bob: User;
+  let Deployer: User; // the minter of the FHE ERC20 tokens and Zeto tokens
+  let Alice: User; // the user who holds the Zeto tokens
+  let Bob: User; // the user who holds the FHE ERC20 tokens
 
   // instances of the contracts
   let zkPayment: any;
-  let fheERC20Contract: any;
-  let atomInstanceAddress: string;
+  let fheERC20: any;
+  let atomInstanceAddress: string; // the contract for the atomic settlement
 
-  // payment UTXOs to be minted and transferred
+  // Alice's payment UTXOs to be minted and transferred
   let payment1: UTXO;
   let payment2: UTXO;
 
@@ -76,8 +76,11 @@ describe("DvP flows between fungible and non-fungible tokens based on Zeto with 
     const storage2 = new InMemoryDB(str2Bytes(""));
     smtAliceForLocked = new Merkletree(storage2, true, 64);
 
+    // deploy the Zeto contract for the Zeto tokens
     ({ zeto: zkPayment } = await deployZeto("Zeto_AnonNullifier"));
     console.log(`ZK Payment contract deployed at ${zkPayment.target}`);
+
+    // load the circuits for the Zeto tokens
     circuit = await loadCircuit("anon_nullifier_transfer");
     ({ provingKeyFile: provingKey } = loadProvingKeys(
       "anon_nullifier_transfer",
@@ -87,22 +90,24 @@ describe("DvP flows between fungible and non-fungible tokens based on Zeto with 
       "anon_nullifier_transferLocked",
     ));
 
+    // deploy the FHE ERC20 contract for the FHE ERC20 tokens
     const factory = await ethers.getContractFactory("FheERC20");
-    fheERC20Contract = await factory.connect(Deployer.signer).deploy();
-    console.log(`FHE ERC20 contract deployed at ${fheERC20Contract.target}`);
+    fheERC20 = await factory.connect(Deployer.signer).deploy();
+    console.log(`FHE ERC20 contract deployed at ${fheERC20.target}`);
   });
 
-  it("mint to Alice some payment tokens", async function () {
+  it("mint to Alice some payment tokens in Zeto", async function () {
     payment1 = newUTXO(100, Alice);
     payment2 = newUTXO(20, Alice);
     const result = await doMint(zkPayment, Deployer.signer, [payment1, payment2]);
-    await smtAlice.add(payment1.hash, payment1.hash);
-    await smtAlice.add(payment2.hash, payment2.hash);
 
-    // simulate Alice and Bob listening to minting events and updating his local merkle tree
+    // simulate Alice listening to minting events and updating her local merkle tree
     for (const log of result.logs) {
       const event = zkPayment.interface.parseLog(log as any);
       expect(event.args.outputs.length).to.equal(2);
+      const utxos = event.args.outputs;
+      await smtAlice.add(utxos[0], utxos[0]);
+      await smtAlice.add(utxos[1], utxos[1]);
     }
 
     let root = await smtAlice.root();
@@ -112,17 +117,17 @@ describe("DvP flows between fungible and non-fungible tokens based on Zeto with 
 
   it("mint to Bob some FHE ERC20 tokens", async function () {
     const encryptedInput = await fhevm
-      .createEncryptedInput(fheERC20Contract.target, Deployer.ethAddress)
+      .createEncryptedInput(fheERC20.target, Deployer.ethAddress)
       .add64(1000)
       .encrypt();
 
-    const tx = await fheERC20Contract.connect(Deployer.signer).mint(Bob.ethAddress, encryptedInput.handles[0], encryptedInput.inputProof);
+    const tx = await fheERC20.connect(Deployer.signer).mint(Bob.ethAddress, encryptedInput.handles[0], encryptedInput.inputProof);
     await tx.wait();
 
-    // check the balance of Alice
-    const balance = await fheERC20Contract.confidentialBalanceOf(Bob.signer);
+    // check the balance of Bob in the FHE ERC20 contract
+    const balance = await fheERC20.confidentialBalanceOf(Bob.signer);
     await expect(
-      fhevm.userDecryptEuint(FhevmType.euint64, balance, fheERC20Contract.target, Bob.signer),
+      fhevm.userDecryptEuint(FhevmType.euint64, balance, fheERC20.target, Bob.signer),
     ).to.eventually.equal(1000);
   });
 
@@ -227,16 +232,16 @@ describe("DvP flows between fungible and non-fungible tokens based on Zeto with 
 
     it("Bob makes the Atom contract the operator on the Confidential ERC20 contract", async function () {
       const expirationTimestamp = Math.round(Date.now()) + 60 * 60 * 24; // Now + 24 hours
-      const tx = await fheERC20Contract.connect(Bob.signer).setOperator(atomInstanceAddress, expirationTimestamp);
+      const tx = await fheERC20.connect(Bob.signer).setOperator(atomInstanceAddress, expirationTimestamp);
       await tx.wait();
 
       // Bob trades 50 of his FHE ERC20 tokens to Alice
       const encryptedInput = await fhevm
-        .createEncryptedInput(fheERC20Contract.target, atomInstanceAddress)
+        .createEncryptedInput(fheERC20.target, atomInstanceAddress)
         .add64(50)
         .encrypt();
 
-      encodedCallDataBob = fheERC20Contract.interface.encodeFunctionData(
+      encodedCallDataBob = fheERC20.interface.encodeFunctionData(
         "confidentialTransferFrom(address,address,bytes32,bytes)",
         [Bob.ethAddress, Alice.ethAddress, encryptedInput.handles[0], encryptedInput.inputProof]
       );
@@ -249,7 +254,7 @@ describe("DvP flows between fungible and non-fungible tokens based on Zeto with 
           callData: encodedCallDataAlice,
         },
         {
-          contractAddress: fheERC20Contract.target,
+          contractAddress: fheERC20.target,
           callData: encodedCallDataBob,
         }
       ]
@@ -268,15 +273,15 @@ describe("DvP flows between fungible and non-fungible tokens based on Zeto with 
       }
 
       // check the balance of Alice
-      const balanceAlice = await fheERC20Contract.confidentialBalanceOf(Alice.signer);
+      const balanceAlice = await fheERC20.confidentialBalanceOf(Alice.signer);
       await expect(
-        fhevm.userDecryptEuint(FhevmType.euint64, balanceAlice, fheERC20Contract.target, Alice.signer),
+        fhevm.userDecryptEuint(FhevmType.euint64, balanceAlice, fheERC20.target, Alice.signer),
       ).to.eventually.equal(50);
 
       // check the balance of Bob
-      const balanceBob = await fheERC20Contract.confidentialBalanceOf(Bob.signer);
+      const balanceBob = await fheERC20.confidentialBalanceOf(Bob.signer);
       await expect(
-        fhevm.userDecryptEuint(FhevmType.euint64, balanceBob, fheERC20Contract.target, Bob.signer),
+        fhevm.userDecryptEuint(FhevmType.euint64, balanceBob, fheERC20.target, Bob.signer),
       ).to.eventually.equal(950);
     });
   });
