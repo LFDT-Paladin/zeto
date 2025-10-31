@@ -16,7 +16,7 @@
 
 import { ethers, fhevm, network } from "hardhat";
 import { FhevmType } from '@fhevm/hardhat-plugin';
-import { ContractTransactionReceipt } from "ethers";
+import { ContractTransactionReceipt, ZeroHash } from "ethers";
 import { expect } from "chai";
 import { Merkletree, InMemoryDB, str2Bytes } from "@iden3/js-merkletree";
 import { loadCircuit } from "zeto-js";
@@ -232,6 +232,7 @@ describe("DvP flows between FHE based ERC20 tokens and Zeto based fungible token
 
     it("Bob makes the Atom contract the operator on the Confidential ERC20 contract", async function () {
       // Bob trades 50 of his FHE ERC20 tokens to Alice
+      // Bob first transfers 50 of his FHE ERC20 tokens to the Atom contract
       const encryptedInput = await fhevm
         .createEncryptedInput(fheERC20.target, Bob.ethAddress)
         .add64(50)
@@ -240,13 +241,14 @@ describe("DvP flows between FHE based ERC20 tokens and Zeto based fungible token
       const tx1 = await fheERC20.connect(Bob.signer)["confidentialTransfer(address,bytes32,bytes)"](atomInstanceAddress, encryptedInput.handles[0], encryptedInput.inputProof);
       await tx1.wait();
 
+      // Bob then encodes the call to transfer from the Atom contract to Alice
       const encryptedInput2 = await fhevm
         .createEncryptedInput(fheERC20.target, atomInstanceAddress)
         .add64(50)
         .encrypt();
       encodedCallDataBob = fheERC20.interface.encodeFunctionData(
-        "confidentialTransferFrom(address,address,bytes32,bytes)",
-        [atomInstanceAddress, Alice.ethAddress, encryptedInput2.handles[0], encryptedInput2.inputProof]
+        "confidentialTransfer(address,bytes32,bytes)",
+        [Alice.ethAddress, encryptedInput2.handles[0], encryptedInput2.inputProof]
       );
     });
 
@@ -266,6 +268,16 @@ describe("DvP flows between FHE based ERC20 tokens and Zeto based fungible token
     });
 
     it("One of Alice or Bob executes the Atom contract to complete the trade", async function () {
+      // check the balance of Alice
+      const balanceAliceBefore = await fheERC20.confidentialBalanceOf(Alice.signer);
+      expect(balanceAliceBefore).to.equal(ZeroHash);
+
+      // check the balance of Bob
+      const balanceBobBefore = await fheERC20.confidentialBalanceOf(Bob.signer);
+      await expect(
+        fhevm.userDecryptEuint(FhevmType.euint64, balanceBobBefore, fheERC20.target, Bob.signer),
+      ).to.eventually.equal(950);
+
       const atomInstance = await ethers.getContractAt("Atom", atomInstanceAddress);
       if (Math.random() < 0.5) {
         const tx = await atomInstance.connect(Alice.signer).execute();
@@ -276,15 +288,15 @@ describe("DvP flows between FHE based ERC20 tokens and Zeto based fungible token
       }
 
       // check the balance of Alice
-      const balanceAlice = await fheERC20.confidentialBalanceOf(Alice.signer);
+      const balanceAliceAfter = await fheERC20.confidentialBalanceOf(Alice.signer);
       await expect(
-        fhevm.userDecryptEuint(FhevmType.euint64, balanceAlice, fheERC20.target, Alice.signer),
+        fhevm.userDecryptEuint(FhevmType.euint64, balanceAliceAfter, fheERC20.target, Alice.signer),
       ).to.eventually.equal(50);
 
       // check the balance of Bob
-      const balanceBob = await fheERC20.confidentialBalanceOf(Bob.signer);
+      const balanceBobAfter = await fheERC20.confidentialBalanceOf(Bob.signer);
       await expect(
-        fhevm.userDecryptEuint(FhevmType.euint64, balanceBob, fheERC20.target, Bob.signer),
+        fhevm.userDecryptEuint(FhevmType.euint64, balanceBobAfter, fheERC20.target, Bob.signer),
       ).to.eventually.equal(950);
     });
   });
