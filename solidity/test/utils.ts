@@ -22,6 +22,7 @@ import { groth16 } from "snarkjs";
 import { loadCircuit, encodeProof, tokenUriHash } from "zeto-js";
 import { User, UTXO, ZERO_UTXO } from "./lib/utils";
 import { formatPrivKeyForBabyJub, stringifyBigInts } from "maci-crypto";
+import { ethers, artifacts, Artifact } from "hardhat";
 
 function provingKeysRoot() {
   const PROVING_KEYS_ROOT = process.env.PROVING_KEYS_ROOT;
@@ -423,4 +424,48 @@ export function encodeToBytesForWithdraw(root: any, proof: any) {
     ["uint256 root", "tuple(uint256[2] pA, uint256[2][2] pB, uint256[2] pC)"],
     [root, proof],
   );
+}
+
+export function create2Salt(sequenceNumber: number) {
+  return ethers.keccak256(ethers.toUtf8Bytes(`paladin-contracts-salt-v0-${sequenceNumber}`));
+}
+
+let _atomFactory: any;
+let AtomArtifact: Artifact;
+
+async function getAtomFactory() {
+  if (!_atomFactory) {
+    const AtomFactory = await ethers.getContractFactory("AtomFactory");
+    _atomFactory = await AtomFactory.deploy();
+    await _atomFactory.waitForDeployment();
+  }
+  return _atomFactory;
+}
+
+async function loadAtomArtifact() {
+  if (!AtomArtifact) {
+    AtomArtifact = await artifacts.readArtifact("Atom");
+  }
+  return AtomArtifact;
+}
+
+export async function calculateAtomAddress(sequenceNumber: number) {
+  const atomFactory = await getAtomFactory();
+  const AtomArtifact = await loadAtomArtifact();
+  return ethers.getCreate2Address(atomFactory.target, create2Salt(sequenceNumber), ethers.keccak256(AtomArtifact.bytecode));
+}
+
+export async function deployAtomIntance(sequenceNumber: number, operations: any[]): Promise<string> {
+  const atomFactory = await getAtomFactory();
+  const AtomArtifact = await loadAtomArtifact();
+
+  const contractDeploy = await atomFactory.deployAtom(AtomArtifact.bytecode, create2Salt(sequenceNumber), operations);
+  const txReceipt = await contractDeploy.wait();
+  for (const log of txReceipt.logs) {
+    if (log.fragment && log.fragment.name === "Deploy") {
+      const parsed = atomFactory.interface.parseLog(log);
+      return parsed.args[0];
+    }
+  }
+  throw new Error("Deploy log not found");
 }
