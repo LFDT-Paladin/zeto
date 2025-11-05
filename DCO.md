@@ -15,4 +15,4 @@ If you use GitHub web UI for commits, also ensure you have your email address se
 
 You can also set up a git global alias.
 
-If you have any questions, you can reach us on Paladin chat; first, [join the Discord server](https://discord.com/invite/hyperledger) then [join the Zeto channel](https://discord.com/channels/905194001349627914/1259800071185367040).
+If you have any questions, you can reach us on Zeto chat; first, [join the Discord server](https://discord.com/invite/hyperledger) then [join the Zeto channel](https://discord.com/channels/905194001349627914/1259800071185367040).
