@@ -166,9 +166,6 @@ abstract contract ZetoFungible is ZetoCommon {
         bool isBatch = (paddedInputs.length > 2 ||
             states.outputs.length > 2 ||
             states.lockedOutputs.length > 2);
-        for (uint256 i = 0; i < publicInputs.length; i++) {
-            console.log("publicInputs[%s]", i, publicInputs[i]);
-        }
         verifyProof(proofStruct, publicInputs, isBatch, false);
 
         processInputsAndOutputs(paddedInputs, states.outputs, false);
