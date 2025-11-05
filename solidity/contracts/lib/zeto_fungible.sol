@@ -38,6 +38,27 @@ abstract contract ZetoFungible is ZetoCommon {
 
     IERC20 internal _erc20;
 
+    // mapping from lockId to LockData
+    mapping(bytes32 => LockData) internal _lockData;
+
+    modifier onlyDelegate(bytes32 lockId) {
+        uint256[] memory utxos = _lockData[lockId].inputs;
+        _checkDelegate(utxos);
+        _;
+    }
+
+    function _checkDelegate(uint256[] memory utxos) internal view {
+        for (uint256 i = 0; i < utxos.length; i++) {
+            (bool isLocked, address currentDelegate) = locked(utxos[i]);
+            if (!isLocked) {
+                revert NotLocked(utxos[i]);
+            }
+            if (currentDelegate != msg.sender) {
+                revert NotLockDelegate(utxos[i], currentDelegate, msg.sender);
+            }
+        }
+    }
+
     function __ZetoFungible_init(
         string calldata name_,
         string calldata symbol_,
@@ -104,53 +125,16 @@ abstract contract ZetoFungible is ZetoCommon {
         emitTransferEvent(inputs, outputs, proof, data);
     }
 
-    /**
-     * @dev transfer funds that have been previously locked by the sender. The submitted must
-     * be the current delegate of the locked UTXOs.
-     *
-     * @param lockedInputs Array of UTXOs to be spent by the transaction, they must be locked.
-     * @param outputs Array of new UTXOs to generate, for future transactions to spend. They are unlocked.
-     * @param proof A zero knowledge proof that the submitter is authorized to spend the inputs, and
-     *      that the outputs are valid in terms of obeying mass conservation rules.
-     *
-     * Emits a {UTXOTransfer} event.
-     */
-    function transferLocked(
-        uint256[] calldata lockedInputs,
-        uint256[] calldata lockedOutputs,
-        uint256[] calldata outputs,
-        bytes calldata proof,
-        bytes calldata data
-    ) public virtual {
-        _transferLocked(lockedInputs, lockedOutputs, outputs, proof, data);
-    }
-
-    /**
-     * @dev lock funds that have been previously unlocked by the sender. The submitted must
-     * be the current delegate of the locked UTXOs.
-     *
-     * @param inputs Array of UTXOs to be spent by the transaction, they must be unlocked.
-     * @param outputs Array of new UTXOs to generate, for future transactions to spend. They are locked.
-     * @param lockedOutputs Array of UTXOs to be locked by the transaction.
-     * @param proof A zero knowledge proof that the submitter is authorized to spend the inputs, and
-     *      that the outputs are valid in terms of obeying mass conservation rules.
-     * @param delegate The delegate of the locked UTXOs.
-     * @param data Additional data to be passed to the lock function.
-     *
-     * Emits a {UTXOLocked} event.
-     */
-    function lock(
-        uint256[] calldata inputs,
-        uint256[] calldata outputs,
-        uint256[] calldata lockedOutputs,
-        bytes calldata proof,
+    function prepareLock(
+        LockParameters calldata states,
         address delegate,
+        bytes calldata proof,
         bytes calldata data
     ) public {
         validateTransactionProposal(
-            inputs,
-            outputs,
-            lockedOutputs,
+            states.inputs,
+            states.outputs,
+            states.lockedOutputs,
             proof,
             false
         );
@@ -158,19 +142,19 @@ abstract contract ZetoFungible is ZetoCommon {
         // combine the locked outputs and the outputs, because the circuits
         // do not care about the difference between locked and unlocked outputs
         uint256[] memory allOutputs = new uint256[](
-            lockedOutputs.length + outputs.length
+            states.lockedOutputs.length + states.outputs.length
         );
-        for (uint256 i = 0; i < lockedOutputs.length; i++) {
-            allOutputs[i] = lockedOutputs[i];
+        for (uint256 i = 0; i < states.lockedOutputs.length; i++) {
+            allOutputs[i] = states.lockedOutputs[i];
         }
-        for (uint256 i = 0; i < outputs.length; i++) {
-            allOutputs[lockedOutputs.length + i] = outputs[i];
+        for (uint256 i = 0; i < states.outputs.length; i++) {
+            allOutputs[states.lockedOutputs.length + i] = states.outputs[i];
         }
         // Check and pad inputs and outputs based on the max size
         (
             uint256[] memory paddedInputs,
             uint256[] memory paddedOutputs
-        ) = checkAndPadCommitments(inputs, allOutputs);
+        ) = checkAndPadCommitments(states.inputs, allOutputs);
 
         // construct the public inputs for the proof verification
         (
@@ -179,71 +163,102 @@ abstract contract ZetoFungible is ZetoCommon {
         ) = constructPublicInputs(paddedInputs, paddedOutputs, proof, false);
 
         bool isBatch = (paddedInputs.length > 2 ||
-            outputs.length > 2 ||
-            lockedOutputs.length > 2);
+            states.outputs.length > 2 ||
+            states.lockedOutputs.length > 2);
         verifyProof(proofStruct, publicInputs, isBatch, false);
 
-        processInputsAndOutputs(paddedInputs, outputs, false);
-        processLockedOutputs(lockedOutputs, delegate);
+        processInputsAndOutputs(paddedInputs, states.outputs, false);
+        processLockedOutputs(states.lockedOutputs, delegate);
 
-        emit UTXOLocked(
-            inputs,
-            lockedOutputs,
-            outputs,
+        emit LockPrepare(msg.sender, states, delegate, data);
+    }
+
+    function commitLock(
+        bytes32 lockId,
+        uint256[] calldata inputs,
+        address delegate,
+        LockOperationData calldata execute,
+        LockOperationData calldata rollback,
+        bytes calldata data
+    ) public {
+        _checkDelegate(inputs);
+        _lockData[lockId] = LockData({
+            inputs: inputs,
+            delegate: delegate,
+            execute: execute,
+            rollback: rollback
+        });
+        emit LockCommit(lockId, msg.sender, _lockData[lockId], data);
+    }
+
+    function executeLock(
+        bytes32 lockId,
+        bytes calldata proof,
+        bytes calldata data
+    ) public virtual {
+        LockData memory lockData = _lockData[lockId];
+        bytes memory proofToUse = proof;
+        if (proof.length == 0) {
+            proofToUse = lockData.execute.proof;
+        }
+        _transferLocked(
+            lockData.inputs,
+            lockData.execute.outputStates.lockedOutputs,
+            lockData.execute.outputStates.outputs,
+            proofToUse,
+            data
+        );
+    }
+
+    function rollbackLock(
+        bytes32 lockId,
+        bytes calldata proof,
+        bytes calldata data
+    ) public {
+        LockData memory lockData = _lockData[lockId];
+        bytes memory proofToUse = proof;
+        if (proof.length == 0) {
+            proofToUse = lockData.rollback.proof;
+        }
+        _transferLocked(
+            lockData.inputs,
+            lockData.rollback.outputStates.lockedOutputs,
+            lockData.rollback.outputStates.outputs,
+            proofToUse,
+            data
+        );
+    }
+
+    function delegateLock(
+        bytes32 lockId,
+        address delegate,
+        bytes calldata data
+    ) public {
+        _checkDelegate(_lockData[lockId].inputs);
+        _storage.delegateLock(_lockData[lockId].inputs, delegate, data);
+        emit LockDelegation(
+            lockId,
             msg.sender,
+            _lockData[lockId].delegate,
             delegate,
             data
         );
     }
 
-    /**
-     * @dev unlock funds that have been previously locked by the sender. The submitted must
-     * be the current delegate of the locked UTXOs.
-     *
-     * @param nullifiers Array of nullifiers that are secretly bound to UTXOs to be spent by the transaction.
-     * @param outputs Array of new UTXOs to generate, for future transactions to spend. They are unlocked.
-     * @param proof A zero knowledge proof that the submitter is authorized to spend the inputs, and
-     *      that the outputs are valid in terms of obeying mass conservation rules.
-     * @param data Additional data to be passed to the unlock function.
-     *
-     * Emits a {UTXOTransfer} event.
-     */
-    function unlock(
-        uint256[] calldata nullifiers,
-        uint256[] calldata outputs,
-        bytes calldata proof,
+    function updateLock(
+        bytes32 lockId,
+        address newDelegate,
+        LockOperationData calldata execute,
+        LockOperationData calldata rollback,
         bytes calldata data
     ) public {
-        uint256[] memory lockedOutputs;
-        _transferLocked(nullifiers, lockedOutputs, outputs, proof, data);
-    }
-
-    /**
-     * @dev move the ability to spend the locked UTXOs to the delegate account.
-     *      The sender must be the current delegate.
-     *
-     * @param utxos The locked UTXO to update the delegate of.
-     * @param delegate The new delegate.
-     * @param data Additional data to be passed to the delegateLock function.
-     *
-     * Emits a {LockDelegateChanged} event.
-     */
-    function delegateLock(
-        uint256[] calldata utxos,
-        address delegate,
-        bytes calldata data
-    ) public {
-        for (uint256 i = 0; i < utxos.length; i++) {
-            (bool isLocked, address currentDelegate) = locked(utxos[i]);
-            if (!isLocked) {
-                revert UTXONotLocked(utxos[i]);
-            }
-            if (currentDelegate != msg.sender) {
-                revert NotLockDelegate(utxos[i], currentDelegate, msg.sender);
-            }
+        _checkDelegate(_lockData[lockId].inputs);
+        if (newDelegate != address(0)) {
+            _storage.delegateLock(_lockData[lockId].inputs, newDelegate, data);
         }
-        _storage.delegateLock(utxos, delegate, data);
-        emit LockDelegateChanged(utxos, msg.sender, delegate, data);
+        _lockData[lockId].execute = execute;
+        _lockData[lockId].rollback = rollback;
+        emit LockUpdate(lockId, msg.sender, _lockData[lockId], data);
     }
 
     /**

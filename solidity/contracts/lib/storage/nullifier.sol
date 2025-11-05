@@ -22,30 +22,33 @@ import {Commonlib} from "../common/common.sol";
 import {Util} from "../common/util.sol";
 import {SmtLib} from "@iden3/contracts/lib/SmtLib.sol";
 import {PoseidonUnit3L} from "@iden3/contracts/lib/Poseidon.sol";
+import {BaseStorage} from "./base.sol";
 
-contract NullifierStorage is IZetoStorage, IZetoConstants, IZetoLockable {
+contract NullifierStorage is BaseStorage {
     // used for tracking regular (unlocked) UTXOs
+    // locked UTXOs are tracked in the base storage
     SmtLib.Data internal _commitmentsTree;
-    // used for locked UTXOs tracking. multi-step transaction flows that require counterparties
-    // to upload proofs. To protect the party that uploads their proof first,
-    // and prevent any other party from utilizing the uploaded proof to execute
-    // a transaction, the input UTXOs or nullifiers can be locked and only usable
-    // by the same party that did the locking.
-    SmtLib.Data internal _lockedCommitmentsTree;
     using SmtLib for SmtLib.Data;
+
     mapping(uint256 => bool) private _nullifiers;
 
     error UTXORootNotFound(uint256 root);
 
     constructor() {
         _commitmentsTree.initialize(MAX_SMT_DEPTH);
-        _lockedCommitmentsTree.initialize(MAX_SMT_DEPTH);
     }
 
     function validateInputs(
         uint256[] calldata inputs,
         bool inputsLocked
-    ) public view {
+    ) public view override {
+        if (inputsLocked) {
+            // locked inputs are regular UTXOs (rather than nullifiers)
+            // and are validated in the base storage
+            super.validateInputs(inputs, inputsLocked);
+            return;
+        }
+
         // sort the nullifiers to detect duplicates
         uint256[] memory sortedInputs = Util.sortCommitments(inputs);
 
@@ -64,7 +67,7 @@ contract NullifierStorage is IZetoStorage, IZetoConstants, IZetoLockable {
         }
     }
 
-    function validateOutputs(uint256[] calldata outputs) public view {
+    function validateOutputs(uint256[] calldata outputs) public view override {
         // sort the outputs to detect duplicates
         uint256[] memory sortedOutputs = Util.sortCommitments(outputs);
 
@@ -85,34 +88,32 @@ contract NullifierStorage is IZetoStorage, IZetoConstants, IZetoLockable {
         }
     }
 
-    function validateRoot(
-        uint256 root,
-        bool isLocked
-    ) public view returns (bool) {
+    function validateRoot(uint256 root) public view override returns (bool) {
         // Check if the root has existed before. It does not need to be the latest root.
         // Our SMT is append-only, so if the root has existed before, and the merklet proof
         // is valid, then the leaves still exist in the tree.
-        if (isLocked && !_lockedCommitmentsTree.rootExists(root)) {
-            revert UTXORootNotFound(root);
-        } else if (!isLocked && !_commitmentsTree.rootExists(root)) {
+        if (!_commitmentsTree.rootExists(root)) {
             revert UTXORootNotFound(root);
         }
 
         return true;
     }
 
-    function getRoot() public view returns (uint256) {
+    function getRoot() public view override returns (uint256) {
         return _commitmentsTree.getRoot();
-    }
-
-    function getRootForLocked() public view returns (uint256) {
-        return _lockedCommitmentsTree.getRoot();
     }
 
     function processInputs(
         uint256[] calldata nullifiers,
         bool inputsLocked
-    ) public {
+    ) public override {
+        if (inputsLocked) {
+            // locked inputs are regular UTXOs (rather than nullifiers)
+            // and are processed in the base storage
+            super.processInputs(nullifiers, inputsLocked);
+            return;
+        }
+
         for (uint256 i = 0; i < nullifiers.length; ++i) {
             if (nullifiers[i] != 0) {
                 _nullifiers[nullifiers[i]] = true;
@@ -120,7 +121,7 @@ contract NullifierStorage is IZetoStorage, IZetoConstants, IZetoLockable {
         }
     }
 
-    function processOutputs(uint256[] calldata outputs) public {
+    function processOutputs(uint256[] calldata outputs) public override {
         for (uint256 i = 0; i < outputs.length; ++i) {
             if (outputs[i] != 0) {
                 _commitmentsTree.addLeaf(outputs[i], outputs[i]);
@@ -128,48 +129,12 @@ contract NullifierStorage is IZetoStorage, IZetoConstants, IZetoLockable {
         }
     }
 
-    function processLockedOutputs(
-        uint256[] calldata lockedOutputs,
-        address delegate
-    ) public {
-        for (uint256 i = 0; i < lockedOutputs.length; ++i) {
-            if (lockedOutputs[i] != 0) {
-                _lockedCommitmentsTree.addLeaf(
-                    lockedOutputs[i],
-                    uint256(uint160(delegate))
-                );
-            }
-        }
-    }
-
-    // the call must perform the necessary checks to ensure the call is valid
-    // such as checking the sender is the current delegate
-    function delegateLock(
-        uint256[] calldata utxos,
-        address delegate,
-        bytes calldata data
-    ) public {
-        for (uint256 i = 0; i < utxos.length; ++i) {
-            if (utxos[i] == 0) {
-                continue;
-            }
-            _lockedCommitmentsTree.addLeaf(
-                utxos[i],
-                uint256(uint160(delegate))
-            );
-        }
-    }
-
-    function locked(uint256 utxo) public view returns (bool, address) {
-        return existsAsLocked(utxo);
-    }
-
-    function spent(uint256 utxo) public view returns (UTXOStatus) {
+    function spent(uint256 utxo) public view override returns (UTXOStatus) {
         // by design, the contract does not know this
         return UTXOStatus.UNKNOWN;
     }
 
-    // check the existence of a UTXO in either the unlocked or locked commitments tree
+    // check the existence of a UTXO in either the unlocked or locked commitments storage
     function exists(uint256 utxo) internal view returns (bool) {
         bool existsInTree = everExistedAsUnlocked(utxo);
         if (!existsInTree) {
@@ -191,14 +156,14 @@ contract NullifierStorage is IZetoStorage, IZetoConstants, IZetoLockable {
         return node.nodeType != SmtLib.NodeType.EMPTY;
     }
 
-    // check the existence of a locked UTXO in the locked commitments tree. Because
-    // this tree allows updates to an existing leaf node, we need to check the node
-    // by its index (the utxo hash), rather than the node hash, using the getProof()
-    // function.
     function existsAsLocked(
         uint256 utxo
     ) internal view returns (bool, address) {
-        SmtLib.Proof memory proof = _lockedCommitmentsTree.getProof(utxo);
-        return (proof.existence, address(uint160(proof.value)));
+        (bool locked, address delegate) = super.locked(utxo);
+        if (locked) {
+            return (true, delegate);
+        }
+        bool known = super.spent(utxo) != UTXOStatus.UNKNOWN;
+        return (known, address(0));
     }
 }

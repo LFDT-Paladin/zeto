@@ -50,25 +50,15 @@ interface IZetoStorage {
     /**
      * @dev validate the root
      * @param root The root to validate
-     * @param isLocked Whether the root is locked
      * @return bool whether the root is valid
      */
-    function validateRoot(
-        uint256 root,
-        bool isLocked
-    ) external view returns (bool);
+    function validateRoot(uint256 root) external view returns (bool);
 
     /**
      * @dev get the root
      * @return uint256 the root
      */
     function getRoot() external view returns (uint256);
-
-    /**
-     * @dev get the root for the locked UTXOs
-     * @return uint256 the root
-     */
-    function getRootForLocked() external view returns (uint256);
 
     /**
      * @dev process the inputs

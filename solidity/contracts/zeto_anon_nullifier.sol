@@ -94,22 +94,29 @@ contract Zeto_AnonNullifier is ZetoFungibleNullifier, UUPSUpgradeable {
     }
 
     function _calculatePublicInputsSize(
-        uint256[] memory nullifiers,
+        uint256[] memory inputs,
         uint256[] memory outputs,
         uint256[] memory extra,
         bool inputsLocked
     ) internal pure returns (uint256 size) {
-        size =
-            (nullifiers.length * 2) + // nullifiers and enabled flags
-            (inputsLocked ? 1 : 0) + // lock delegate if locked
-            1 + // root
-            extra.length + // extra inputs
-            outputs.length; // output commitments
+        if (inputsLocked) {
+            // locked inputs are UTXOs not nullifiers
+            size =
+                inputs.length +
+                extra.length + // extra inputs
+                outputs.length; // output commitments
+        } else {
+            size =
+                (inputs.length * 2) + // nullifiers and enabled flags
+                1 + // root
+                extra.length + // extra inputs
+                outputs.length; // output commitments
+        }
     }
 
     function _fillPublicInputs(
         uint256[] memory publicInputs,
-        uint256[] memory nullifiers,
+        uint256[] memory inputs,
         uint256[] memory outputs,
         uint256[] memory extra,
         uint256 root,
@@ -117,39 +124,50 @@ contract Zeto_AnonNullifier is ZetoFungibleNullifier, UUPSUpgradeable {
     ) internal view {
         uint256 piIndex = 0;
 
-        // Copy nullifiers
-        piIndex = _fillNullifiers_Nullifier(publicInputs, nullifiers, piIndex);
+        if (!inputsLocked) {
+            // Copy nullifiers
+            piIndex = _fillInputs_Nullifier(publicInputs, inputs, piIndex);
 
-        // Add lock delegate if inputs are locked
-        if (inputsLocked) {
-            publicInputs[piIndex++] = uint256(uint160(msg.sender));
+            // Add lock delegate if inputs are locked
+            if (inputsLocked) {
+                publicInputs[piIndex++] = uint256(uint160(msg.sender));
+            }
+
+            // Copy root
+            publicInputs[piIndex++] = root;
+
+            // Populate enabled flags
+            piIndex = _fillEnabledFlags_Nullifier(
+                publicInputs,
+                inputs,
+                piIndex
+            );
+
+            // Copy extra inputs
+            piIndex = _fillExtraInputs_Nullifier(publicInputs, extra, piIndex);
+
+            // Copy output commitments
+            _fillOutputCommitments_Nullifier(publicInputs, outputs, piIndex);
+        } else {
+            // Copy inputs
+            piIndex = _fillInputs_Nullifier(publicInputs, inputs, piIndex);
+
+            // Copy extra inputs
+            piIndex = _fillExtraInputs_Nullifier(publicInputs, extra, piIndex);
+
+            // Copy output commitments
+            _fillOutputCommitments_Nullifier(publicInputs, outputs, piIndex);
         }
-
-        // Copy root
-        publicInputs[piIndex++] = root;
-
-        // Populate enabled flags
-        piIndex = _fillEnabledFlags_Nullifier(
-            publicInputs,
-            nullifiers,
-            piIndex
-        );
-
-        // Copy extra inputs
-        piIndex = _fillExtraInputs_Nullifier(publicInputs, extra, piIndex);
-
-        // Copy output commitments
-        _fillOutputCommitments_Nullifier(publicInputs, outputs, piIndex);
     }
 
-    function _fillNullifiers_Nullifier(
+    function _fillInputs_Nullifier(
         uint256[] memory publicInputs,
-        uint256[] memory nullifiers,
+        uint256[] memory inputs,
         uint256 startIndex
     ) internal pure returns (uint256 nextIndex) {
         uint256 piIndex = startIndex;
-        for (uint256 i = 0; i < nullifiers.length; i++) {
-            publicInputs[piIndex++] = nullifiers[i];
+        for (uint256 i = 0; i < inputs.length; i++) {
+            publicInputs[piIndex++] = inputs[i];
         }
         return piIndex;
     }
@@ -234,6 +252,6 @@ contract Zeto_AnonNullifier is ZetoFungibleNullifier, UUPSUpgradeable {
             inputsLocked
         );
         uint256 root = abi.decode(proof, (uint256)); // only decode the root from the proof, which is the first 32 bytes
-        validateRoot(root, inputsLocked);
+        validateRoot(root);
     }
 }

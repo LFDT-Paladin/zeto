@@ -159,7 +159,7 @@ abstract contract ZetoFungibleNullifier is ZetoFungible {
         uint256[] memory outputStates = new uint256[](1);
         outputStates[0] = output;
         validateOutputs(outputStates);
-        validateRoot(root, false);
+        validateRoot(root);
 
         emit UTXOBurn(nullifiers, output, msg.sender, data);
     }
