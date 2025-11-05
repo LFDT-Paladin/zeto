@@ -21,7 +21,7 @@ import {IZetoStorage} from "../interfaces/izeto_storage.sol";
 import {Commonlib} from "../common/common.sol";
 import {Util} from "../common/util.sol";
 
-contract BaseStorage is IZetoStorage, IZetoConstants, IZetoLockable {
+contract BaseStorage is IZetoStorage, IZetoConstants {
     // tracks all the regular (unlocked) UTXOs
     mapping(uint256 => UTXOStatus) internal _utxos;
     // used for tracking locked UTXOs. multi-step transaction flows that require counterparties
@@ -35,7 +35,7 @@ contract BaseStorage is IZetoStorage, IZetoConstants, IZetoLockable {
     function validateInputs(
         uint256[] calldata inputs,
         bool inputsLocked
-    ) public view {
+    ) public view virtual {
         // sort the inputs to detect duplicates
         uint256[] memory sortedInputs = Util.sortCommitments(inputs);
         // Check the inputs are all unspent
@@ -63,12 +63,12 @@ contract BaseStorage is IZetoStorage, IZetoConstants, IZetoLockable {
                 !inputsLocked &&
                 _lockedUtxos[sortedInputs[i]] == UTXOStatus.UNSPENT
             ) {
-                revert UTXOAlreadyLocked(sortedInputs[i]);
+                revert IZetoLockable.AlreadyLocked(sortedInputs[i]);
             }
         }
     }
 
-    function validateOutputs(uint256[] calldata outputs) public view {
+    function validateOutputs(uint256[] calldata outputs) public view virtual {
         // sort the outputs to detect duplicates
         uint256[] memory sortedOutputs = Util.sortCommitments(outputs);
 
@@ -98,27 +98,19 @@ contract BaseStorage is IZetoStorage, IZetoConstants, IZetoLockable {
     }
 
     // Only needed for the nullifier based implementation
-    function validateRoot(
-        uint256 root,
-        bool isLocked
-    ) public view returns (bool) {
+    function validateRoot(uint256 root) public view virtual returns (bool) {
         revert("Not implemented");
     }
 
     // Only needed for the nullifier based implementation
-    function getRoot() public view returns (uint256) {
-        revert("Not implemented");
-    }
-
-    // Only needed for the nullifier based implementation
-    function getRootForLocked() public view returns (uint256) {
+    function getRoot() public view virtual returns (uint256) {
         revert("Not implemented");
     }
 
     function processInputs(
         uint256[] calldata inputs,
         bool inputsLocked
-    ) public {
+    ) public virtual {
         mapping(uint256 => UTXOStatus) storage utxos = inputsLocked
             ? _lockedUtxos
             : _utxos;
@@ -130,7 +122,7 @@ contract BaseStorage is IZetoStorage, IZetoConstants, IZetoLockable {
         }
     }
 
-    function processOutputs(uint256[] calldata outputs) public {
+    function processOutputs(uint256[] calldata outputs) public virtual {
         for (uint256 i = 0; i < outputs.length; ++i) {
             if (outputs[i] != 0) {
                 _utxos[outputs[i]] = UTXOStatus.UNSPENT;
@@ -179,7 +171,7 @@ contract BaseStorage is IZetoStorage, IZetoConstants, IZetoLockable {
         return (false, address(0));
     }
 
-    function spent(uint256 utxo) public view returns (UTXOStatus) {
+    function spent(uint256 utxo) public view virtual returns (UTXOStatus) {
         if (
             _utxos[utxo] == UTXOStatus.SPENT ||
             _lockedUtxos[utxo] == UTXOStatus.SPENT

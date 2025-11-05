@@ -18,25 +18,113 @@ pragma solidity ^0.8.27;
 import {Commonlib} from "../common/common.sol";
 
 interface IZetoLockable {
-    error UTXOAlreadyLocked(uint256 utxo);
-    error UTXONotLocked(uint256 utxo);
+    error AlreadyLocked(uint256 utxo);
+    error NotLocked(uint256 utxo);
     error NotLockDelegate(
         uint256 utxo,
         address currentDelegate,
         address sender
     );
-    event UTXOLocked(
-        uint256[] inputs,
-        uint256[] lockedOutputs,
-        uint256[] outputs,
-        address indexed submitter,
-        address indexed delegate,
+    event LockPrepare(
+        address indexed operator,
+        LockParameters states,
+        address delegate,
         bytes data
     );
-    event LockDelegateChanged(
-        uint256[] lockedOutputs,
+    event LockCommit(
+        bytes32 lockId,
+        address indexed operator,
+        LockData lockData,
+        bytes data
+    );
+    event LockUpdate(
+        bytes32 lockId,
+        address indexed operator,
+        LockData lockData,
+        bytes data
+    );
+    event LockDelegation(
+        bytes32 lockId,
+        address indexed operator,
         address indexed oldDelegate,
         address indexed newDelegate,
         bytes data
     );
+
+    // expected to be used in a map from lockId to LockData
+    struct LockData {
+        // Array of states that are secured by this lock
+        uint256[] inputs;
+        // the account that is authorized to carry out the operations on the lock
+        address delegate;
+        // the operation to execute when the lock is executed
+        LockOperationData execute;
+        // the operation to execute when the lock is retracted
+        LockOperationData rollback;
+    }
+
+    struct LockOperationData {
+        LockOutputStates outputStates;
+        bytes proof;
+        bytes data;
+    }
+
+    struct LockOutputStates {
+        // Array of zero or more new states to generate, for future transactions to spend
+        uint256[] outputs;
+        // Array of zero or more locked states to generate, which will be tied to the lockId
+        uint256[] lockedOutputs;
+    }
+
+    // used in function parameters to avoid stack too deep errors
+    struct LockParameters {
+        // Array of states that are secured by this lock
+        uint256[] inputs;
+        // Array of zero or more new states to generate, for future transactions to spend
+        uint256[] outputs;
+        // Array of zero or more locked states to generate, which will be tied to the lockId
+        uint256[] lockedOutputs;
+    }
+
+    function prepareLock(
+        LockParameters calldata states,
+        address delegate,
+        bytes calldata proof,
+        bytes calldata data
+    ) external;
+
+    function commitLock(
+        bytes32 lockId,
+        uint256[] calldata inputs,
+        address delegate,
+        LockOperationData calldata execute,
+        LockOperationData calldata rollback,
+        bytes calldata data
+    ) external;
+
+    function executeLock(
+        bytes32 lockId,
+        bytes calldata proof,
+        bytes calldata data
+    ) external;
+
+    function rollbackLock(
+        bytes32 lockId,
+        bytes calldata proof,
+        bytes calldata data
+    ) external;
+
+    function updateLock(
+        bytes32 lockId,
+        address newDelegate,
+        LockOperationData calldata execute,
+        LockOperationData calldata rollback,
+        bytes calldata data
+    ) external;
+
+    function delegateLock(
+        bytes32 lockId,
+        address delegate,
+        bytes calldata data
+    ) external;
 }

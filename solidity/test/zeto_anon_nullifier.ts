@@ -60,7 +60,6 @@ describe("Zeto based fungible token with anonymity using nullifiers without encr
   let Eva: User;
   let erc20: any;
   let zeto: Zeto_AnonNullifier;
-  let zetoBurnable: Zeto_AnonNullifierBurnable;
   let utxo100: UTXO;
   let utxo1: UTXO;
   let utxo2: UTXO;
@@ -75,6 +74,10 @@ describe("Zeto based fungible token with anonymity using nullifiers without encr
   let smtBob: Merkletree;
 
   before(async function () {
+    // skip the tests if this is called by other test modules to use the exported test functions
+    if (process.env.SKIP_ZETO_TESTS === "true") {
+      this.skip();
+    }
     if (network.name !== "hardhat") {
       // accommodate for longer block times on public networks
       this.timeout(120000);
@@ -88,7 +91,6 @@ describe("Zeto based fungible token with anonymity using nullifiers without encr
     Eva = await newUser(e);
 
     ({ deployer, zeto, erc20 } = await deployZeto("Zeto_AnonNullifier"));
-    ({ zeto: zetoBurnable } = await deployZeto("Zeto_AnonNullifierBurnable"));
 
     const storage1 = new InMemoryDB(str2Bytes(""));
     smtAlice = new Merkletree(storage1, true, 64);
@@ -108,6 +110,13 @@ describe("Zeto based fungible token with anonymity using nullifiers without encr
     ({ provingKeyFile: batchProvingKey } = loadProvingKeys(
       "anon_nullifier_transfer_batch",
     ));
+  });
+
+  beforeEach(async function () {
+    // skip the tests if this is called by other test modules to use the exported test functions
+    if (process.env.SKIP_ZETO_TESTS === "true") {
+      this.skip();
+    }
   });
 
   it("onchain SMT root should be equal to the offchain SMT root", async function () {
@@ -482,68 +491,6 @@ describe("Zeto based fungible token with anonymity using nullifiers without encr
     const endingBalance = await erc20.balanceOf(Alice.ethAddress);
     expect(endingBalance - startingBalance).to.be.equal(80);
   });
-
-  it("(burnable) mint to Alice and burn should succeed", async function () {
-    // first mint the tokens
-    const inputUtxos = [];
-    const nullifiers = [];
-    for (let i = 0; i < 2; i++) {
-      const _utxo = newUTXO(1, Alice);
-      nullifiers.push(newNullifier(_utxo, Alice));
-      inputUtxos.push(_utxo);
-    }
-    const mintResult = await doMint(zetoBurnable, deployer, inputUtxos);
-    const outputUtxo = newUTXO(0, Alice);
-
-    const storage1 = new InMemoryDB(str2Bytes(""));
-    const smtAliceBurnable = new Merkletree(storage1, true, 64);
-
-    const mintEvents = parseUTXOEvents(zetoBurnable, mintResult);
-    const mintedHashes = mintEvents[0].outputs;
-    for (let i = 0; i < mintedHashes.length; i++) {
-      if (mintedHashes[i] !== 0) {
-        await smtAliceBurnable.add(mintedHashes[i], mintedHashes[i]);
-      }
-    }
-
-    // Alice generates inclusion proofs for the UTXOs to be spent
-    let root = await smtAliceBurnable.root();
-    const mtps = [];
-    for (let i = 0; i < inputUtxos.length; i++) {
-      const p = await smtAliceBurnable.generateCircomVerifierProof(
-        inputUtxos[i].hash,
-        root,
-      );
-      mtps.push(p.siblings.map((s) => s.bigInt()));
-    }
-
-    // Alice generates the nullifiers for the UTXOs to be burnt
-    const {
-      nullifiers: _burnNullifiers,
-      outputCommitment,
-      encodedProof,
-    } = await prepareNullifierBurnProof(
-      Alice,
-      inputUtxos,
-      outputUtxo,
-      nullifiers,
-      root.bigInt(),
-      mtps,
-    );
-
-    // Alice withdraws her UTXOs to ERC20 tokens
-    const tx = await zetoBurnable
-      .connect(Alice.signer)
-      .burn(
-        _burnNullifiers,
-        outputCommitment,
-        root.bigInt(),
-        encodedProof,
-        "0x",
-      );
-    const result = await tx.wait();
-    console.log(`Method burn() complete. Gas used: ${result?.gasUsed}`);
-  }).timeout(60000);
 
   describe("lock() tests", function () {
     let lockedUtxo1: UTXO;
@@ -1472,4 +1419,5 @@ function encodeToBytes(root: any, proof: any) {
 
 module.exports = {
   prepareProof,
+  encodeToBytes,
 };
