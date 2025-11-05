@@ -31,10 +31,10 @@ const VerifierModule = buildModule(
 );
 
 const LockVerifierModule = buildModule(
-  "Groth16Verifier_AnonNullifierTransferLocked",
+  "Groth16Verifier_Anon",
   (m) => {
     const verifier = m.contract(
-      "Groth16Verifier_AnonNullifierTransferLocked",
+      "Groth16Verifier_Anon",
       [],
     );
     return { verifier };
@@ -53,10 +53,10 @@ const BatchVerifierModule = buildModule(
 );
 
 const BatchLockVerifierModule = buildModule(
-  "Groth16Verifier_AnonNullifierTransferLockedBatch",
+  "Groth16Verifier_AnonBatch",
   (m) => {
     const verifier = m.contract(
-      "Groth16Verifier_AnonNullifierTransferLockedBatch",
+      "Groth16Verifier_AnonBatch",
       [],
     );
     return { verifier };

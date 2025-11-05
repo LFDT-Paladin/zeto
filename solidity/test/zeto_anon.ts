@@ -68,6 +68,9 @@ describe("Zeto based fungible token with anonymity without encryption or nullifi
   let batchCircuit: any, batchProvingKey: any;
 
   before(async function () {
+    if (process.env.SKIP_ANON_TESTS === "true") {
+      this.skip();
+    }
     if (network.name !== "hardhat") {
       // accommodate for longer block times on public networks
       this.timeout(120000);
@@ -86,6 +89,12 @@ describe("Zeto based fungible token with anonymity without encryption or nullifi
 
     batchCircuit = await loadCircuit("anon_batch");
     ({ provingKeyFile: batchProvingKey } = loadProvingKeys("anon_batch"));
+  });
+
+  beforeEach(async function () {
+    if (process.env.SKIP_ANON_TESTS === "true") {
+      this.skip();
+    }
   });
 
   it("has 4 decimals", async function () {

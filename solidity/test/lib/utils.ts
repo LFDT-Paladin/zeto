@@ -229,10 +229,10 @@ export function parseUTXOEvents(
         tradeId: event?.args.tradeId,
         trade: event?.args.trade,
       };
-    } else if (event?.name === "UTXOLocked") {
+    } else if (event?.name === "LockPrepare") {
       e = {
-        outputs: event?.args.outputs,
-        lockedOutputs: event?.args.lockedOutputs,
+        outputs: event?.args.states.outputs,
+        lockedOutputs: event?.args.states.lockedOutputs,
         delegate: event?.args.delegate,
       };
     } else if (event?.name === "LockDelegateChanged") {
