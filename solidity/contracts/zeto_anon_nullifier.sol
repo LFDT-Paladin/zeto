@@ -63,10 +63,13 @@ contract Zeto_AnonNullifier is ZetoFungibleNullifier, UUPSUpgradeable {
         returns (uint256[] memory, Commonlib.Proof memory)
     {
         // Decode the proof to extract root and proof structure
-        (uint256 root, Commonlib.Proof memory proofStruct) = abi.decode(
-            proof,
-            (uint256, Commonlib.Proof)
-        );
+        uint256 root;
+        Commonlib.Proof memory proofStruct;
+        if (!inputsLocked) {
+            (root, proofStruct) = abi.decode(proof, (uint256, Commonlib.Proof));
+        } else {
+            proofStruct = abi.decode(proof, (Commonlib.Proof));
+        }
 
         // Get extra inputs from derived contracts
         uint256[] memory extra = extraInputs();
@@ -222,7 +225,10 @@ contract Zeto_AnonNullifier is ZetoFungibleNullifier, UUPSUpgradeable {
             proof,
             inputsLocked
         );
-        uint256 root = abi.decode(proof, (uint256)); // only decode the root from the proof, which is the first 32 bytes
-        validateRoot(root);
+        if (!inputsLocked) {
+            // only regular transactions (not for locked inputs) need to validate the root
+            uint256 root = abi.decode(proof, (uint256)); // only decode the root from the proof, which is the first 32 bytes
+            validateRoot(root);
+        }
     }
 }

@@ -46,7 +46,7 @@ import {
   inflateOwners,
 } from "./utils";
 process.env.SKIP_ANON_TESTS = "true";
-import { prepareProof as prepareProofForLocked } from "./zeto_anon";
+import { prepareProof as prepareProofForLocked, encodeToBytes as encodeToBytesForLocked } from "./zeto_anon";
 import { deployZeto } from "./lib/deploy";
 import {
   Zeto_AnonNullifier,
@@ -624,7 +624,7 @@ describe("Zeto based fungible token with anonymity using nullifiers without encr
         await expect(
           zeto.connect(Alice.signer).settleLock(
             lockId,
-            encodeToBytes(0n, encodedProof),
+            encodeToBytesForLocked(encodedProof),
             "0x",
           )
         ).to.be.fulfilled;
@@ -731,7 +731,7 @@ describe("Zeto based fungible token with anonymity using nullifiers without encr
         await expect(
           zeto.connect(Charlie.signer).settleLock(
             lockId,
-            encodeToBytes(0n, encodedProof),
+            encodeToBytesForLocked(encodedProof),
             "0x",
           )
         ).to.be.fulfilled;
