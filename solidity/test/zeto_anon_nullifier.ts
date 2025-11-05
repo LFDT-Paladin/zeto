@@ -564,12 +564,15 @@ describe("Zeto based fungible token with anonymity using nullifiers without encr
           [Bob, Bob],
         );
 
-        const tx = await zeto.connect(Bob.signer).lock(
-          [nullifier1.hash],
-          [],
-          [lockedUtxo1.hash],
-          encodeToBytes(root.bigInt(), encodedProof), // encode the root and proof together
+        const lockParameters = {
+          inputs: [utxo7.hash],
+          outputs: [],
+          lockedOutputs: [lockedUtxo1.hash],
+        };
+        const tx = await zeto.connect(Bob.signer).prepareLock(
+          lockParameters,
           Alice.ethAddress, // make Alice the delegate who can spend the state (if she has the right proof)
+          encodeToBytes(root.bigInt(), encodedProof), // encode the root and proof together
           "0x",
         );
         const result: ContractTransactionReceipt | null = await tx.wait();

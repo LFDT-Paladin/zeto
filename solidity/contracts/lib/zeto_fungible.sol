@@ -21,6 +21,7 @@ import {Commonlib} from "./common/common.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {ZetoCommon} from "./zeto_common.sol";
 import {IZetoStorage} from "./interfaces/izeto_storage.sol";
+import {console} from "hardhat/console.sol";
 
 /// @title A sample implementation of a base Zeto fungible token contract
 /// @author Kaleido, Inc.
@@ -165,6 +166,9 @@ abstract contract ZetoFungible is ZetoCommon {
         bool isBatch = (paddedInputs.length > 2 ||
             states.outputs.length > 2 ||
             states.lockedOutputs.length > 2);
+        for (uint256 i = 0; i < publicInputs.length; i++) {
+            console.log("publicInputs[%s]", i, publicInputs[i]);
+        }
         verifyProof(proofStruct, publicInputs, isBatch, false);
 
         processInputsAndOutputs(paddedInputs, states.outputs, false);

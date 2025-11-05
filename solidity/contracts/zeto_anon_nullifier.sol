@@ -128,11 +128,6 @@ contract Zeto_AnonNullifier is ZetoFungibleNullifier, UUPSUpgradeable {
             // Copy nullifiers
             piIndex = _fillInputs_Nullifier(publicInputs, inputs, piIndex);
 
-            // Add lock delegate if inputs are locked
-            if (inputsLocked) {
-                publicInputs[piIndex++] = uint256(uint160(msg.sender));
-            }
-
             // Copy root
             publicInputs[piIndex++] = root;
 
@@ -211,30 +206,6 @@ contract Zeto_AnonNullifier is ZetoFungibleNullifier, UUPSUpgradeable {
         // no extra inputs for this contract
         uint256[] memory empty = new uint256[](0);
         return empty;
-    }
-
-    function constructPublicInputsForLock(
-        uint256[] memory inputs,
-        uint256[] memory outputs,
-        uint256[] memory lockedOutputs,
-        bytes memory proof
-    )
-        internal
-        virtual
-        override
-        returns (uint256[] memory, Commonlib.Proof memory)
-    {
-        uint256[] memory allOutputs = new uint256[](
-            outputs.length + lockedOutputs.length
-        );
-        for (uint256 i = 0; i < outputs.length; i++) {
-            allOutputs[i] = outputs[i];
-        }
-        for (uint256 i = 0; i < lockedOutputs.length; i++) {
-            allOutputs[outputs.length + i] = lockedOutputs[i];
-        }
-
-        return constructPublicInputs(inputs, allOutputs, proof, false);
     }
 
     function validateTransactionProposal(

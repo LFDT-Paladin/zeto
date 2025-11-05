@@ -187,22 +187,6 @@ abstract contract ZetoCommon is IZeto, IZetoLockable, OwnableUpgradeable {
         )
     {}
 
-    // this is a utility function that constructs the public inputs for a proof of a lock() call.
-    // specific implementations of this function are provided by each token implementation
-    function constructPublicInputsForLock(
-        uint256[] memory inputs,
-        uint256[] memory outputs,
-        uint256[] memory lockedOutputs,
-        bytes memory proof
-    )
-        internal
-        virtual
-        returns (
-            uint256[] memory publicInputs,
-            Commonlib.Proof memory proofStruct
-        )
-    {}
-
     function validateTransactionProposal(
         uint256[] memory inputs,
         uint256[] memory outputs,
