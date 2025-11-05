@@ -178,54 +178,38 @@ abstract contract ZetoFungible is ZetoCommon {
         bytes32 lockId,
         uint256[] calldata inputs,
         address delegate,
-        LockOperationData calldata execute,
-        LockOperationData calldata rollback,
+        LockOperationData calldata settle,
+        LockOperationData calldata refund,
         bytes calldata data
     ) public {
         _checkDelegate(inputs);
         _lockData[lockId] = LockData({
             inputs: inputs,
             delegate: delegate,
-            execute: execute,
-            rollback: rollback
+            settle: settle,
+            refund: refund
         });
         emit LockCommit(lockId, msg.sender, _lockData[lockId], data);
     }
 
-    function settleLock(
-        bytes32 lockId,
-        bytes calldata proof,
-        bytes calldata data
-    ) public virtual {
+    function settleLock(bytes32 lockId, bytes calldata data) public virtual {
         LockData memory lockData = _lockData[lockId];
-        bytes memory proofToUse = proof;
-        if (proof.length == 0) {
-            proofToUse = lockData.execute.proof;
-        }
         _transferLocked(
             lockData.inputs,
-            lockData.execute.outputStates.lockedOutputs,
-            lockData.execute.outputStates.outputs,
-            proofToUse,
+            lockData.settle.outputStates.lockedOutputs,
+            lockData.settle.outputStates.outputs,
+            lockData.settle.proof,
             data
         );
     }
 
-    function refundLock(
-        bytes32 lockId,
-        bytes calldata proof,
-        bytes calldata data
-    ) public {
+    function refundLock(bytes32 lockId, bytes calldata data) public {
         LockData memory lockData = _lockData[lockId];
-        bytes memory proofToUse = proof;
-        if (proof.length == 0) {
-            proofToUse = lockData.rollback.proof;
-        }
         _transferLocked(
             lockData.inputs,
-            lockData.rollback.outputStates.lockedOutputs,
-            lockData.rollback.outputStates.outputs,
-            proofToUse,
+            lockData.refund.outputStates.lockedOutputs,
+            lockData.refund.outputStates.outputs,
+            lockData.refund.proof,
             data
         );
     }
@@ -408,7 +392,6 @@ abstract contract ZetoFungible is ZetoCommon {
             uint256[] memory paddedInputs,
             uint256[] memory paddedOutputs
         ) = checkAndPadCommitments(lockedInputs, allOutputs);
-
         // construct the public inputs for the proof verification
         (
             uint256[] memory publicInputs,
