@@ -102,23 +102,15 @@ interface IZetoLockable {
         bytes calldata data
     ) external;
 
-    function executeLock(
+    function settleLock(
         bytes32 lockId,
         bytes calldata proof,
         bytes calldata data
     ) external;
 
-    function rollbackLock(
+    function refundLock(
         bytes32 lockId,
         bytes calldata proof,
-        bytes calldata data
-    ) external;
-
-    function updateLock(
-        bytes32 lockId,
-        address newDelegate,
-        LockOperationData calldata execute,
-        LockOperationData calldata rollback,
         bytes calldata data
     ) external;
 

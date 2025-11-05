@@ -192,7 +192,7 @@ abstract contract ZetoFungible is ZetoCommon {
         emit LockCommit(lockId, msg.sender, _lockData[lockId], data);
     }
 
-    function executeLock(
+    function settleLock(
         bytes32 lockId,
         bytes calldata proof,
         bytes calldata data
@@ -211,7 +211,7 @@ abstract contract ZetoFungible is ZetoCommon {
         );
     }
 
-    function rollbackLock(
+    function refundLock(
         bytes32 lockId,
         bytes calldata proof,
         bytes calldata data
@@ -244,22 +244,6 @@ abstract contract ZetoFungible is ZetoCommon {
             delegate,
             data
         );
-    }
-
-    function updateLock(
-        bytes32 lockId,
-        address newDelegate,
-        LockOperationData calldata execute,
-        LockOperationData calldata rollback,
-        bytes calldata data
-    ) public {
-        _checkDelegate(_lockData[lockId].inputs);
-        if (newDelegate != address(0)) {
-            _storage.delegateLock(_lockData[lockId].inputs, newDelegate, data);
-        }
-        _lockData[lockId].execute = execute;
-        _lockData[lockId].rollback = rollback;
-        emit LockUpdate(lockId, msg.sender, _lockData[lockId], data);
     }
 
     /**
