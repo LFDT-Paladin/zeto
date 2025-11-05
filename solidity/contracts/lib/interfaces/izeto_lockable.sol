@@ -37,12 +37,6 @@ interface IZetoLockable {
         LockData lockData,
         bytes data
     );
-    event LockUpdate(
-        bytes32 lockId,
-        address indexed operator,
-        LockData lockData,
-        bytes data
-    );
     event LockDelegation(
         bytes32 lockId,
         address indexed operator,
@@ -58,9 +52,9 @@ interface IZetoLockable {
         // the account that is authorized to carry out the operations on the lock
         address delegate;
         // the operation to execute when the lock is executed
-        LockOperationData execute;
+        LockOperationData settle;
         // the operation to execute when the lock is retracted
-        LockOperationData rollback;
+        LockOperationData refund;
     }
 
     struct LockOperationData {
@@ -102,17 +96,9 @@ interface IZetoLockable {
         bytes calldata data
     ) external;
 
-    function settleLock(
-        bytes32 lockId,
-        bytes calldata proof,
-        bytes calldata data
-    ) external;
+    function settleLock(bytes32 lockId, bytes calldata data) external;
 
-    function refundLock(
-        bytes32 lockId,
-        bytes calldata proof,
-        bytes calldata data
-    ) external;
+    function refundLock(bytes32 lockId, bytes calldata data) external;
 
     function delegateLock(
         bytes32 lockId,
