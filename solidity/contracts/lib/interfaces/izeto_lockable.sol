@@ -16,8 +16,9 @@
 pragma solidity ^0.8.27;
 
 import {Commonlib} from "../common/common.sol";
+import {ILockable} from "./ILockable.sol";
 
-interface IZetoLockable {
+interface IZetoLockable is ILockable {
     error AlreadyLocked(uint256 utxo);
     error NotLocked(uint256 utxo);
     error NotLockDelegate(
@@ -95,10 +96,6 @@ interface IZetoLockable {
         LockOperationData calldata rollback,
         bytes calldata data
     ) external;
-
-    function settleLock(bytes32 lockId, bytes calldata data) external;
-
-    function refundLock(bytes32 lockId, bytes calldata data) external;
 
     function delegateLock(
         bytes32 lockId,
