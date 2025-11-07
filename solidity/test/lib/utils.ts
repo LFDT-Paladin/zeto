@@ -18,13 +18,15 @@ import {
   ContractTransactionReceipt,
   Signer,
   BigNumberish,
-  AddressLike,
 } from "ethers";
 import {
   genKeypair,
   formatPrivKeyForBabyJub,
-  genEcdhSharedKey,
 } from "maci-crypto";
+import { Logger, ILogObj } from "tslog";
+const logLevel = process.env.LOG_LEVEL || "3";
+export const logger: Logger<ILogObj> = new Logger({ name: "e2e", minLevel: parseInt(logLevel) });
+
 import { Poseidon, newSalt, tokenUriHash } from "zeto-js";
 
 const poseidonHash3 = Poseidon.poseidon3;
@@ -122,7 +124,7 @@ export async function doMint(
     .connect(minter)
     .mint(outputCommitments, "0x");
   const result = await tx.wait();
-  console.log(`Method mint() complete. Gas used: ${result?.gasUsed}`);
+  logger.debug(`Method mint() complete. Gas used: ${result?.gasUsed}`);
   if (result?.gasUsed && Array.isArray(gasHistories)) {
     gasHistories.push(result?.gasUsed);
   }
@@ -141,7 +143,7 @@ export async function doDeposit(
     .connect(depositUser)
     .deposit(amount, commitment, proof, "0x");
   const result = await tx.wait();
-  console.log(`Method deposit() complete. Gas used: ${result?.gasUsed}`);
+  logger.debug(`Method deposit() complete. Gas used: ${result?.gasUsed}`);
   if (result?.gasUsed && Array.isArray(gasHistories)) {
     gasHistories.push(result?.gasUsed);
   }
@@ -162,7 +164,7 @@ export async function doWithdraw(
     .connect(withdrawUser)
     .withdraw(amount, nullifiers, commitment, root, proof);
   const result = await tx.wait();
-  console.log(`Method withdraw() complete. Gas used: ${result?.gasUsed}`);
+  logger.debug(`Method withdraw() complete. Gas used: ${result?.gasUsed}`);
   if (result?.gasUsed && Array.isArray(gasHistories)) {
     gasHistories.push(result?.gasUsed);
   }
