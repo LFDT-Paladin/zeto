@@ -16,12 +16,10 @@
 
 import { readFileSync } from "fs";
 import * as path from "path";
-import crypto from "crypto";
 import { AbiCoder, BigNumberish } from "ethers";
 import { groth16 } from "snarkjs";
-import { loadCircuit, encodeProof, tokenUriHash } from "zeto-js";
-import { User, UTXO, ZERO_UTXO } from "./lib/utils";
-import { formatPrivKeyForBabyJub, stringifyBigInts } from "maci-crypto";
+import { loadCircuit, encodeProof } from "zeto-js";
+import { User, UTXO, ZERO_UTXO, logger } from "./lib/utils";
 
 function provingKeysRoot() {
   const PROVING_KEYS_ROOT = process.env.PROVING_KEYS_ROOT;
@@ -104,7 +102,7 @@ export async function prepareDepositProof(signer: User, outputs: [UTXO, UTXO]) {
   )) as { proof: BigNumberish[]; publicSignals: BigNumberish[] };
   const timeProofGeneration = Date.now() - startProofGeneration;
 
-  console.log(
+  logger.debug(
     `Witness calculation time: ${timeWithnessCalculation}ms. Proof generation time: ${timeProofGeneration}ms.`,
   );
 
@@ -164,7 +162,7 @@ export async function prepareDepositKycProof(
   )) as { proof: BigNumberish[]; publicSignals: BigNumberish[] };
   const timeProofGeneration = Date.now() - startProofGeneration;
 
-  console.log(
+  logger.debug(
     `Witness calculation time: ${timeWithnessCalculation}ms. Proof generation time: ${timeProofGeneration}ms.`,
   );
 
@@ -220,7 +218,7 @@ export async function prepareWithdrawProof(
   )) as { proof: BigNumberish[]; publicSignals: BigNumberish[] };
   const timeProofGeneration = Date.now() - startProofGeneration;
 
-  console.log(
+  logger.debug(
     `Witness calculation time: ${timeWithnessCalculation}ms. Proof generation time: ${timeProofGeneration}ms.`,
   );
 
@@ -286,7 +284,7 @@ export async function prepareNullifierWithdrawProof(
   )) as { proof: BigNumberish[]; publicSignals: BigNumberish[] };
   const timeProofGeneration = Date.now() - startProofGeneration;
 
-  console.log(
+  logger.debug(
     `Witness calculation time: ${timeWithnessCalculation}ms. Proof generation time: ${timeProofGeneration}ms.`,
   );
 
@@ -337,7 +335,7 @@ export async function prepareBurnProof(
   )) as { proof: BigNumberish[]; publicSignals: BigNumberish[] };
   const timeProofGeneration = Date.now() - startProofGeneration;
 
-  console.log(
+  logger.debug(
     `Witness calculation time: ${timeWithnessCalculation}ms. Proof generation time: ${timeProofGeneration}ms.`,
   );
 
@@ -398,7 +396,7 @@ export async function prepareNullifierBurnProof(
   )) as { proof: BigNumberish[]; publicSignals: BigNumberish[] };
   const timeProofGeneration = Date.now() - startProofGeneration;
 
-  console.log(
+  logger.debug(
     `Witness calculation time: ${timeWithnessCalculation}ms. Proof generation time: ${timeProofGeneration}ms.`,
   );
 

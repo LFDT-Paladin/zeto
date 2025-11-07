@@ -35,6 +35,7 @@ import {
   doMint,
   parseUTXOEvents,
   ZERO_UTXO,
+  logger,
 } from "./lib/utils";
 import {
   loadProvingKeys,
@@ -213,7 +214,7 @@ describe("Zeto based fungible token with anonymity without encryption or nullifi
       .connect(Alice.signer)
       .deposit(100, outputCommitments, encodeToBytes(encodedProof), "0x");
     const result = await tx2.wait();
-    console.log(`Method deposit() complete. Gas used: ${result?.gasUsed}`);
+    logger.debug(`Method deposit() complete. Gas used: ${result?.gasUsed}`);
   });
 
   it("mint to Alice and transfer UTXOs honestly to Bob should succeed", async function () {
@@ -305,7 +306,7 @@ describe("Zeto based fungible token with anonymity without encryption or nullifi
         "0x",
       );
     const result = await tx.wait();
-    console.log(`Method withdraw() complete. Gas used: ${result?.gasUsed}`);
+    logger.debug(`Method withdraw() complete. Gas used: ${result?.gasUsed}`);
 
     // Alice checks her ERC20 balance
     const endingBalance = await erc20.balanceOf(Alice.ethAddress);
@@ -366,7 +367,7 @@ describe("Zeto based fungible token with anonymity without encryption or nullifi
       .connect(Alice.signer)
       .burn(inputCommitments, outputCommitment, encodedProof, "0x");
     const result = await tx.wait();
-    console.log(`Method burn() complete. Gas used: ${result?.gasUsed}`);
+    logger.debug(`Method burn() complete. Gas used: ${result?.gasUsed}`);
 
     // check that the burned UTXOs are spent
     let spent = await zetoBurnable.spent(inputCommitments[0]);
@@ -509,7 +510,7 @@ describe("Zeto based fungible token with anonymity without encryption or nullifi
         "0x",
       );
       const results = await tx.wait();
-      console.log(`Method transfer() complete. Gas used: ${results?.gasUsed}`);
+      logger.debug(`Method transfer() complete. Gas used: ${results?.gasUsed}`);
     });
 
     it("locked() should return true for locked UTXOs, and false for unlocked or spent UTXOs", async function () {
@@ -814,7 +815,7 @@ describe("Zeto based fungible token with anonymity without encryption or nullifi
         .transfer(inputCommitments, outputCommitments, proof, "0x");
     }
     const results = await tx.wait();
-    console.log(`Method transfer() complete. Gas used: ${results?.gasUsed}`);
+    logger.debug(`Method transfer() complete. Gas used: ${results?.gasUsed}`);
 
     for (const input of inputCommitments) {
       if (input === 0n) {
@@ -882,7 +883,7 @@ async function prepareProof(
     witness,
   )) as { proof: BigNumberish[]; publicSignals: BigNumberish[] };
   const timeProofGeneration = Date.now() - startProofGeneration;
-  console.log(
+  logger.debug(
     `Witness calculation time: ${timeWitnessCalculation}ms, Proof generation time: ${timeProofGeneration}ms`,
   );
   const encodedProof = encodeProof(proof);

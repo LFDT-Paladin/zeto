@@ -19,7 +19,6 @@ import {
   ContractTransactionReceipt,
   Signer,
   BigNumberish,
-  lock,
   AbiCoder,
 } from "ethers";
 import { expect } from "chai";
@@ -37,6 +36,7 @@ import {
   doMint,
   ZERO_UTXO,
   parseUTXOEvents,
+  logger,
 } from "./lib/utils";
 import {
   loadProvingKeys,
@@ -133,7 +133,7 @@ describe("Zeto based fungible token with anonymity using nullifiers without encr
     let txResult: any;
 
     beforeEach(async function () {
-      this.skip();
+      // this.skip();
     });
 
     it("mint 10 UTXOs to Alice", async function () {
@@ -273,7 +273,7 @@ describe("Zeto based fungible token with anonymity using nullifiers without encr
           "0x",
         );
       const result1 = await tx.wait();
-      console.log(`Method withdraw() complete. Gas used: ${result1?.gasUsed}`);
+      logger.debug(`Method withdraw() complete. Gas used: ${result1?.gasUsed}`);
 
       // Alice checks her ERC20 balance
       const endingBalance = await erc20.balanceOf(Alice.ethAddress);
@@ -286,7 +286,7 @@ describe("Zeto based fungible token with anonymity using nullifiers without encr
     let aliceUtxo70: UTXO;
 
     beforeEach(async function () {
-      this.skip();
+      // this.skip();
     });
 
     describe("Shielding ERC20 tokens to Zeto privacy tokens", async function () {
@@ -319,7 +319,7 @@ describe("Zeto based fungible token with anonymity using nullifiers without encr
             "0x",
           );
         const result = await tx2.wait();
-        console.log(`Method deposit() complete. Gas used: ${result?.gasUsed}`);
+        logger.debug(`Method deposit() complete. Gas used: ${result?.gasUsed}`);
 
         await smtAlice.add(aliceUtxo30.hash, aliceUtxo30.hash);
         await smtAlice.add(aliceUtxo70.hash, aliceUtxo70.hash);
@@ -490,7 +490,7 @@ describe("Zeto based fungible token with anonymity using nullifiers without encr
             "0x",
           );
         const result = await tx.wait();
-        console.log(`Method withdraw() complete. Gas used: ${result?.gasUsed}`);
+        logger.debug(`Method withdraw() complete. Gas used: ${result?.gasUsed}`);
 
         // Alice tracks the UTXO inside the SMT
         await smtAlice.add(withdrawChangesUTXO.hash, withdrawChangesUTXO.hash);
@@ -577,7 +577,6 @@ describe("Zeto based fungible token with anonymity using nullifiers without encr
           [lockedUtxo1, ZERO_UTXO],
           [_utxo1, _utxo2],
           [Alice, Bob],
-          Alice.ethAddress, // current lock delegate
         );
         const settleOp = { outputStates: { outputs: [_utxo1.hash, _utxo2.hash], lockedOutputs: [] }, proof: encodeToBytesForLocked(encodedProofForSettle), data: "0x" }
 
@@ -594,7 +593,7 @@ describe("Zeto based fungible token with anonymity using nullifiers without encr
           "0x",
         );
         const result: ContractTransactionReceipt | null = await tx.wait();
-        console.log(`Method lock() complete. Gas used: ${result?.gasUsed}`);
+        logger.debug(`Method lock() complete. Gas used: ${result?.gasUsed}`);
       });
 
       it("locked() should return true for locked UTXOs, and false for unlocked or spent UTXOs", async function () {
@@ -693,7 +692,6 @@ describe("Zeto based fungible token with anonymity using nullifiers without encr
           [lockedUtxo1, ZERO_UTXO],
           [_utxo1, _utxo2],
           [Alice, Bob],
-          Charlie.ethAddress, // expected lock delegate to settle the lock
         );
         const settleOp = { outputStates: { outputs: [_utxo1.hash, _utxo2.hash], lockedOutputs: [] }, proof: encodeToBytesForLocked(encodedProofForSettle), data: "0x" };
         const rollbackOp = { outputStates: { outputs: [], lockedOutputs: [] }, proof: "0x", data: "0x" };
@@ -707,7 +705,7 @@ describe("Zeto based fungible token with anonymity using nullifiers without encr
           "0x",
         );
         const result: ContractTransactionReceipt | null = await tx.wait();
-        console.log(`Method lock() complete. Gas used: ${result?.gasUsed}`);
+        logger.debug(`Method lock() complete. Gas used: ${result?.gasUsed}`);
       });
 
       it("Alice delegates the lock to Charlie", async function () {
@@ -715,7 +713,7 @@ describe("Zeto based fungible token with anonymity using nullifiers without encr
           .connect(Alice.signer)
           .delegateLock(lockId, Charlie.ethAddress, "0x");
         const result = await tx.wait();
-        console.log(`Method delegateLock() complete. Gas used: ${result?.gasUsed}`);
+        logger.debug(`Method delegateLock() complete. Gas used: ${result?.gasUsed}`);
       });
 
       it("Charlie can use the proper proof to spend the locked state", async function () {
@@ -792,7 +790,7 @@ describe("Zeto based fungible token with anonymity using nullifiers without encr
     });
 
     beforeEach(async function () {
-      this.skip();
+      // this.skip();
     });
 
     it("Alice attempting to withdraw spent UTXOs should fail", async function () {
@@ -1080,7 +1078,7 @@ describe("Zeto based fungible token with anonymity using nullifiers without encr
       );
     }
     const results: ContractTransactionReceipt | null = await tx.wait();
-    console.log(
+    logger.debug(
       `Time to execute transaction: ${Date.now() - startTx}ms. Gas used: ${results?.gasUsed}`,
     );
     return results;
@@ -1145,7 +1143,7 @@ async function prepareProof(
   )) as { proof: BigNumberish[]; publicSignals: BigNumberish[] };
   const timeProofGeneration = Date.now() - startProofGeneration;
 
-  console.log(
+  logger.debug(
     `Witness calculation time: ${timeWithnessCalculation}ms. Proof generation time: ${timeProofGeneration}ms.`,
   );
 
