@@ -21,7 +21,6 @@ import {Commonlib} from "./common/common.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {ZetoCommon} from "./zeto_common.sol";
 import {IZetoStorage} from "./interfaces/izeto_storage.sol";
-import {console} from "hardhat/console.sol";
 
 /// @title A sample implementation of a base Zeto fungible token contract
 /// @author Kaleido, Inc.
@@ -182,7 +181,6 @@ abstract contract ZetoFungible is ZetoCommon {
         LockOperationData calldata refund,
         bytes calldata data
     ) public {
-        _checkDelegate(inputs);
         _lockData[lockId] = LockData({
             inputs: inputs,
             delegate: delegate,
@@ -192,7 +190,10 @@ abstract contract ZetoFungible is ZetoCommon {
         emit LockCommit(lockId, msg.sender, _lockData[lockId], data);
     }
 
-    function settleLock(bytes32 lockId, bytes calldata data) public virtual {
+    function settleLock(
+        bytes32 lockId,
+        bytes calldata data
+    ) public virtual onlyDelegate(lockId) {
         LockData memory lockData = _lockData[lockId];
         _transferLocked(
             lockData.inputs,
