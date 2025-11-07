@@ -125,10 +125,13 @@ abstract contract ZetoFungible is ZetoCommon {
         emitTransferEvent(inputs, outputs, proof, data);
     }
 
-    function prepareLock(
+    function createLock(
+        bytes32 lockId,
         LockParameters calldata states,
-        address delegate,
         bytes calldata proof,
+        address delegate,
+        LockOperationData calldata settle,
+        LockOperationData calldata rollback,
         bytes calldata data
     ) public {
         validateTransactionProposal(
@@ -170,24 +173,13 @@ abstract contract ZetoFungible is ZetoCommon {
         processInputsAndOutputs(paddedInputs, states.outputs, false);
         processLockedOutputs(states.lockedOutputs, delegate);
 
-        emit LockPrepare(msg.sender, states, delegate, data);
-    }
-
-    function commitLock(
-        bytes32 lockId,
-        uint256[] calldata inputs,
-        address delegate,
-        LockOperationData calldata settle,
-        LockOperationData calldata refund,
-        bytes calldata data
-    ) public {
         _lockData[lockId] = LockData({
-            inputs: inputs,
+            inputs: states.lockedOutputs, // the transaction's locked outputs are the inputs to the lock
             delegate: delegate,
             settle: settle,
-            refund: refund
+            rollback: rollback
         });
-        emit LockCommit(lockId, msg.sender, _lockData[lockId], data);
+        emit LockCreate(lockId, msg.sender, _lockData[lockId], data);
     }
 
     function settleLock(
@@ -204,13 +196,13 @@ abstract contract ZetoFungible is ZetoCommon {
         );
     }
 
-    function refundLock(bytes32 lockId, bytes calldata data) public {
+    function rollbackLock(bytes32 lockId, bytes calldata data) public {
         LockData memory lockData = _lockData[lockId];
         _transferLocked(
             lockData.inputs,
-            lockData.refund.outputStates.lockedOutputs,
-            lockData.refund.outputStates.outputs,
-            lockData.refund.proof,
+            lockData.rollback.outputStates.lockedOutputs,
+            lockData.rollback.outputStates.outputs,
+            lockData.rollback.proof,
             data
         );
     }

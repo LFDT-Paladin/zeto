@@ -26,13 +26,7 @@ interface IZetoLockable is ILockable {
         address currentDelegate,
         address sender
     );
-    event LockPrepare(
-        address indexed operator,
-        LockParameters states,
-        address delegate,
-        bytes data
-    );
-    event LockCommit(
+    event LockCreate(
         bytes32 lockId,
         address indexed operator,
         LockData lockData,
@@ -55,7 +49,7 @@ interface IZetoLockable is ILockable {
         // the operation to execute when the lock is executed
         LockOperationData settle;
         // the operation to execute when the lock is retracted
-        LockOperationData refund;
+        LockOperationData rollback;
     }
 
     struct LockOperationData {
@@ -81,18 +75,12 @@ interface IZetoLockable is ILockable {
         uint256[] lockedOutputs;
     }
 
-    function prepareLock(
-        LockParameters calldata states,
-        address delegate,
-        bytes calldata proof,
-        bytes calldata data
-    ) external;
-
-    function commitLock(
+    function createLock(
         bytes32 lockId,
-        uint256[] calldata inputs,
+        LockParameters calldata parameters,
+        bytes calldata proof,
         address delegate,
-        LockOperationData calldata execute,
+        LockOperationData calldata settle,
         LockOperationData calldata rollback,
         bytes calldata data
     ) external;
