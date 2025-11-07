@@ -6,5 +6,5 @@ pragma solidity ^0.8.24;
 interface ILockable {
     function settleLock(bytes32 lockId, bytes calldata data) external;
 
-    function refundLock(bytes32 lockId, bytes calldata data) external;
+    function rollbackLock(bytes32 lockId, bytes calldata data) external;
 }
