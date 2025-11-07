@@ -224,6 +224,12 @@ export function parseUTXOEvents(
         receivers: event?.args.receivers,
         submitter: event?.args.submitter,
       };
+    } else if (event?.name === "UTXOWithdraw") {
+      e = {
+        amount: event?.args.amount,
+        inputs: event?.args.inputs,
+        output: event?.args.output,
+      };
     } else if (event?.name === "TradeCompleted") {
       e = {
         tradeId: event?.args.tradeId,
