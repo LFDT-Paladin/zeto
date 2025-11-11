@@ -232,36 +232,33 @@ export function parseUTXOEvents(
         inputs: event?.args.inputs,
         output: event?.args.output,
       };
-    } else if (event?.name === "TradeCompleted") {
+    } else if (event?.name === "LockCreate") {
       e = {
-        tradeId: event?.args.tradeId,
-        trade: event?.args.trade,
+        lockId: event?.args.lockId,
+        lockData: event?.args.lockData,
       };
-    } else if (event?.name === "LockPrepare") {
+    } else if (event?.name === "LockSettle") {
       e = {
-        outputs: event?.args.states.outputs,
-        lockedOutputs: event?.args.states.lockedOutputs,
+        lockId: event?.args.lockId,
+        operator: event?.args.operator,
+        inputs: event?.args.inputs,
         delegate: event?.args.delegate,
+        settle: event?.args.settle,
       };
-    } else if (event?.name === "LockDelegateChanged") {
+    } else if (event?.name === "LockRollback") {
       e = {
-        lockedOutputs: event?.args.lockedOutputs,
+        lockId: event?.args.lockId,
+        operator: event?.args.operator,
+        inputs: event?.args.inputs,
+        delegate: event?.args.delegate,
+        rollback: event?.args.rollback,
+      };
+    } else if (event?.name === "LockDelegate") {
+      e = {
+        lockId: event?.args.lockId,
+        operator: event?.args.operator,
         oldDelegate: event?.args.oldDelegate,
         newDelegate: event?.args.newDelegate,
-      };
-    } else if (event?.name === "PaymentInitiated") {
-      e = {
-        paymentId: event?.args.paymentId,
-        lockedInputs: event?.args.lockedInputs,
-        nullifiers: event?.args.nullifiers,
-        outputs: event?.args.outputs,
-      };
-    } else if (
-      event?.name === "PaymentApproved" ||
-      event?.name === "PaymentCompleted"
-    ) {
-      e = {
-        paymentId: event?.args.paymentId,
       };
     }
     returnValues.push(e);

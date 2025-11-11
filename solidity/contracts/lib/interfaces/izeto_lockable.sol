@@ -15,7 +15,6 @@
 // limitations under the License.
 pragma solidity ^0.8.27;
 
-import {Commonlib} from "../common/common.sol";
 import {ILockable} from "./ILockable.sol";
 
 interface IZetoLockable is ILockable {
@@ -32,7 +31,21 @@ interface IZetoLockable is ILockable {
         LockData lockData,
         bytes data
     );
-    event LockDelegation(
+    event LockSettle(
+        bytes32 lockId,
+        address indexed operator,
+        uint256[] inputs,
+        address indexed delegate,
+        LockOperationData settle
+    );
+    event LockRollback(
+        bytes32 lockId,
+        address indexed operator,
+        uint256[] inputs,
+        address indexed delegate,
+        LockOperationData rollback
+    );
+    event LockDelegate(
         bytes32 lockId,
         address indexed operator,
         address indexed oldDelegate,

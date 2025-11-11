@@ -612,13 +612,14 @@ describe("Zeto based fungible token with anonymity using nullifiers without encr
         )
         const result = await tx.wait();
         const events = parseUTXOEvents(zeto, result);
-        const transferLockedEvent = events[0];
+        const lockSettleEvent = events[0];
 
         // Alice and Bob keep the local SMT in sync
-        await smtAlice.add(transferLockedEvent.outputs[0], transferLockedEvent.outputs[0]);
-        await smtAlice.add(transferLockedEvent.outputs[1], transferLockedEvent.outputs[1]);
-        await smtBob.add(transferLockedEvent.outputs[0], transferLockedEvent.outputs[0]);
-        await smtBob.add(transferLockedEvent.outputs[1], transferLockedEvent.outputs[1]);
+        const outputs = lockSettleEvent.settle.outputStates.outputs;
+        await smtAlice.add(outputs[0], outputs[0]);
+        await smtAlice.add(outputs[1], outputs[1]);
+        await smtBob.add(outputs[0], outputs[0]);
+        await smtBob.add(outputs[1], outputs[1]);
 
       });
 
@@ -725,13 +726,14 @@ describe("Zeto based fungible token with anonymity using nullifiers without encr
         );
         const result = await tx.wait();
         const events = parseUTXOEvents(zeto, result);
-        const transferLockedEvent = events[0];
+        const lockSettleEvent = events[0];
 
         // Alice and Bob keep the local SMT in sync
-        await smtAlice.add(transferLockedEvent.outputs[0], transferLockedEvent.outputs[0]);
-        await smtAlice.add(transferLockedEvent.outputs[1], transferLockedEvent.outputs[1]);
-        await smtBob.add(transferLockedEvent.outputs[0], transferLockedEvent.outputs[0]);
-        await smtBob.add(transferLockedEvent.outputs[1], transferLockedEvent.outputs[1]);
+        const outputs = lockSettleEvent.settle.outputStates.outputs;
+        await smtAlice.add(outputs[0], outputs[0]);
+        await smtAlice.add(outputs[1], outputs[1]);
+        await smtBob.add(outputs[0], outputs[0]);
+        await smtBob.add(outputs[1], outputs[1]);
       });
 
       it("onchain SMT root for the unlocked UTXOs should be equal to the offchain SMT root", async function () {
