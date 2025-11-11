@@ -188,6 +188,7 @@ abstract contract ZetoFungible is ZetoCommon {
     ) public virtual onlyDelegate(lockId) {
         LockData memory lockData = _lockData[lockId];
         _transferLocked(
+            lockId,
             lockData.inputs,
             lockData.settle.outputStates.lockedOutputs,
             lockData.settle.outputStates.outputs,
@@ -199,6 +200,7 @@ abstract contract ZetoFungible is ZetoCommon {
     function rollbackLock(bytes32 lockId, bytes calldata data) public {
         LockData memory lockData = _lockData[lockId];
         _transferLocked(
+            lockId,
             lockData.inputs,
             lockData.rollback.outputStates.lockedOutputs,
             lockData.rollback.outputStates.outputs,
@@ -214,7 +216,7 @@ abstract contract ZetoFungible is ZetoCommon {
     ) public {
         _checkDelegate(_lockData[lockId].inputs);
         _storage.delegateLock(_lockData[lockId].inputs, delegate, data);
-        emit LockDelegation(
+        emit LockDelegate(
             lockId,
             msg.sender,
             _lockData[lockId].delegate,
@@ -339,23 +341,33 @@ abstract contract ZetoFungible is ZetoCommon {
         emit UTXOTransfer(inputs, outputs, msg.sender, data);
     }
 
-    function emitTransferLockedEvent(
+    function emitLockSettleEvent(
+        bytes32 lockId,
         uint256[] memory lockedInputs,
         uint256[] memory lockedOutputs,
         uint256[] memory outputs,
+        address delegate,
         bytes memory proof,
         bytes memory data
     ) internal virtual {
-        emit UTXOTransferLocked(
-            lockedInputs,
-            lockedOutputs,
-            outputs,
+        emit LockSettle(
+            lockId,
             msg.sender,
-            data
+            lockedInputs,
+            delegate,
+            LockOperationData({
+                outputStates: LockOutputStates({
+                    outputs: outputs,
+                    lockedOutputs: lockedOutputs
+                }),
+                proof: proof,
+                data: data
+            })
         );
     }
 
     function _transferLocked(
+        bytes32 lockId,
         uint256[] memory lockedInputs,
         uint256[] memory lockedOutputs,
         uint256[] memory outputs,
@@ -395,10 +407,12 @@ abstract contract ZetoFungible is ZetoCommon {
         processInputsAndOutputs(paddedInputs, paddedOutputs, true);
         processLockedOutputs(lockedOutputs, msg.sender);
 
-        emitTransferLockedEvent(
+        emitLockSettleEvent(
+            lockId,
             lockedInputs,
             lockedOutputs,
             outputs,
+            msg.sender,
             proof,
             data
         );
