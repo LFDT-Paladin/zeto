@@ -1,5 +1,5 @@
 {
-  "name": "zeto",
+  "name": "zeto-contracts",
   "version": "0.0.1",
   "description": "Zero knowledge proof based UTXO tokens toolkit for fungible or non-fungible assets",
   "main": "index.js",
