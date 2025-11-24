@@ -195,6 +195,16 @@ abstract contract ZetoFungible is ZetoCommon {
             lockData.settle.proof,
             data
         );
+
+        emitLockSettleEvent(
+            lockId,
+            lockData.inputs,
+            lockData.settle.outputStates.lockedOutputs,
+            lockData.settle.outputStates.outputs,
+            msg.sender,
+            lockData.settle.proof,
+            data
+        );
     }
 
     function rollbackLock(bytes32 lockId, bytes calldata data) public {
@@ -204,6 +214,16 @@ abstract contract ZetoFungible is ZetoCommon {
             lockData.inputs,
             lockData.rollback.outputStates.lockedOutputs,
             lockData.rollback.outputStates.outputs,
+            lockData.rollback.proof,
+            data
+        );
+
+        emitLockRollbackEvent(
+            lockId,
+            lockData.inputs,
+            lockData.rollback.outputStates.lockedOutputs,
+            lockData.rollback.outputStates.outputs,
+            msg.sender,
             lockData.rollback.proof,
             data
         );
@@ -366,6 +386,31 @@ abstract contract ZetoFungible is ZetoCommon {
         );
     }
 
+    function emitLockRollbackEvent(
+        bytes32 lockId,
+        uint256[] memory lockedInputs,
+        uint256[] memory lockedOutputs,
+        uint256[] memory outputs,
+        address delegate,
+        bytes memory proof,
+        bytes memory data
+    ) internal virtual {
+        emit LockRollback(
+            lockId,
+            msg.sender,
+            lockedInputs,
+            delegate,
+            LockOperationData({
+                outputStates: LockOutputStates({
+                    outputs: outputs,
+                    lockedOutputs: lockedOutputs
+                }),
+                proof: proof,
+                data: data
+            })
+        );
+    }
+
     function _transferLocked(
         bytes32 lockId,
         uint256[] memory lockedInputs,
@@ -406,16 +451,6 @@ abstract contract ZetoFungible is ZetoCommon {
         verifyProof(proofStruct, publicInputs, isBatch, true);
         processInputsAndOutputs(paddedInputs, paddedOutputs, true);
         processLockedOutputs(lockedOutputs, msg.sender);
-
-        emitLockSettleEvent(
-            lockId,
-            lockedInputs,
-            lockedOutputs,
-            outputs,
-            msg.sender,
-            proof,
-            data
-        );
     }
 
     // this is a utility function that constructs the public inputs for a proof of a deposit() call.
