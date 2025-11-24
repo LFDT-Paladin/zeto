@@ -98,6 +98,17 @@ jobs:
             ${{ runner.temp }}/zeto-artifacts/zeto-contracts*.tar.gz
 
 
+  publish-npm:
+    name: Publish to NPM
+    needs:
+      - build
+    uses: ./.github/workflows/release-solidity-package.yaml
+    secrets:
+      NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+    with:
+      package_version: ${{ github.ref_name }}
+      package_tag: latest
+
   create-release:
     name: Create GitHub Release
     needs:
