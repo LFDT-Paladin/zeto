@@ -64,7 +64,7 @@ jobs:
         run: |
           echo "clean_version=$(echo "${{ inputs.package_version }}" | sed 's/^v//')" >> $GITHUB_OUTPUT
 
-      - name: Update package.json version
+      - name: Update package.json name and version
         working-directory: solidity
         shell: bash
         run: |
@@ -74,9 +74,16 @@ jobs:
             sudo apt-get install -y jq
           fi
           
-          # Update version only
-          jq --arg version "${{ steps.prep_version.outputs.clean_version }}" \
-            '.version = $version' package.json > temp.json && mv temp.json package.json
+          # Get the current package name (without scope)
+          CURRENT_NAME=$(jq -r '.name' package.json)
+          # Remove any existing scope
+          BASE_NAME=$(echo "$CURRENT_NAME" | sed 's/^@[^/]*\///')
+          # Add the @lfdecentralizedtrust scope
+          SCOPED_NAME="@lfdecentralizedtrust/${BASE_NAME}"
+          
+          # Update name (with scope) and version
+          jq --arg name "$SCOPED_NAME" --arg version "${{ steps.prep_version.outputs.clean_version }}" \
+            '.name = $name | .version = $version' package.json > temp.json && mv temp.json package.json
           
           echo "Updated package.json:"
           cat package.json
