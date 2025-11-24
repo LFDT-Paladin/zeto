@@ -58,10 +58,6 @@ jobs:
         working-directory: solidity
         run: npm install
 
-      - name: Compile contracts
-        working-directory: solidity
-        run: npx hardhat compile
-
       - name: Prepare Clean Version Number
         id: prep_version
         shell: bash
