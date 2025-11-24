@@ -10,6 +10,7 @@ import {
   deployNonFungible as deployNonFungibleCloneable,
 } from "../../scripts/deploy_cloneable";
 import fungibilities from "../../scripts/tokens.json";
+import { logger } from "./utils";
 import { ethers } from "hardhat";
 
 export async function deployZeto(tokenName: string) {
@@ -34,7 +35,7 @@ export async function deployZeto(tokenName: string) {
   }
 
   if (process.env.USE_FACTORY !== "true") {
-    console.log("Deploying as upgradeable contracts");
+    logger.debug("Deploying as upgradeable contracts");
     // setup via the deployment scripts
     const deployFunc = isFungible
       ? deployFungibleUpgradeable
@@ -42,7 +43,7 @@ export async function deployZeto(tokenName: string) {
     const result = await deployFunc(tokenName);
     ({ deployer, zeto, erc20 } = result as any);
   } else {
-    console.log('Deploying as cloneable contracts using "ZetoTokenFactory"');
+    logger.debug('Deploying as cloneable contracts using "ZetoTokenFactory"');
     let args, zetoImpl;
     const deployFunc = isFungible
       ? deployFungibleCloneable

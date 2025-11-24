@@ -1,4 +1,8 @@
 import { ethers, ignition } from "hardhat";
+import { Logger, ILogObj } from "tslog";
+const logLevel = process.env.LOG_LEVEL || "3";
+export const logger: Logger<ILogObj> = new Logger({ name: "deploy_cloneable", minLevel: parseInt(logLevel) });
+
 import erc20Module from "../ignition/modules/erc20";
 import { getLinkedContractFactory, deploy } from "./lib/common";
 
@@ -23,8 +27,8 @@ export async function deployFungible(tokenName: string) {
   const tx3 = await zetoImpl.connect(deployer).setERC20(erc20.target);
   await tx3.wait();
 
-  console.log(`ERC20 deployed:     ${erc20.target}`);
-  console.log(`ZetoToken deployed: ${zetoImpl.target}`);
+  logger.debug(`ERC20 deployed:     ${erc20.target}`);
+  logger.debug(`ZetoToken deployed: ${zetoImpl.target}`);
 
   return { deployer, zetoImpl, erc20, args };
 }
@@ -44,7 +48,7 @@ export async function deployNonFungible(tokenName: string) {
   await zetoImpl.waitForDeployment();
   await zetoImpl.connect(deployer).initialize(...args);
 
-  console.log(`ZetoToken deployed: ${zetoImpl.target}`);
+  logger.debug(`ZetoToken deployed: ${zetoImpl.target}`);
 
   return { deployer, zetoImpl, args };
 }
@@ -57,6 +61,6 @@ deploy(deployFungible, deployNonFungible)
     process.exit(0);
   })
   .catch((error) => {
-    console.error(error);
+    logger.error(error);
     process.exit(1);
   });
