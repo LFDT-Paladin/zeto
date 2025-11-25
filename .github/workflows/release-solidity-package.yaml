@@ -108,7 +108,6 @@ jobs:
           } >> $GITHUB_OUTPUT
 
       - name: Publish to npm with primary tag
-        continue-on-error: true
         working-directory: solidity
         shell: bash
         run: |
