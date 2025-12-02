@@ -16,7 +16,6 @@
 pragma solidity ^0.8.27;
 
 import {IZetoConstants, MAX_SMT_DEPTH} from "../interfaces/izeto.sol";
-import {IZetoLockable} from "../interfaces/izeto_lockable.sol";
 import {IZetoStorage} from "../interfaces/izeto_storage.sol";
 import {Commonlib} from "../common/common.sol";
 import {Util} from "../common/util.sol";
