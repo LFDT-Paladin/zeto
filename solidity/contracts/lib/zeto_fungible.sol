@@ -17,6 +17,7 @@ pragma solidity ^0.8.27;
 
 import {IGroth16Verifier} from "./interfaces/izeto_verifier.sol";
 import {IZetoInitializable} from "./interfaces/izeto_initializable.sol";
+import {IZetoLockable} from "./interfaces/izeto_lockable.sol";
 import {Commonlib} from "./common/common.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {ZetoCommon} from "./zeto_common.sol";
@@ -25,7 +26,7 @@ import {IZetoStorage} from "./interfaces/izeto_storage.sol";
 /// @title A sample implementation of a base Zeto fungible token contract
 /// @author Kaleido, Inc.
 /// @dev Defines the verifier library for checking UTXOs against a claimed value.
-abstract contract ZetoFungible is ZetoCommon {
+abstract contract ZetoFungible is ZetoCommon, IZetoLockable {
     // _depositVerifier library for checking UTXOs against a claimed value.
     // this can be used in the optional deposit calls to verify that
     // the UTXOs match the deposited value
@@ -125,13 +126,10 @@ abstract contract ZetoFungible is ZetoCommon {
         emitTransferEvent(inputs, outputs, proof, data);
     }
 
-    function createLock(
+    function lock(
         bytes32 lockId,
         LockParameters calldata states,
         bytes calldata proof,
-        address delegate,
-        LockOperationData calldata settle,
-        LockOperationData calldata rollback,
         bytes calldata data
     ) public {
         validateTransactionProposal(
@@ -171,61 +169,86 @@ abstract contract ZetoFungible is ZetoCommon {
         verifyProof(proofStruct, publicInputs, isBatch, false);
 
         processInputsAndOutputs(paddedInputs, states.outputs, false);
+        address delegate = msg.sender;
         processLockedOutputs(states.lockedOutputs, delegate);
 
         _lockData[lockId] = LockData({
             inputs: states.lockedOutputs, // the transaction's locked outputs are the inputs to the lock
             delegate: delegate,
-            settle: settle,
-            rollback: rollback
+            settle: UnlockOperation({unlockHash: bytes32(0)})
         });
         emit LockCreate(lockId, msg.sender, _lockData[lockId], data);
     }
 
-    function settleLock(
+    function prepareUnlock(
         bytes32 lockId,
+        UnlockOperation calldata settle,
         bytes calldata data
+    ) public onlyDelegate(lockId) {
+        LockData storage lockData = _lockData[lockId];
+        if (lockData.settle.unlockHash != bytes32(0)) {
+            revert UnlockAlreadyPrepared(lockId);
+        }
+        _lockData[lockId].settle = settle;
+        emit LockCreate(lockId, msg.sender, _lockData[lockId], data);
+    }
+
+    function unlock(
+        bytes32 lockId,
+        UnlockOperationData calldata opData
     ) public virtual onlyDelegate(lockId) {
-        LockData memory lockData = _lockData[lockId];
+        LockData storage lockData = _lockData[lockId];
+        _validateUnlock(
+            lockId,
+            lockData.settle,
+            lockData.inputs,
+            opData.lockedOutputs,
+            opData.outputs,
+            opData.data
+        );
+
         _transferLocked(
             lockId,
             lockData.inputs,
-            lockData.settle.outputStates.lockedOutputs,
-            lockData.settle.outputStates.outputs,
-            lockData.settle.proof,
-            data
+            opData.lockedOutputs,
+            opData.outputs,
+            opData.proof,
+            opData.data
         );
 
         emitLockSettleEvent(
             lockId,
             lockData.inputs,
-            lockData.settle.outputStates.lockedOutputs,
-            lockData.settle.outputStates.outputs,
+            opData.lockedOutputs,
+            opData.outputs,
             msg.sender,
-            lockData.settle.proof,
-            data
+            opData.proof,
+            opData.data
         );
     }
 
-    function rollbackLock(bytes32 lockId, bytes calldata data) public {
+    function rollbackLock(
+        bytes32 lockId,
+        UnlockOperationData calldata opData
+    ) public onlyDelegate(lockId) {
         LockData memory lockData = _lockData[lockId];
         _transferLocked(
             lockId,
             lockData.inputs,
-            lockData.rollback.outputStates.lockedOutputs,
-            lockData.rollback.outputStates.outputs,
-            lockData.rollback.proof,
-            data
+            opData.lockedOutputs,
+            opData.outputs,
+            opData.proof,
+            opData.data
         );
 
         emitLockRollbackEvent(
             lockId,
             lockData.inputs,
-            lockData.rollback.outputStates.lockedOutputs,
-            lockData.rollback.outputStates.outputs,
+            opData.lockedOutputs,
+            opData.outputs,
             msg.sender,
-            lockData.rollback.proof,
-            data
+            opData.proof,
+            opData.data
         );
     }
 
@@ -370,16 +393,14 @@ abstract contract ZetoFungible is ZetoCommon {
         bytes memory proof,
         bytes memory data
     ) internal virtual {
-        emit LockSettle(
+        emit Unlock(
             lockId,
             msg.sender,
             lockedInputs,
             delegate,
-            LockOperationData({
-                outputStates: LockOutputStates({
-                    outputs: outputs,
-                    lockedOutputs: lockedOutputs
-                }),
+            UnlockOperationData({
+                outputs: outputs,
+                lockedOutputs: lockedOutputs,
                 proof: proof,
                 data: data
             })
@@ -400,15 +421,52 @@ abstract contract ZetoFungible is ZetoCommon {
             msg.sender,
             lockedInputs,
             delegate,
-            LockOperationData({
-                outputStates: LockOutputStates({
-                    outputs: outputs,
-                    lockedOutputs: lockedOutputs
-                }),
+            UnlockOperationData({
+                outputs: outputs,
+                lockedOutputs: lockedOutputs,
                 proof: proof,
                 data: data
             })
         );
+    }
+
+    function _validateUnlock(
+        bytes32 lockId,
+        UnlockOperation storage unlockOp,
+        uint256[] memory lockedInputs,
+        uint256[] memory lockedOutputs,
+        uint256[] memory outputs,
+        bytes memory data
+    ) internal view {
+        if (unlockOp.unlockHash == 0) {
+            revert UnlockNotPrepared(lockId);
+        }
+        bytes32 actualHash = _buildUnlockHash(
+            lockedInputs,
+            lockedOutputs,
+            outputs,
+            data
+        );
+        if (actualHash != unlockOp.unlockHash) {
+            revert InvalidUnlockHash(unlockOp.unlockHash, actualHash);
+        }
+    }
+
+    function _buildUnlockHash(
+        uint256[] memory lockedInputs,
+        uint256[] memory lockedOutputs,
+        uint256[] memory outputs,
+        bytes memory data
+    ) internal pure returns (bytes32) {
+        bytes32 structHash = keccak256(
+            abi.encode(
+                keccak256(abi.encodePacked(lockedInputs)),
+                keccak256(abi.encodePacked(lockedOutputs)),
+                keccak256(abi.encodePacked(outputs)),
+                keccak256(data)
+            )
+        );
+        return structHash;
     }
 
     function _transferLocked(
