@@ -19,6 +19,9 @@ import {ILockable} from "./ILockable.sol";
 
 interface IZetoLockable is ILockable {
     error AlreadyLocked(uint256 utxo);
+    error UnlockAlreadyPrepared(bytes32 lockId);
+    error UnlockNotPrepared(bytes32 lockId);
+    error InvalidUnlockHash(bytes32 expected, bytes32 actual);
     error NotLocked(uint256 utxo);
     error NotLockDelegate(
         uint256 utxo,
@@ -31,19 +34,25 @@ interface IZetoLockable is ILockable {
         LockData lockData,
         bytes data
     );
-    event LockSettle(
+    event UnlockPrepare(
+        bytes32 lockId,
+        address indexed operator,
+        UnlockOperation settle,
+        bytes data
+    );
+    event Unlock(
         bytes32 lockId,
         address indexed operator,
         uint256[] inputs,
         address indexed delegate,
-        LockOperationData settle
+        UnlockOperationData settle
     );
     event LockRollback(
         bytes32 lockId,
         address indexed operator,
         uint256[] inputs,
         address indexed delegate,
-        LockOperationData rollback
+        UnlockOperationData rollback
     );
     event LockDelegate(
         bytes32 lockId,
@@ -60,22 +69,14 @@ interface IZetoLockable is ILockable {
         // the account that is authorized to carry out the operations on the lock
         address delegate;
         // the operation to execute when the lock is executed
-        LockOperationData settle;
-        // the operation to execute when the lock is retracted
-        LockOperationData rollback;
+        UnlockOperation settle;
     }
 
-    struct LockOperationData {
-        LockOutputStates outputStates;
-        bytes proof;
-        bytes data;
-    }
-
-    struct LockOutputStates {
-        // Array of zero or more new states to generate, for future transactions to spend
-        uint256[] outputs;
-        // Array of zero or more locked states to generate, which will be tied to the lockId
-        uint256[] lockedOutputs;
+    // Used to prepare the unlock operation for the lock, and
+    // represents the committed unlock operation
+    struct UnlockOperation {
+        // this is the keccak256 hash of the inputs, outputs and "data" fields
+        bytes32 unlockHash;
     }
 
     // used in function parameters to avoid stack too deep errors
@@ -88,13 +89,16 @@ interface IZetoLockable is ILockable {
         uint256[] lockedOutputs;
     }
 
-    function createLock(
+    function lock(
         bytes32 lockId,
         LockParameters calldata parameters,
         bytes calldata proof,
-        address delegate,
-        LockOperationData calldata settle,
-        LockOperationData calldata rollback,
+        bytes calldata data
+    ) external;
+
+    function prepareUnlock(
+        bytes32 lockId,
+        UnlockOperation calldata settle,
         bytes calldata data
     ) external;
 
