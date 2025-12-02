@@ -18,7 +18,6 @@ pragma solidity ^0.8.27;
 import {Commonlib} from "./common/common.sol";
 import {IZeto} from "./interfaces/izeto.sol";
 import {MAX_SMT_DEPTH} from "./interfaces/izeto.sol";
-import {IZetoLockable} from "./interfaces/izeto_lockable.sol";
 import {IZetoInitializable} from "./interfaces/izeto_initializable.sol";
 import {ZetoFungible} from "./zeto_fungible.sol";
 import {SmtLib} from "@iden3/contracts/lib/SmtLib.sol";
