@@ -237,7 +237,7 @@ export function parseUTXOEvents(
         lockId: event?.args.lockId,
         lockData: event?.args.lockData,
       };
-    } else if (event?.name === "LockSettle") {
+    } else if (event?.name === "Unlock") {
       e = {
         lockId: event?.args.lockId,
         operator: event?.args.operator,
