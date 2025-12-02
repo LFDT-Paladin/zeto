@@ -17,9 +17,9 @@ pragma solidity ^0.8.27;
 
 import {Commonlib} from "./common/common.sol";
 import {IZeto, MAX_BATCH} from "./interfaces/izeto.sol";
-import {IZetoLockable} from "./interfaces/izeto_lockable.sol";
 import {IGroth16Verifier} from "./interfaces/izeto_verifier.sol";
 import {IZetoInitializable} from "./interfaces/izeto_initializable.sol";
+import {IZetoLockable} from "./interfaces/izeto_lockable.sol";
 import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import {Util} from "./common/util.sol";
 import {IZetoStorage} from "./interfaces/izeto_storage.sol";
@@ -27,7 +27,7 @@ import {IZetoStorage} from "./interfaces/izeto_storage.sol";
 /// @title A sample base implementation of a Zeto based token contract
 /// @author Kaleido, Inc.
 /// @dev Implements common functionalities of Zeto based tokens
-abstract contract ZetoCommon is IZeto, IZetoLockable, OwnableUpgradeable {
+abstract contract ZetoCommon is IZeto, OwnableUpgradeable {
     string private _name;
     string private _symbol;
 
@@ -258,7 +258,7 @@ abstract contract ZetoCommon is IZeto, IZetoLockable, OwnableUpgradeable {
             if (isLocked) {
                 // if the UTXO is locked, check if the sender is the current delegate
                 if (currentDelegate != msg.sender) {
-                    revert NotLockDelegate(
+                    revert IZetoLockable.NotLockDelegate(
                         lockedOutputs[i],
                         currentDelegate,
                         msg.sender
