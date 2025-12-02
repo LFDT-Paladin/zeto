@@ -16,7 +16,7 @@
 
 import { readFileSync } from "fs";
 import * as path from "path";
-import { AbiCoder, BigNumberish } from "ethers";
+import { AbiCoder, BigNumberish, solidityPacked, keccak256 } from "ethers";
 import { groth16 } from "snarkjs";
 import { loadCircuit, encodeProof } from "zeto-js";
 import { User, UTXO, ZERO_UTXO, logger } from "./lib/utils";
@@ -420,5 +420,20 @@ export function encodeToBytesForWithdraw(root: any, proof: any) {
   return new AbiCoder().encode(
     ["uint256 root", "tuple(uint256[2] pA, uint256[2][2] pB, uint256[2] pC)"],
     [root, proof],
+  );
+}
+
+export function calculateUnlockHash(lockedInputs: UTXO[], lockedOutputs: UTXO[], outputs: UTXO[], data: any) {
+  const abiCoder = new AbiCoder();
+  return keccak256(
+    abiCoder.encode(
+      ["bytes32", "bytes32", "bytes32", "bytes32"],
+      [
+        keccak256(solidityPacked(["uint256[]"], [lockedInputs.map((utxo) => utxo.hash)])),
+        keccak256(solidityPacked(["uint256[]"], [lockedOutputs.map((utxo) => utxo.hash)])),
+        keccak256(solidityPacked(["uint256[]"], [outputs.map((utxo) => utxo.hash)])),
+        keccak256(data),
+      ],
+    ),
   );
 }
