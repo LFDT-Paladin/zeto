@@ -21,6 +21,7 @@ import (
 	"math/big"
 	"time"
 
+	"github.com/hyperledger-labs/zeto/go-sdk/integration-test/common"
 	"github.com/hyperledger-labs/zeto/go-sdk/pkg/crypto"
 	"github.com/iden3/go-iden3-crypto/poseidon"
 	"github.com/iden3/go-rapidsnark/prover"
@@ -29,19 +30,19 @@ import (
 
 func (s *E2ETestSuite) TestZeto_anon_SuccessfulProving() {
 	// s.T().Skip()
-	calc, provingKey, err := loadCircuit("anon")
+	calc, provingKey, _, err := common.LoadCircuit("anon")
 	assert.NoError(s.T(), err)
 	assert.NotNil(s.T(), calc)
 
 	witnessInputs := map[string]interface{}{
-		"inputCommitments":      s.regularTest.inputCommitments,
-		"inputValues":           s.regularTest.inputValues,
-		"inputSalts":            s.regularTest.inputSalts,
+		"inputCommitments":      s.regularTest.InputCommitments,
+		"inputValues":           s.regularTest.InputValues,
+		"inputSalts":            s.regularTest.InputSalts,
 		"inputOwnerPrivateKey":  s.sender.PrivateKeyBigInt,
-		"outputCommitments":     s.regularTest.outputCommitments,
-		"outputValues":          s.regularTest.outputValues,
-		"outputSalts":           s.regularTest.outputSalts,
-		"outputOwnerPublicKeys": s.regularTest.outputOwnerPublicKeys,
+		"outputCommitments":     s.regularTest.OutputCommitments,
+		"outputValues":          s.regularTest.OutputValues,
+		"outputSalts":           s.regularTest.OutputSalts,
+		"outputOwnerPublicKeys": s.regularTest.OutputOwnerPublicKeys,
 	}
 
 	// calculate the witness object for checking correctness
@@ -50,10 +51,10 @@ func (s *E2ETestSuite) TestZeto_anon_SuccessfulProving() {
 	assert.NotNil(s.T(), witness)
 
 	assert.Equal(s.T(), 0, witness[0].Cmp(big.NewInt(1)))
-	assert.Equal(s.T(), 0, witness[1].Cmp(s.regularTest.inputCommitments[0]))
-	assert.Equal(s.T(), 0, witness[2].Cmp(s.regularTest.inputCommitments[1]))
-	assert.Equal(s.T(), 0, witness[3].Cmp(s.regularTest.outputCommitments[0]))
-	assert.Equal(s.T(), 0, witness[4].Cmp(s.regularTest.outputCommitments[1]))
+	assert.Equal(s.T(), 0, witness[1].Cmp(s.regularTest.InputCommitments[0]))
+	assert.Equal(s.T(), 0, witness[2].Cmp(s.regularTest.InputCommitments[1]))
+	assert.Equal(s.T(), 0, witness[3].Cmp(s.regularTest.OutputCommitments[0]))
+	assert.Equal(s.T(), 0, witness[4].Cmp(s.regularTest.OutputCommitments[1]))
 
 	// generate the witness binary to feed into the prover
 	startTime := time.Now()
@@ -73,19 +74,19 @@ func (s *E2ETestSuite) TestZeto_anon_SuccessfulProving() {
 
 func (s *E2ETestSuite) TestZeto_anon_batch_SuccessfulProving() {
 	// s.T().Skip()
-	calc, provingKey, err := loadCircuit("anon_batch")
+	calc, provingKey, _, err := common.LoadCircuit("anon_batch")
 	assert.NoError(s.T(), err)
 	assert.NotNil(s.T(), calc)
 
 	witnessInputs := map[string]interface{}{
-		"inputCommitments":      s.batchTest.inputCommitments,
-		"inputValues":           s.batchTest.inputValues,
-		"inputSalts":            s.batchTest.inputSalts,
+		"inputCommitments":      s.batchTest.InputCommitments,
+		"inputValues":           s.batchTest.InputValues,
+		"inputSalts":            s.batchTest.InputSalts,
 		"inputOwnerPrivateKey":  s.sender.PrivateKeyBigInt,
-		"outputCommitments":     s.batchTest.outputCommitments,
-		"outputValues":          s.batchTest.outputValues,
-		"outputSalts":           s.batchTest.outputSalts,
-		"outputOwnerPublicKeys": s.batchTest.outputOwnerPublicKeys,
+		"outputCommitments":     s.batchTest.OutputCommitments,
+		"outputValues":          s.batchTest.OutputValues,
+		"outputSalts":           s.batchTest.OutputSalts,
+		"outputOwnerPublicKeys": s.batchTest.OutputOwnerPublicKeys,
 	}
 
 	// generate the witness binary to feed into the prover
@@ -106,7 +107,7 @@ func (s *E2ETestSuite) TestZeto_anon_batch_SuccessfulProving() {
 
 func (s *E2ETestSuite) TestZeto_anon_burn_SuccessfulProving() {
 	// s.T().Skip()
-	calc, provingKey, err := loadCircuit("burn")
+	calc, provingKey, _, err := common.LoadCircuit("burn")
 	assert.NoError(s.T(), err)
 	assert.NotNil(s.T(), calc)
 
@@ -123,9 +124,9 @@ func (s *E2ETestSuite) TestZeto_anon_burn_SuccessfulProving() {
 	}
 
 	witnessInputs := map[string]interface{}{
-		"inputCommitments": s.regularTest.inputCommitments,
-		"inputValues":      s.regularTest.inputValues,
-		"inputSalts":       s.regularTest.inputSalts,
+		"inputCommitments": s.regularTest.InputCommitments,
+		"inputValues":      s.regularTest.InputValues,
+		"inputSalts":       s.regularTest.InputSalts,
 		"ownerPrivateKey":  s.sender.PrivateKeyBigInt,
 		"outputCommitment": outputCommitments,
 		"outputValue":      outputValues,

@@ -38,6 +38,9 @@ contract Zeto_AnonEncNullifier is Zeto_AnonNullifier {
         uint256[] encryptedValues;
     }
 
+    // Add storage variable to reduce stack usage
+    _DecodedProof_EncNullifier private _dpe;
+
     function initialize(
         string calldata name,
         string calldata symbol,
@@ -56,45 +59,21 @@ contract Zeto_AnonEncNullifier is Zeto_AnonNullifier {
         __ZetoAnonNullifier_init(name_, symbol_, initialOwner, verifiers);
     }
 
-    /**
-     * @dev the main function of the contract, which transfers values from one account (represented by Babyjubjub public keys)
-     *      to one or more receiver accounts (also represented by Babyjubjub public keys). One of the two nullifiers may be zero
-     *      if the transaction only needs one UTXO to be spent. Equally one of the two outputs may be zero if the transaction
-     *      only needs to create one new UTXO.
-     *
-     * @param nullifiers Array of nullifiers that are secretly bound to UTXOs to be spent by the transaction.
-     * @param outputs Array of new UTXOs to generate, for future transactions to spend.
-     * @param proof A zero knowledge proof that the submitter is authorized to spend the inputs, and
-     *      that the outputs are valid in terms of obeying mass conservation rules.
-     *
-     * Emits a {UTXOTransfer} and a {UTXOTransferWithEncryptedValues} event.
-     */
-    function transfer(
-        uint256[] calldata nullifiers,
-        uint256[] calldata outputs,
-        bytes calldata proof,
-        bytes calldata data
-    ) public virtual override {
-        super.transfer(nullifiers, outputs, proof, data);
-        (
-            uint256 root,
-            uint256 encryptionNonce,
-            uint256[2] memory ecdhPublicKey,
-            uint256[] memory encryptedValues,
-            Commonlib.Proof memory proofStruct
-        ) = abi.decode(
-                proof,
-                (uint256, uint256, uint256[2], uint256[], Commonlib.Proof)
-            );
-
-        uint256[] memory paddedNullifiers = checkAndPadCommitments(nullifiers);
-        uint256[] memory paddedOutputs = checkAndPadCommitments(outputs);
+    function emitTransferEvent(
+        uint256[] memory nullifiers,
+        uint256[] memory outputs,
+        bytes memory proof,
+        bytes memory data
+    ) internal virtual override {
+        (_DecodedProof_EncNullifier memory dp, ) = decodeProof_EncNullifier(
+            proof
+        );
         emit UTXOTransferWithEncryptedValues(
-            paddedNullifiers,
-            paddedOutputs,
-            encryptionNonce,
-            ecdhPublicKey,
-            encryptedValues,
+            nullifiers,
+            outputs,
+            dp.encryptionNonce,
+            dp.ecdhPublicKey,
+            dp.encryptedValues,
             msg.sender,
             data
         );
@@ -115,16 +94,24 @@ contract Zeto_AnonEncNullifier is Zeto_AnonNullifier {
             _DecodedProof_EncNullifier memory dp,
             Commonlib.Proof memory proofStruct
         ) = decodeProof_EncNullifier(proof);
+
+        // Store the decoded proof in storage to reduce stack usage
+        _dpe = dp;
+
         uint256[] memory extra = extraInputs();
-        uint256 size = _calculatePublicInputsSize(
+        uint256 size = _calculatePublicInputsSize_EncNullifier(
             nullifiers,
             outputs,
-            extra,
-            dp
+            extra
         );
 
         uint256[] memory publicInputs = new uint256[](size);
-        _fillPublicInputs(publicInputs, nullifiers, outputs, extra, dp);
+        _fillPublicInputs_EncNullifier(
+            publicInputs,
+            nullifiers,
+            outputs,
+            extra
+        );
         return (publicInputs, proofStruct);
     }
 
@@ -154,74 +141,77 @@ contract Zeto_AnonEncNullifier is Zeto_AnonNullifier {
         return (dp, proofStruct);
     }
 
-    function _calculatePublicInputsSize(
+    function _calculatePublicInputsSize_EncNullifier(
         uint256[] memory nullifiers,
         uint256[] memory outputs,
-        uint256[] memory extra,
-        _DecodedProof_EncNullifier memory dp
-    ) internal pure returns (uint256) {
+        uint256[] memory extra
+    ) internal view returns (uint256) {
         return
             (nullifiers.length * 2) + // nullifiers and enabled flags
             2 + // root and encryption nonce
-            dp.ecdhPublicKey.length + // ecdh public key
-            dp.encryptedValues.length + // encrypted values
+            _dpe.ecdhPublicKey.length + // ecdh public key
+            _dpe.encryptedValues.length + // encrypted values
             extra.length + // extra inputs
             outputs.length; // outputs
     }
 
-    function _fillPublicInputs(
+    function _fillPublicInputs_EncNullifier(
         uint256[] memory publicInputs,
         uint256[] memory nullifiers,
         uint256[] memory outputs,
-        uint256[] memory extra,
-        _DecodedProof_EncNullifier memory dp
-    ) internal pure {
+        uint256[] memory extra
+    ) internal {
         uint256 piIndex = 0;
 
         // Split into smaller functions to reduce stack usage
-        piIndex = _fillEcdhAndEncryptedValues(publicInputs, dp, piIndex);
-        piIndex = _fillNullifiersAndRoot(publicInputs, nullifiers, dp, piIndex);
-        piIndex = _fillEnablesAndExtra(
+        piIndex = _fillEcdhAndEncryptedValues_EncNullifier(
+            publicInputs,
+            piIndex
+        );
+        piIndex = _fillNullifiersAndRoot_EncNullifier(
+            publicInputs,
+            nullifiers,
+            piIndex
+        );
+        piIndex = _fillEnablesAndExtra_EncNullifier(
             publicInputs,
             nullifiers,
             extra,
             piIndex
         );
-        _fillOutputsAndNonce(publicInputs, outputs, dp, piIndex);
+        _fillOutputsAndNonce_EncNullifier(publicInputs, outputs, piIndex);
     }
 
-    function _fillEcdhAndEncryptedValues(
+    function _fillEcdhAndEncryptedValues_EncNullifier(
         uint256[] memory publicInputs,
-        _DecodedProof_EncNullifier memory dp,
         uint256 piIndex
-    ) internal pure returns (uint256) {
+    ) internal view returns (uint256) {
         // copy the ecdh public key
-        for (uint256 i = 0; i < dp.ecdhPublicKey.length; ++i) {
-            publicInputs[piIndex++] = dp.ecdhPublicKey[i];
+        for (uint256 i = 0; i < _dpe.ecdhPublicKey.length; ++i) {
+            publicInputs[piIndex++] = _dpe.ecdhPublicKey[i];
         }
         // copy the encrypted value, salt and parity bit
-        for (uint256 i = 0; i < dp.encryptedValues.length; ++i) {
-            publicInputs[piIndex++] = dp.encryptedValues[i];
+        for (uint256 i = 0; i < _dpe.encryptedValues.length; ++i) {
+            publicInputs[piIndex++] = _dpe.encryptedValues[i];
         }
         return piIndex;
     }
 
-    function _fillNullifiersAndRoot(
+    function _fillNullifiersAndRoot_EncNullifier(
         uint256[] memory publicInputs,
         uint256[] memory nullifiers,
-        _DecodedProof_EncNullifier memory dp,
         uint256 piIndex
-    ) internal pure returns (uint256) {
+    ) internal view returns (uint256) {
         // copy input commitments
         for (uint256 i = 0; i < nullifiers.length; i++) {
             publicInputs[piIndex++] = nullifiers[i];
         }
         // copy root
-        publicInputs[piIndex++] = dp.root;
+        publicInputs[piIndex++] = _dpe.root;
         return piIndex;
     }
 
-    function _fillEnablesAndExtra(
+    function _fillEnablesAndExtra_EncNullifier(
         uint256[] memory publicInputs,
         uint256[] memory nullifiers,
         uint256[] memory extra,
@@ -238,18 +228,17 @@ contract Zeto_AnonEncNullifier is Zeto_AnonNullifier {
         return piIndex;
     }
 
-    function _fillOutputsAndNonce(
+    function _fillOutputsAndNonce_EncNullifier(
         uint256[] memory publicInputs,
         uint256[] memory outputs,
-        _DecodedProof_EncNullifier memory dp,
         uint256 piIndex
-    ) internal pure {
+    ) internal view {
         // copy output commitments
         for (uint256 i = 0; i < outputs.length; i++) {
             publicInputs[piIndex++] = outputs[i];
         }
         // copy encryption nonce
-        publicInputs[piIndex++] = dp.encryptionNonce;
+        publicInputs[piIndex++] = _dpe.encryptionNonce;
     }
 
     function extraInputs()

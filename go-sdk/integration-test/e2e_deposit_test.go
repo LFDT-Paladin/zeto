@@ -20,21 +20,22 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/hyperledger-labs/zeto/go-sdk/integration-test/common"
 	"github.com/iden3/go-rapidsnark/prover"
 	"github.com/stretchr/testify/assert"
 )
 
 func (s *E2ETestSuite) TestZeto_deposit_SuccessfulProving() {
 	// s.T().Skip()
-	calc, provingKey, err := loadCircuit("deposit")
+	calc, provingKey, _, err := common.LoadCircuit("deposit")
 	assert.NoError(s.T(), err)
 	assert.NotNil(s.T(), calc)
 
 	witnessInputs := map[string]interface{}{
-		"outputCommitments":     s.regularTest.outputCommitments,
-		"outputValues":          s.regularTest.outputValues,
-		"outputSalts":           s.regularTest.outputSalts,
-		"outputOwnerPublicKeys": s.regularTest.outputOwnerPublicKeys,
+		"outputCommitments":     s.regularTest.OutputCommitments,
+		"outputValues":          s.regularTest.OutputValues,
+		"outputSalts":           s.regularTest.OutputSalts,
+		"outputOwnerPublicKeys": s.regularTest.OutputOwnerPublicKeys,
 	}
 
 	startTime := time.Now()

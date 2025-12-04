@@ -20,7 +20,7 @@ import crypto from "crypto";
 import { AbiCoder, BigNumberish } from "ethers";
 import { groth16 } from "snarkjs";
 import { loadCircuit, encodeProof, tokenUriHash } from "zeto-js";
-import { User, UTXO } from "./lib/utils";
+import { User, UTXO, ZERO_UTXO } from "./lib/utils";
 import { formatPrivKeyForBabyJub, stringifyBigInts } from "maci-crypto";
 
 function provingKeysRoot() {
@@ -42,6 +42,24 @@ export function loadProvingKeys(type: string) {
     provingKeyFile,
     verificationKey,
   };
+}
+
+export function inflateUtxos(outputUtxos: UTXO[]) {
+  const desiredLength = outputUtxos.length > 2 ? 10 : 2;
+  const inflatedOutputUtxos = [...outputUtxos];
+  for (let i = 0; i < desiredLength - outputUtxos.length; i++) {
+    inflatedOutputUtxos.push(ZERO_UTXO);
+  }
+  return inflatedOutputUtxos;
+}
+
+export function inflateOwners(owners: User[]) {
+  const desiredLength = owners.length > 2 ? 10 : 2;
+  const inflatedOwners = [...owners];
+  for (let i = 0; i < desiredLength - owners.length; i++) {
+    inflatedOwners.push(owners[0]); // use a random owner for the extra utxos
+  }
+  return inflatedOwners;
 }
 
 export async function prepareDepositProof(signer: User, outputs: [UTXO, UTXO]) {

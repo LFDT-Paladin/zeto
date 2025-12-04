@@ -125,7 +125,7 @@ describe("Zeto based fungible token with anonymity and encryption", function () 
     );
 
     const events = parseUTXOEvents(zeto, result.txResult!);
-    const event = events[1]; // skip the first event which is the UTXOTransfer event
+    const event = events[0];
     expect(event.inputs).to.deep.equal(inputUtxos.map((i) => i.hash));
     const incomingUTXOs: any = event.outputs;
     const ecdhPublicKey = event.ecdhPublicKey;
@@ -153,11 +153,6 @@ describe("Zeto based fungible token with anonymity and encryption", function () 
         utxoOwner.babyJubPublicKey[1],
       ]);
       expect(incomingUTXOs[i]).to.equal(hash);
-    }
-
-    // check empty values, salt and hashes are empty
-    for (let i = outputUtxos.length; i < 10; i++) {
-      expect(incomingUTXOs[i]).to.equal(0);
     }
 
     // mint sufficient balance in Zeto contract address for Alice to withdraw
@@ -250,7 +245,7 @@ describe("Zeto based fungible token with anonymity and encryption", function () 
     // Bob uses the information in the event to recover the incoming UTXO
     // first obtain the UTXO from the transaction event
     const events = parseUTXOEvents(zeto, result.txResult!);
-    const event = events[1]; // skip the first event which is the UTXOTransfer event
+    const event = events[0];
     expect(event.inputs).to.deep.equal([utxo1.hash, utxo2.hash]);
     expect(event.outputs).to.deep.equal([_utxo1.hash, utxo4.hash]);
     const incomingUTXOs: any = event.outputs;
@@ -613,7 +608,7 @@ function encodeToBytes(
   encryptedValues: any,
   proof: any,
 ) {
-  return new AbiCoder().encode(
+  const bytes = new AbiCoder().encode(
     [
       "uint256 encryptionNonce",
       "uint256[2] ecdhPublicKey",
@@ -622,6 +617,12 @@ function encodeToBytes(
     ],
     [encryptionNonce, ecdhPublicKey, encryptedValues, proof],
   );
+  // console.log("Encryption nonce:", encryptionNonce);
+  // console.log("ECDH public key:", ecdhPublicKey);
+  // console.log("Encrypted values:", encryptedValues);
+  // console.log("Proof:", proof);
+  // console.log("Encoded proof:", bytes);
+  return bytes;
 }
 
 function encodeToBytesForWithdraw(proof: any) {

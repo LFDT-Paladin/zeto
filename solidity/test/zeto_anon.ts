@@ -21,6 +21,7 @@ import {
   AddressLike,
   ZeroAddress,
   AbiCoder,
+  ContractTransactionReceipt,
 } from "ethers";
 import { expect } from "chai";
 import { loadCircuit, encodeProof, Poseidon } from "zeto-js";
@@ -40,6 +41,8 @@ import {
   prepareDepositProof,
   prepareWithdrawProof,
   prepareBurnProof,
+  inflateUtxos,
+  inflateOwners,
 } from "./utils";
 import { Zeto_Anon, Zeto_AnonBurnable } from "../typechain-types";
 import { deployZeto } from "./lib/deploy";
@@ -98,93 +101,87 @@ describe("Zeto based fungible token with anonymity without encryption or nullifi
     );
   });
 
-  it("(batch) mint to Alice and batch transfer 10 UTXOs honestly to Bob & Charlie then withdraw should succeed", async function () {
-    // first mint the tokens for batch testing
-    const inputUtxos = [];
-    for (let i = 0; i < 10; i++) {
-      // mint 10 utxos
-      inputUtxos.push(newUTXO(1, Alice));
-    }
-    await doMint(zeto, deployer, inputUtxos);
+  describe("batch transfers", () => {
+    let inputUtxos: UTXO[];
+    let outputUtxos: UTXO[];
+    let outputOwners: User[];
+    let aliceUTXOsToBeWithdrawn: UTXO[];
+    let txResult: ContractTransactionReceipt | null;
 
-    const aliceUTXOsToBeWithdrawn = [
-      newUTXO(1, Alice),
-      newUTXO(1, Alice),
-      newUTXO(1, Alice),
-    ];
-    // Alice proposes the output UTXOs, 1 utxo to bob, 1 utxo to charlie and 3 utxos to alice
-    const _bOut1 = newUTXO(6, Bob);
-    const _bOut2 = newUTXO(1, Charlie);
+    it("mint to Alice 10 UTXOs", async () => {
+      // first mint the tokens for batch testing
+      inputUtxos = [];
+      for (let i = 0; i < 10; i++) {
+        // mint 10 utxos
+        inputUtxos.push(newUTXO(1, Alice));
+      }
+      await doMint(zeto, deployer, inputUtxos);
+    });
 
-    const outputUtxos = [_bOut1, _bOut2, ...aliceUTXOsToBeWithdrawn];
-    const outputOwners = [Bob, Charlie, Alice, Alice, Alice];
-    const inflatedOutputUtxos = [...outputUtxos];
-    const inflatedOutputOwners = [...outputOwners];
-    for (let i = 0; i < 10 - outputUtxos.length; i++) {
-      inflatedOutputUtxos.push(ZERO_UTXO);
-      inflatedOutputOwners.push(Bob);
-    }
+    it("transfer 10 UTXOs honestly to Bob & Charlie should succeed", async function () {
+      aliceUTXOsToBeWithdrawn = [
+        newUTXO(1, Alice),
+        newUTXO(1, Alice),
+        newUTXO(1, Alice),
+      ];
+      // Alice proposes the output UTXOs, 1 utxo to bob, 1 utxo to charlie and 3 utxos to alice
+      const _bOut1 = newUTXO(6, Bob);
+      const _bOut2 = newUTXO(1, Charlie);
 
-    // Alice transfers UTXOs to Bob and Charlie
-    const result = await doTransfer(
-      Alice,
-      inputUtxos,
-      inflatedOutputUtxos,
-      inflatedOutputOwners,
-    );
+      outputUtxos = [_bOut1, _bOut2, ...aliceUTXOsToBeWithdrawn];
+      outputOwners = [Bob, Charlie, Alice, Alice, Alice];
 
-    const events = parseUTXOEvents(zeto, result);
-    const incomingUTXOs: any = events[0].outputs;
-    // check the non-empty output hashes are correct
-    for (let i = 0; i < outputUtxos.length; i++) {
-      // Bob uses the information received from Alice to reconstruct the UTXO sent to him
-      const receivedValue = outputUtxos[i].value;
-      const receivedSalt = outputUtxos[i].salt;
-      const hash = poseidonHash([
-        BigInt(receivedValue),
-        receivedSalt,
-        outputOwners[i].babyJubPublicKey[0],
-        outputOwners[i].babyJubPublicKey[1],
-      ]);
-      expect(incomingUTXOs[i]).to.equal(hash);
-    }
+      // Alice transfers UTXOs to Bob and Charlie
+      txResult = await doTransfer(Alice, inputUtxos, outputUtxos, outputOwners);
+    });
 
-    // check empty hashes are empty
-    for (let i = outputUtxos.length; i < 10; i++) {
-      expect(incomingUTXOs[i]).to.equal(0);
-    }
+    it("check the non-empty output hashes are correct", async function () {
+      const events = parseUTXOEvents(zeto, txResult);
+      const incomingUTXOs: any = events[0].outputs;
+      // check the non-empty output hashes are correct
+      for (let i = 0; i < outputUtxos.length; i++) {
+        // Bob uses the information received from Alice to reconstruct the UTXO sent to him
+        const receivedValue = outputUtxos[i].value;
+        const receivedSalt = outputUtxos[i].salt;
+        const hash = poseidonHash([
+          BigInt(receivedValue),
+          receivedSalt,
+          outputOwners[i].babyJubPublicKey[0],
+          outputOwners[i].babyJubPublicKey[1],
+        ]);
+        expect(incomingUTXOs[i]).to.equal(hash);
+      }
+    });
 
-    // mint sufficient balance in Zeto contract address for Alice to withdraw
-    const mintTx = await erc20.connect(deployer).mint(zeto, 3);
-    await mintTx.wait();
-    const startingBalance = await erc20.balanceOf(Alice.ethAddress);
+    it("withdraw 3 UTXOs to ERC20 tokens", async function () {
+      // mint sufficient balance in Zeto contract address for Alice to withdraw
+      const mintTx = await erc20.connect(deployer).mint(zeto, 3);
+      await mintTx.wait();
+      const startingBalance = await erc20.balanceOf(Alice.ethAddress);
 
-    // Alice generates the nullifiers for the UTXOs to be spent
-    const inflatedWithdrawInputs = [...aliceUTXOsToBeWithdrawn];
+      const inflatedWithdrawInputs = [...aliceUTXOsToBeWithdrawn];
+      for (let i = aliceUTXOsToBeWithdrawn.length; i < 10; i++) {
+        inflatedWithdrawInputs.push(ZERO_UTXO);
+      }
+      const { inputCommitments, outputCommitments, encodedProof } =
+        await prepareWithdrawProof(Alice, inflatedWithdrawInputs, ZERO_UTXO);
 
-    // Alice generates inclusion proofs for the UTXOs to be spent
+      // Alice withdraws her UTXOs to ERC20 tokens
+      const tx = await zeto
+        .connect(Alice.signer)
+        .withdraw(
+          3,
+          inputCommitments,
+          outputCommitments[0],
+          encodeToBytes(encodedProof),
+          "0x",
+        );
+      await tx.wait();
 
-    for (let i = aliceUTXOsToBeWithdrawn.length; i < 10; i++) {
-      inflatedWithdrawInputs.push(ZERO_UTXO);
-    }
-    const { inputCommitments, outputCommitments, encodedProof } =
-      await prepareWithdrawProof(Alice, inflatedWithdrawInputs, ZERO_UTXO);
-
-    // Alice withdraws her UTXOs to ERC20 tokens
-    const tx = await zeto
-      .connect(Alice.signer)
-      .withdraw(
-        3,
-        inputCommitments,
-        outputCommitments[0],
-        encodeToBytes(encodedProof),
-        "0x",
-      );
-    await tx.wait();
-
-    // Alice checks her ERC20 balance
-    const endingBalance = await erc20.balanceOf(Alice.ethAddress);
-    expect(endingBalance - startingBalance).to.be.equal(3);
+      // Alice checks her ERC20 balance
+      const endingBalance = await erc20.balanceOf(Alice.ethAddress);
+      expect(endingBalance - startingBalance).to.be.equal(3);
+    });
   });
 
   it("mint ERC20 tokens to Alice to deposit to Zeto should succeed", async function () {
@@ -463,7 +460,7 @@ describe("Zeto based fungible token with anonymity without encryption or nullifi
         inflatedOutputOwners.push(Bob);
       }
 
-      const result = await prepareProof(
+      const encodedProof = await prepareProof(
         batchCircuit,
         batchProvingKey,
         Bob,
@@ -473,10 +470,10 @@ describe("Zeto based fungible token with anonymity without encryption or nullifi
       );
       await expect(
         zeto.connect(Bob.signer).lock(
-          result.inputCommitments,
-          [result.outputCommitments[0]], // unlocked output
-          result.outputCommitments, // locked output
-          encodeToBytes(result.encodedProof),
+          [utxo7.hash],
+          [resusedUtxo.hash], // unlocked output
+          inflatedOutputUtxos.map((utxo) => utxo.hash), // locked output
+          encodeToBytes(encodedProof),
           Alice.ethAddress, // make Alice the delegate who can spend the state (if she has the right proof)
           "0x",
         ),
@@ -486,7 +483,7 @@ describe("Zeto based fungible token with anonymity without encryption or nullifi
     it("lock() should succeed when using unlocked states", async function () {
       lockedUtxo1 = newUTXO(10, Bob);
       lockedUtxo2 = newUTXO(5, Bob);
-      const result = await prepareProof(
+      const encodedProof = await prepareProof(
         circuit,
         provingKey,
         Bob,
@@ -495,10 +492,10 @@ describe("Zeto based fungible token with anonymity without encryption or nullifi
         [Bob, Bob],
       );
       const tx = await zeto.connect(Bob.signer).lock(
-        result.inputCommitments,
+        [utxo7.hash],
         [], // unlocked output
-        result.outputCommitments, // locked output
-        encodeToBytes(result.encodedProof),
+        [lockedUtxo1.hash, lockedUtxo2.hash], // locked output
+        encodeToBytes(encodedProof),
         Alice.ethAddress, // make Alice the delegate who can spend the state (if she has the right proof)
         "0x",
       );
@@ -532,7 +529,7 @@ describe("Zeto based fungible token with anonymity without encryption or nullifi
 
       // Bob is the owner of the UTXO, so he can generate the right proof
       const utxo1 = newUTXO(10, Bob);
-      const result = await prepareProof(
+      const encodedProof = await prepareProof(
         circuit,
         provingKey,
         Bob,
@@ -546,10 +543,10 @@ describe("Zeto based fungible token with anonymity without encryption or nullifi
         zeto
           .connect(Bob.signer)
           .lock(
-            result.inputCommitments,
+            [lockedUtxo1.hash],
             [],
-            result.outputCommitments,
-            encodeToBytes(result.encodedProof),
+            [utxo1.hash],
+            encodeToBytes(encodedProof),
             Bob.ethAddress,
             "0x",
           ),
@@ -594,25 +591,18 @@ describe("Zeto based fungible token with anonymity without encryption or nullifi
 
     it("an invalid lock delegate can NOT use the proper proof to spend the locked state", async function () {
       const utxo1 = newUTXO(10, Alice);
-      const { inputCommitments, outputCommitments, encodedProof } =
-        await prepareProof(
-          circuit,
-          provingKey,
-          Bob,
-          [lockedUtxo1, ZERO_UTXO],
-          [utxo1, ZERO_UTXO],
-          [Alice, Alice],
-        );
+      const encodedProof = await prepareProof(
+        circuit,
+        provingKey,
+        Bob,
+        [lockedUtxo1, ZERO_UTXO],
+        [utxo1, ZERO_UTXO],
+        [Alice, Alice],
+      );
       // Charlie NOT being the delegate can NOT spend the locked state
       // using the proof generated by the trade counterparty (Bob in this case)
       await expect(
-        sendTx(
-          Charlie,
-          inputCommitments,
-          outputCommitments,
-          encodedProof,
-          true,
-        ),
+        sendTx(Charlie, [lockedUtxo1.hash], [utxo1.hash], encodedProof, true),
       ).to.be.rejectedWith("NotLockDelegate");
     });
 
@@ -642,22 +632,21 @@ describe("Zeto based fungible token with anonymity without encryption or nullifi
 
     it("attempting to use an existing UTXO as output should fail", async function () {
       const utxo1 = newUTXO(5, Alice);
-      const { inputCommitments, outputCommitments, encodedProof } =
-        await prepareProof(
-          circuit,
-          provingKey,
-          Bob,
-          [lockedUtxo1, ZERO_UTXO],
-          [utxo1, lockedUtxo2],
-          [Alice, Bob],
-        );
+      const encodedProof = await prepareProof(
+        circuit,
+        provingKey,
+        Bob,
+        [lockedUtxo1, ZERO_UTXO],
+        [utxo1, lockedUtxo2],
+        [Alice, Bob],
+      );
       // Charlie is the new delegate (in reality this is usually a contract that orchestrates a trade flow) to spend the locked state
       // using the proof generated by the trade counterparty (Bob in this case)
       await expect(
         sendTx(
           Charlie,
-          inputCommitments,
-          outputCommitments,
+          [lockedUtxo1.hash],
+          [utxo1.hash, lockedUtxo2.hash],
           encodedProof,
           true,
         ),
@@ -674,22 +663,21 @@ describe("Zeto based fungible token with anonymity without encryption or nullifi
 
       // attempt to use utxo4 as output
       const utxo3 = newUTXO(5, Alice);
-      const { inputCommitments, outputCommitments, encodedProof } =
-        await prepareProof(
-          circuit,
-          provingKey,
-          Bob,
-          [lockedUtxo1, ZERO_UTXO],
-          [utxo3, utxo4],
-          [Alice, Alice],
-        );
+      const encodedProof = await prepareProof(
+        circuit,
+        provingKey,
+        Bob,
+        [lockedUtxo1, ZERO_UTXO],
+        [utxo3, utxo4],
+        [Alice, Alice],
+      );
       // Charlie is the new delegate (in reality this is usually a contract that orchestrates a trade flow) to spend the locked state
       // using the proof generated by the trade counterparty (Bob in this case)
       await expect(
         sendTx(
           Charlie,
-          inputCommitments,
-          outputCommitments,
+          [lockedUtxo1.hash],
+          [utxo3.hash, utxo4.hash],
           encodedProof,
           true,
         ),
@@ -698,25 +686,18 @@ describe("Zeto based fungible token with anonymity without encryption or nullifi
 
     it("the designated delegate can use the proper proof to spend the locked state", async function () {
       const utxo1 = newUTXO(10, Alice);
-      const { inputCommitments, outputCommitments, encodedProof } =
-        await prepareProof(
-          circuit,
-          provingKey,
-          Bob,
-          [lockedUtxo1, ZERO_UTXO],
-          [utxo1, ZERO_UTXO],
-          [Alice, Alice],
-        );
+      const encodedProof = await prepareProof(
+        circuit,
+        provingKey,
+        Bob,
+        [lockedUtxo1, ZERO_UTXO],
+        [utxo1, ZERO_UTXO],
+        [Alice, Alice],
+      );
       // Alice as the delegate (in reality this is usually a contract that orchestrates a trade flow) can spend the locked state
       // using the proof generated by the trade counterparty (Bob in this case)
       await expect(
-        sendTx(
-          Charlie,
-          inputCommitments,
-          outputCommitments,
-          encodedProof,
-          true,
-        ),
+        sendTx(Charlie, [lockedUtxo1.hash], [utxo1.hash], encodedProof, true),
       ).to.be.fulfilled;
     });
 
@@ -732,21 +713,20 @@ describe("Zeto based fungible token with anonymity without encryption or nullifi
       ).to.be.rejectedWith("UTXOAlreadyLocked");
 
       // Alice as the current delegate can unlock the UTXO
-      const { inputCommitments, outputCommitments, encodedProof } =
-        await prepareProof(
-          circuit,
-          provingKey,
-          Bob,
-          [lockedUtxo2, ZERO_UTXO],
-          [utxo1, ZERO_UTXO],
-          [Charlie, Charlie],
-        );
+      const encodedProof = await prepareProof(
+        circuit,
+        provingKey,
+        Bob,
+        [lockedUtxo2, ZERO_UTXO],
+        [utxo1, ZERO_UTXO],
+        [Charlie, Charlie],
+      );
       await expect(
         zeto
           .connect(Alice.signer)
           .unlock(
-            inputCommitments,
-            outputCommitments,
+            [lockedUtxo2.hash],
+            [utxo1.hash],
             encodeToBytes(encodedProof),
             "0x",
           ),
@@ -776,20 +756,23 @@ describe("Zeto based fungible token with anonymity without encryption or nullifi
       circuitToUse = batchCircuit;
       provingKeyToUse = batchProvingKey;
     }
-    const result = await prepareProof(
+    const inflatedInputUtxos = inflateUtxos(inputs);
+    const inflatedOutputUtxos = inflateUtxos(outputs);
+    const inflatedOwners = inflateOwners(owners);
+
+    encodedProof = await prepareProof(
       circuitToUse,
       provingKeyToUse,
       signer,
-      inputs,
-      outputs,
-      owners,
+      inflatedInputUtxos,
+      inflatedOutputUtxos,
+      inflatedOwners,
     );
-    inputCommitments = result.inputCommitments;
-    outputCommitments = result.outputCommitments;
+    inputCommitments = inputs.map((input) => input.hash);
+    outputCommitments = outputs.map((output) => output.hash);
     outputOwnerAddresses = owners.map(
       (owner) => owner.ethAddress || ZeroAddress,
     ) as [AddressLike, AddressLike];
-    encodedProof = result.encodedProof;
 
     return await sendTx(
       signer,
@@ -811,6 +794,7 @@ describe("Zeto based fungible token with anonymity without encryption or nullifi
     if (isLocked) {
       tx = await zeto.connect(signer.signer).transferLocked(
         inputCommitments.filter((ic) => ic !== 0n), // trim off empty utxo hashes to check padding logic for batching works
+        [],
         outputCommitments.filter((oc) => oc !== 0n), // trim off empty utxo hashes to check padding logic for batching works
         proof,
         "0x",
@@ -893,11 +877,7 @@ async function prepareProof(
     `Witness calculation time: ${timeWitnessCalculation}ms, Proof generation time: ${timeProofGeneration}ms`,
   );
   const encodedProof = encodeProof(proof);
-  return {
-    inputCommitments,
-    outputCommitments,
-    encodedProof,
-  };
+  return encodedProof;
 }
 
 function encodeToBytes(proof: any) {

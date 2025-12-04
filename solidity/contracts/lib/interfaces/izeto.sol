@@ -38,6 +38,13 @@ interface IZetoConstants {
         address indexed submitter,
         bytes data
     );
+    event UTXOTransferLocked(
+        uint256[] lockedInputs,
+        uint256[] lockedOutputs,
+        uint256[] outputs,
+        address indexed submitter,
+        bytes data
+    );
     event UTXOTransferWithEncryptedValues(
         uint256[] inputs,
         uint256[] outputs,

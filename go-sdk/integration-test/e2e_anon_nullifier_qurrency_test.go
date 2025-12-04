@@ -24,6 +24,7 @@ import (
 
 	"github.com/cloudflare/circl/kem/mlkem/mlkem512"
 
+	"github.com/hyperledger-labs/zeto/go-sdk/integration-test/common"
 	"github.com/hyperledger-labs/zeto/go-sdk/pkg/crypto"
 	zetoCrypto "github.com/hyperledger-labs/zeto/go-sdk/pkg/crypto"
 	"github.com/iden3/go-rapidsnark/prover"
@@ -31,7 +32,7 @@ import (
 )
 
 func (s *E2ETestSuite) TestZeto_anon_nullifier_qurrency_SuccessfulProving() {
-	calc, provingKey, err := loadCircuit("anon_nullifier_qurrency_transfer")
+	calc, provingKey, _, err := common.LoadCircuit("anon_nullifier_qurrency_transfer")
 	assert.NoError(s.T(), err)
 	assert.NotNil(s.T(), calc)
 
@@ -48,18 +49,18 @@ func (s *E2ETestSuite) TestZeto_anon_nullifier_qurrency_SuccessfulProving() {
 	}
 
 	witnessInputs := map[string]interface{}{
-		"nullifiers":            s.regularTest.nullifiers,
-		"inputCommitments":      s.regularTest.inputCommitments,
-		"inputValues":           s.regularTest.inputValues,
-		"inputSalts":            s.regularTest.inputSalts,
+		"nullifiers":            s.regularTest.Nullifiers,
+		"inputCommitments":      s.regularTest.InputCommitments,
+		"inputValues":           s.regularTest.InputValues,
+		"inputSalts":            s.regularTest.InputSalts,
 		"inputOwnerPrivateKey":  s.sender.PrivateKeyBigInt,
-		"root":                  s.regularTest.root,
-		"merkleProof":           s.regularTest.merkleProofs,
-		"enabled":               s.regularTest.enabled,
-		"outputCommitments":     s.regularTest.outputCommitments,
-		"outputValues":          s.regularTest.outputValues,
-		"outputSalts":           s.regularTest.outputSalts,
-		"outputOwnerPublicKeys": s.regularTest.outputOwnerPublicKeys,
+		"root":                  s.regularTest.Root,
+		"merkleProof":           s.regularTest.MerkleProofs,
+		"enabled":               s.regularTest.Enabled,
+		"outputCommitments":     s.regularTest.OutputCommitments,
+		"outputValues":          s.regularTest.OutputValues,
+		"outputSalts":           s.regularTest.OutputSalts,
+		"outputOwnerPublicKeys": s.regularTest.OutputOwnerPublicKeys,
 		"encryptionNonce":       nonce,
 		"randomness":            randomBits,
 	}

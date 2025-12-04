@@ -88,10 +88,10 @@ contract zkEscrow1 {
             payment.status == PaymentStatus.INITIATED,
             "Payment not initiated"
         );
-        payment.lockedInputs = zeto.checkAndPadCommitments(
-            payment.lockedInputs
+        (payment.lockedInputs, payment.outputs) = zeto.checkAndPadCommitments(
+            payment.lockedInputs,
+            payment.outputs
         );
-        payment.outputs = zeto.checkAndPadCommitments(payment.outputs);
         require(
             zeto.constructPublicSignalsAndVerifyProof(
                 payment.lockedInputs,
@@ -112,8 +112,10 @@ contract zkEscrow1 {
             payment.status == PaymentStatus.APPROVED,
             "Payment not approved"
         );
+        uint256[] memory lockedOutputs;
         zeto.transferLocked(
             payment.lockedInputs,
+            lockedOutputs,
             payment.outputs,
             payment.proof,
             "0x"

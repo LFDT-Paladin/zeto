@@ -21,6 +21,7 @@ import (
 	"math/big"
 	"time"
 
+	"github.com/hyperledger-labs/zeto/go-sdk/integration-test/common"
 	"github.com/hyperledger-labs/zeto/go-sdk/internal/testutils"
 	"github.com/hyperledger-labs/zeto/go-sdk/pkg/crypto"
 	"github.com/hyperledger-labs/zeto/go-sdk/pkg/sparse-merkle-tree/node"
@@ -33,7 +34,7 @@ import (
 
 func (s *E2ETestSuite) TestZeto_nf_anon_nullifier_SuccessfulProving() {
 	// s.T().Skip()
-	calc, provingKey, err := loadCircuit("nf_anon_nullifier_transfer")
+	calc, provingKey, _, err := common.LoadCircuit("nf_anon_nullifier_transfer")
 	assert.NoError(s.T(), err)
 	assert.NotNil(s.T(), calc)
 
@@ -51,7 +52,7 @@ func (s *E2ETestSuite) TestZeto_nf_anon_nullifier_SuccessfulProving() {
 
 	nullifier1, _ := poseidon.Hash([]*big.Int{tokenId, tokenUri, salt1, sender.PrivateKeyBigInt})
 
-	mt, err := smt.NewMerkleTree(s.db, MAX_HEIGHT)
+	mt, err := smt.NewMerkleTree(s.db, common.MAX_HEIGHT)
 	assert.NoError(s.T(), err)
 	utxo1 := node.NewNonFungible(tokenId, uriString, sender.PublicKey, salt1)
 	n1, err := node.NewLeafNode(utxo1)
@@ -60,7 +61,7 @@ func (s *E2ETestSuite) TestZeto_nf_anon_nullifier_SuccessfulProving() {
 	assert.NoError(s.T(), err)
 	proofs, _, err := mt.GenerateProofs([]*big.Int{input1}, nil)
 	assert.NoError(s.T(), err)
-	circomProof1, err := proofs[0].ToCircomVerifierProof(input1, input1, mt.Root(), MAX_HEIGHT)
+	circomProof1, err := proofs[0].ToCircomVerifierProof(input1, input1, mt.Root(), common.MAX_HEIGHT)
 	assert.NoError(s.T(), err)
 	proof1Siblings := make([]*big.Int, len(circomProof1.Siblings)-1)
 	for i, s := range circomProof1.Siblings[0 : len(circomProof1.Siblings)-1] {

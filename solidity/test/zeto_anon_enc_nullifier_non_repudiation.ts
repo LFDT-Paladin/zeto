@@ -184,7 +184,7 @@ describe("Zeto based fungible token with anonymity using nullifiers and encrypti
 
     const signerAddress = await Alice.signer.getAddress();
     const events = parseUTXOEvents(zeto, result.txResult!);
-    const event = events[2]; // skip the first and second events which are from the super class
+    const event = events[0];
     expect(event.submitter).to.equal(signerAddress);
     expect(event.inputs).to.deep.equal(nullifiers.map((n) => n.hash));
 
@@ -217,11 +217,6 @@ describe("Zeto based fungible token with anonymity using nullifiers and encrypti
       expect(incomingUTXOs[i]).to.equal(hash);
       await smtAlice.add(incomingUTXOs[i], incomingUTXOs[i]);
       await smtBob.add(incomingUTXOs[i], incomingUTXOs[i]);
-    }
-
-    // check empty values, salt and hashes are empty
-    for (let i = outputUtxos.length; i < 10; i++) {
-      expect(incomingUTXOs[i]).to.equal(0);
     }
     // The regulator uses the encrypted values in the event to decrypt and recover the UTXO value and salt
     const auditKey = genEcdhSharedKey(
@@ -258,12 +253,6 @@ describe("Zeto based fungible token with anonymity using nullifiers and encrypti
         auditPlainText[2 * i + 23],
       ]);
       expect(calHash).to.equal(outputUtxos[i].hash);
-    }
-
-    // check empty hashes are empty
-    for (let i = outputUtxos.length; i < 10; i++) {
-      expect(auditPlainText[2 * i + 42]).to.equal(0);
-      expect(auditPlainText[2 * i + 43]).to.equal(0);
     }
 
     // mint sufficient balance in Zeto contract address for Alice to withdraw
@@ -426,7 +415,7 @@ describe("Zeto based fungible token with anonymity using nullifiers and encrypti
     // Bob parses the UTXOs from the onchain event
     const signerAddress = await Alice.signer.getAddress();
     const events = parseUTXOEvents(zeto, result2.txResult!);
-    const event = events[2]; // skip the first and second events which are from the super class
+    const event = events[0];
     expect(event.submitter).to.equal(signerAddress);
     expect(event.inputs).to.deep.equal([nullifier1.hash, nullifier2.hash]);
     expect(event.outputs).to.deep.equal([_utxo3.hash, utxo4.hash]);
@@ -540,7 +529,7 @@ describe("Zeto based fungible token with anonymity using nullifiers and encrypti
 
     // Alice gets the new UTXOs from the onchain event and keeps the local SMT in sync
     const events = parseUTXOEvents(zeto, result.txResult!);
-    const event = events[2]; // skip the first and second events which are from the super class
+    const event = events[0];
     await smtAlice.add(event.outputs[0], event.outputs[0]);
     await smtAlice.add(event.outputs[1], event.outputs[1]);
   }).timeout(600000);

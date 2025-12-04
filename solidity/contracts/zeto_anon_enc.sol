@@ -39,37 +39,20 @@ contract Zeto_AnonEnc is Zeto_Anon {
         __ZetoAnon_init(name, symbol, initialOwner, verifiers);
     }
 
-    /**
-     * @dev the main function of the contract.
-     *
-     * @param inputs Array of UTXOs to be spent by the transaction.
-     * @param outputs Array of new UTXOs to generate, for future transactions to spend.
-     * @param proof A zero knowledge proof that the submitter is authorized to spend the inputs, and
-     *      that the outputs are valid in terms of obeying mass conservation rules.
-     *
-     * Emits a {UTXOTransferWithEncryptedValues} event.
-     */
-    function transfer(
-        uint256[] calldata inputs,
-        uint256[] calldata outputs,
-        bytes calldata proof,
-        bytes calldata data
-    ) public virtual override {
-        super.transfer(inputs, outputs, proof, data);
+    function emitTransferEvent(
+        uint256[] memory inputs,
+        uint256[] memory outputs,
+        bytes memory proof,
+        bytes memory data
+    ) internal virtual override {
         (
             uint256 encryptionNonce,
             uint256[2] memory ecdhPublicKey,
-            uint256[] memory encryptedValues,
-            Commonlib.Proof memory proofStruct
-        ) = abi.decode(
-                proof,
-                (uint256, uint256[2], uint256[], Commonlib.Proof)
-            );
-        uint256[] memory paddedInputs = checkAndPadCommitments(inputs);
-        uint256[] memory paddedOutputs = checkAndPadCommitments(outputs);
+            uint256[] memory encryptedValues
+        ) = abi.decode(proof, (uint256, uint256[2], uint256[]));
         emit UTXOTransferWithEncryptedValues(
-            paddedInputs,
-            paddedOutputs,
+            inputs,
+            outputs,
             encryptionNonce,
             ecdhPublicKey,
             encryptedValues,
