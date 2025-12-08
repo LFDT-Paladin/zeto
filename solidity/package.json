@@ -1,5 +1,5 @@
 {
-  "name": "zeto",
+  "name": "zeto-contracts",
   "version": "0.0.1",
   "description": "Zero knowledge proof based UTXO tokens toolkit for fungible or non-fungible assets",
   "main": "index.js",
@@ -10,7 +10,10 @@
     "test": "npx hardhat test"
   },
   "keywords": [],
-  "author": "",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/LFDT-Paladin/zeto"
+  },
   "license": "Apache-2.0",
   "devDependencies": {
     "@iden3/js-merkletree": "^1.2.0",
