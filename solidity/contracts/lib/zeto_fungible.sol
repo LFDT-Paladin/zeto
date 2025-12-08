@@ -190,7 +190,7 @@ abstract contract ZetoFungible is ZetoCommon, IZetoLockable {
             revert UnlockAlreadyPrepared(lockId);
         }
         _lockData[lockId].settle = settle;
-        emit LockCreate(lockId, msg.sender, _lockData[lockId], data);
+        emit UnlockPrepare(lockId, msg.sender, settle, data);
     }
 
     function unlock(
