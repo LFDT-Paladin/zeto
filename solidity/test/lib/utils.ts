@@ -237,6 +237,12 @@ export function parseUTXOEvents(
         lockId: event?.args.lockId,
         lockData: event?.args.lockData,
       };
+    } else if (event?.name === "UnlockPrepare") {
+      e = {
+        lockId: event?.args.lockId,
+        operator: event?.args.operator,
+        settle: event?.args.settle,
+      };
     } else if (event?.name === "Unlock") {
       e = {
         lockId: event?.args.lockId,
