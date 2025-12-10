@@ -21,14 +21,14 @@ import (
 	"math/big"
 	"strings"
 
+	"github.com/hyperledger-labs/zeto/go-sdk/internal/crypto/hash"
 	"github.com/hyperledger-labs/zeto/go-sdk/pkg/sparse-merkle-tree/core"
-	"github.com/iden3/go-iden3-crypto/poseidon"
-	cryptoUtils "github.com/iden3/go-iden3-crypto/utils"
+	apicore "github.com/hyperledger-labs/zeto/go-sdk/pkg/utxo/core"
 )
 
 const INDEX_BYTES_LEN = 32
 
-var ZERO_INDEX, _ = NewNodeIndexFromBigInt(big.NewInt(0))
+var ZERO_INDEX, _ = NewNodeIndexFromBigInt(big.NewInt(0), &hash.PoseidonHasher{})
 
 // nodeIndex is a wrapper around []byte to implement the NodeIndex interface.
 // it's a 256-bit number. the path from the root node to a leaf node is determined
@@ -54,17 +54,14 @@ func NewEmptyNode() core.Node {
 
 // the value parameter is optional. if "nil", the index hash is used in the
 // place of the value when calculating the node reference hash (aka "node key").
-func NewLeafNode(s core.Indexable, v ...*big.Int) (core.Node, error) {
+func NewLeafNode(s core.Indexable, v *big.Int, hasher apicore.Hasher) (core.Node, error) {
 	n := &node{nodeType: core.NodeTypeLeaf, state: s}
 	idx, err := n.state.CalculateIndex()
 	if err != nil {
 		return nil, err
 	}
 	n.i = idx
-
-	if len(v) > 0 {
-		n.v = v[0]
-	}
+	n.v = v
 
 	// the leaf node's reference is calculated as follows:
 	// 1. get the node's index, call it hKey
@@ -76,22 +73,22 @@ func NewLeafNode(s core.Indexable, v ...*big.Int) (core.Node, error) {
 		hValue = hKey
 	}
 	elements := []*big.Int{hKey, hValue, big.NewInt(1)}
-	hash, err := poseidon.Hash(elements)
+	hash, err := hasher.Hash(elements)
 	if err != nil {
 		return nil, err
 	}
-	n.refKey, err = NewNodeIndexFromBigInt(hash)
+	n.refKey, err = NewNodeIndexFromBigInt(hash, hasher)
 	return n, err
 }
 
-func NewBranchNode(leftChild, rightChild core.NodeRef) (core.Node, error) {
+func NewBranchNode(leftChild, rightChild core.NodeRef, hasher apicore.Hasher) (core.Node, error) {
 	n := &node{nodeType: core.NodeTypeBranch, leftChild: leftChild, rightChild: rightChild}
 	elements := []*big.Int{leftChild.BigInt(), rightChild.BigInt()}
-	hash, err := poseidon.Hash(elements)
+	hash, err := hasher.Hash(elements)
 	if err != nil {
 		return nil, err
 	}
-	n.refKey, err = NewNodeIndexFromBigInt(hash)
+	n.refKey, err = NewNodeIndexFromBigInt(hash, hasher)
 	return n, err
 }
 
@@ -121,9 +118,9 @@ func (n *node) RightChild() core.NodeRef {
 
 // //////////////////////////////////////
 // implementation of nodeIndex
-func NewNodeIndexFromBigInt(i *big.Int) (core.NodeIndex, error) {
+func NewNodeIndexFromBigInt(i *big.Int, hasher apicore.Hasher) (core.NodeIndex, error) {
 	// verfy that the integer are valid and fit inside the Finite Field.
-	if !cryptoUtils.CheckBigIntInField(i) {
+	if !hasher.CheckInRange(i) {
 		return nil, ErrNodeIndexTooLarge
 	}
 	idx := new(nodeIndex)

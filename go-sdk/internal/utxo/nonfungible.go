@@ -23,7 +23,6 @@ import (
 
 	"github.com/hyperledger-labs/zeto/go-sdk/pkg/utxo/core"
 	"github.com/iden3/go-iden3-crypto/babyjub"
-	"github.com/iden3/go-iden3-crypto/poseidon"
 )
 
 type nonFungible struct {
@@ -31,14 +30,16 @@ type nonFungible struct {
 	TokenUri string
 	Owner    *babyjub.PublicKey
 	Salt     *big.Int
+	hasher   core.Hasher
 }
 
-func NewNonFungible(tokenId *big.Int, tokenUri string, owner *babyjub.PublicKey, salt *big.Int) core.UTXO {
+func NewNonFungible(tokenId *big.Int, tokenUri string, owner *babyjub.PublicKey, salt *big.Int, hasher core.Hasher) core.UTXO {
 	return &nonFungible{
 		TokenId:  tokenId,
 		TokenUri: tokenUri,
 		Owner:    owner,
 		Salt:     salt,
+		hasher:   hasher,
 	}
 }
 
@@ -47,7 +48,7 @@ func (f *nonFungible) GetHash() (*big.Int, error) {
 	if err != nil {
 		return nil, err
 	}
-	hash, err := poseidon.Hash([]*big.Int{f.TokenId, tokenUriHash, f.Salt, f.Owner.X, f.Owner.Y})
+	hash, err := f.hasher.Hash([]*big.Int{f.TokenId, tokenUriHash, f.Salt, f.Owner.X, f.Owner.Y})
 	if err != nil {
 		return nil, err
 	}
@@ -62,14 +63,16 @@ type nonFungibleNullifier struct {
 	TokenUri string
 	Owner    *big.Int
 	Salt     *big.Int
+	hasher   core.Hasher
 }
 
-func NewNonFungibleNullifier(tokenId *big.Int, tokenUri string, owner *big.Int, salt *big.Int) core.UTXO {
+func NewNonFungibleNullifier(tokenId *big.Int, tokenUri string, owner *big.Int, salt *big.Int, hasher core.Hasher) core.UTXO {
 	return &nonFungibleNullifier{
 		TokenId:  tokenId,
 		TokenUri: tokenUri,
 		Owner:    owner,
 		Salt:     salt,
+		hasher:   hasher,
 	}
 }
 
@@ -78,7 +81,7 @@ func (f *nonFungibleNullifier) GetHash() (*big.Int, error) {
 	if err != nil {
 		return nil, err
 	}
-	hash, err := poseidon.Hash([]*big.Int{f.TokenId, tokenUriHash, f.Salt, f.Owner})
+	hash, err := f.hasher.Hash([]*big.Int{f.TokenId, tokenUriHash, f.Salt, f.Owner})
 	if err != nil {
 		return nil, err
 	}

@@ -22,6 +22,7 @@ import (
 
 	"github.com/hyperledger-labs/zeto/go-sdk/internal/sparse-merkle-tree/node"
 	"github.com/hyperledger-labs/zeto/go-sdk/pkg/sparse-merkle-tree/core"
+	apicore "github.com/hyperledger-labs/zeto/go-sdk/pkg/utxo/core"
 )
 
 // Proof defines the required elements for a MT proof of existence or
@@ -34,6 +35,7 @@ type proof struct {
 	// nonEmptySiblings is a bitmap of non-empty Siblings found in Siblings. This helps
 	// to save space in the proof, by not having to carry around empty nodes.
 	nonEmptySiblings []byte
+	hasher           apicore.Hasher
 }
 
 func (p *proof) IsExistenceProof() bool {
@@ -112,11 +114,11 @@ func (p *proof) ToCircomVerifierProof(k, v *big.Int, rootKey core.NodeRef, level
 		cp.OldValue = big.NewInt(0)
 	}
 	var err error
-	cp.Key, err = node.NewNodeIndexFromBigInt(k)
+	cp.Key, err = node.NewNodeIndexFromBigInt(k, p.hasher)
 	if err != nil {
 		return nil, err
 	}
-	cp.Value, err = node.NewNodeIndexFromBigInt(v)
+	cp.Value, err = node.NewNodeIndexFromBigInt(v, p.hasher)
 	if err != nil {
 		return nil, err
 	}
@@ -169,13 +171,13 @@ func calculateRootFromProof(proof *proof, leafNode core.Node) (core.NodeRef, err
 			siblingKey = node.ZERO_INDEX
 		}
 		if path[level] { // go right
-			branchNode, err := node.NewBranchNode(siblingKey, midKey)
+			branchNode, err := node.NewBranchNode(siblingKey, midKey, proof.hasher)
 			if err != nil {
 				return nil, err
 			}
 			midKey = branchNode.Ref()
 		} else { // go left
-			branchNode, err := node.NewBranchNode(midKey, siblingKey)
+			branchNode, err := node.NewBranchNode(midKey, siblingKey, proof.hasher)
 			if err != nil {
 				return nil, err
 			}

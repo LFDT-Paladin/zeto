@@ -20,6 +20,7 @@ import (
 	"math/big"
 	"testing"
 
+	"github.com/hyperledger-labs/zeto/go-sdk/internal/crypto/hash"
 	"github.com/iden3/go-iden3-crypto/babyjub"
 	"github.com/stretchr/testify/assert"
 )
@@ -42,7 +43,7 @@ func TestNonFungibleUTXOs(t *testing.T) {
 	}
 	salt, _ := new(big.Int).SetString("14366367216420666010683918465570547601749064763665615379119566396413295472937", 10)
 	uri := "http://ipfs.io/file-hash-1"
-	utxo1 := NewNonFungible(big.NewInt(1001), uri, alice, salt)
+	utxo1 := NewNonFungible(big.NewInt(1001), uri, alice, salt, &hash.PoseidonHasher{})
 
 	idx1, err := utxo1.GetHash()
 	assert.NoError(t, err)
@@ -53,7 +54,7 @@ func TestNonFungibleUTXOsWithNullifiers(t *testing.T) {
 	privateKey, _ := new(big.Int).SetString("df7ff8191db562f4ed9404e91f184502fe67f880cd1fe67c0f84d224a53ee55", 16)
 	salt, _ := new(big.Int).SetString("14366367216420666010683918465570547601749064763665615379119566396413295472937", 10)
 	uri := "http://ipfs.io/file-hash-1"
-	utxo1 := NewNonFungibleNullifier(big.NewInt(1001), uri, privateKey, salt)
+	utxo1 := NewNonFungibleNullifier(big.NewInt(1001), uri, privateKey, salt, &hash.PoseidonHasher{})
 
 	idx1, err := utxo1.GetHash()
 	assert.NoError(t, err)
@@ -69,7 +70,7 @@ func TestNonFungibleUTXOsFail(t *testing.T) {
 	}
 	salt, _ := new(big.Int).SetString("ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff", 16)
 	uri := "http://ipfs.io/file-hash-1"
-	utxo1 := NewNonFungible(big.NewInt(1001), uri, alice, salt)
+	utxo1 := NewNonFungible(big.NewInt(1001), uri, alice, salt, &hash.PoseidonHasher{})
 	_, err := utxo1.GetHash()
 	assert.EqualError(t, err, "inputs values not inside Finite Field")
 }
@@ -78,7 +79,7 @@ func TestNonFungibleUTXOsWithNullifiersFail(t *testing.T) {
 	privateKey, _ := new(big.Int).SetString("df7ff8191db562f4ed9404e91f184502fe67f880cd1fe67c0f84d224a53ee55", 16)
 	salt, _ := new(big.Int).SetString("ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff", 16)
 	uri := "http://ipfs.io/file-hash-1"
-	utxo1 := NewNonFungibleNullifier(big.NewInt(1001), uri, privateKey, salt)
+	utxo1 := NewNonFungibleNullifier(big.NewInt(1001), uri, privateKey, salt, &hash.PoseidonHasher{})
 	_, err := utxo1.GetHash()
 	assert.EqualError(t, err, "inputs values not inside Finite Field")
 }

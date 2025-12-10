@@ -1,4 +1,4 @@
-// Copyright © 2024 Kaleido, Inc.
+// Copyright © 2025 Kaleido, Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -14,15 +14,21 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package core
+package hash
 
-import "math/big"
+import (
+	"math/big"
 
-type UTXO interface {
-	GetHash() (*big.Int, error)
+	"github.com/iden3/go-iden3-crypto/poseidon"
+	"github.com/iden3/go-iden3-crypto/utils"
+)
+
+type PoseidonHasher struct{}
+
+func (p *PoseidonHasher) Hash(inputs []*big.Int) (*big.Int, error) {
+	return poseidon.Hash(inputs)
 }
 
-type Hasher interface {
-	Hash([]*big.Int) (*big.Int, error)
-	CheckInRange(a *big.Int) bool
+func (p *PoseidonHasher) CheckInRange(a *big.Int) bool {
+	return utils.CheckBigIntInField(a)
 }

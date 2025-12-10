@@ -25,6 +25,7 @@ import (
 	"github.com/hyperledger-labs/zeto/go-sdk/internal/sparse-merkle-tree/node"
 	"github.com/hyperledger-labs/zeto/go-sdk/internal/sparse-merkle-tree/utils"
 	"github.com/hyperledger-labs/zeto/go-sdk/pkg/sparse-merkle-tree/core"
+	apicore "github.com/hyperledger-labs/zeto/go-sdk/pkg/utxo/core"
 )
 
 // MAX_TREE_HEIGHT is the maximum number of levels of the sparse merkle tree.
@@ -36,13 +37,14 @@ type sparseMerkleTree struct {
 	db        core.Storage
 	rootKey   core.NodeRef
 	maxLevels int
+	hasher    apicore.Hasher
 }
 
 func NewMerkleTree(db core.Storage, maxLevels int) (core.SparseMerkleTree, error) {
 	if maxLevels <= 0 || maxLevels > MAX_TREE_HEIGHT {
 		return nil, ErrMaxLevelsNotInRange
 	}
-	mt := sparseMerkleTree{db: db, maxLevels: maxLevels}
+	mt := sparseMerkleTree{db: db, maxLevels: maxLevels, hasher: db.GetHasher()}
 
 	root, err := mt.db.GetRootNodeRef()
 	if err == core.ErrNotFound {
@@ -142,10 +144,10 @@ func (mt *sparseMerkleTree) GenerateProofs(keys []*big.Int, rootKey core.NodeRef
 }
 
 func (mt *sparseMerkleTree) generateProof(key *big.Int, rootKey core.NodeRef) (core.Proof, *big.Int, error) {
-	p := &proof{}
+	p := &proof{hasher: mt.hasher}
 	var siblingKey core.NodeRef
 
-	kHash, err := node.NewNodeIndexFromBigInt(key)
+	kHash, err := node.NewNodeIndexFromBigInt(key, mt.hasher)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -174,7 +176,7 @@ func (mt *sparseMerkleTree) generateProof(key *big.Int, rootKey core.NodeRef) (c
 				return p, value, nil
 			}
 			// We found a leaf whose entry didn't match the node index
-			p.existingNode, err = node.NewLeafNode(utils.NewIndexOnly(idx), n.Value())
+			p.existingNode, err = node.NewLeafNode(utils.NewIndexOnly(idx), n.Value(), mt.hasher)
 			if err != nil {
 				return nil, nil, err
 			}
@@ -268,7 +270,7 @@ func (mt *sparseMerkleTree) addLeaf(batch core.Transaction, newLeaf core.Node, c
 				return nil, err
 			}
 			// replace the branch node with the new branch node, which now has a new right child
-			newBranchNode, err = node.NewBranchNode(currentNode.LeftChild(), nextKey)
+			newBranchNode, err = node.NewBranchNode(currentNode.LeftChild(), nextKey, mt.hasher)
 		} else { // go left
 			log.WithLogField("level", strconv.Itoa(level)).Debug("Found branch node, going left")
 			nextKey, err = mt.addLeaf(batch, newLeaf, currentNode.LeftChild(), level+1, path)
@@ -276,7 +278,7 @@ func (mt *sparseMerkleTree) addLeaf(batch core.Transaction, newLeaf core.Node, c
 				return nil, err
 			}
 			// replace the branch node with the new branch node, which now has a new left child
-			newBranchNode, err = node.NewBranchNode(nextKey, currentNode.RightChild())
+			newBranchNode, err = node.NewBranchNode(nextKey, currentNode.RightChild(), mt.hasher)
 		}
 		if err != nil {
 			return nil, err
@@ -320,10 +322,10 @@ func (mt *sparseMerkleTree) extendPath(batch core.Transaction, newLeaf core.Node
 		}
 		if pathNewLeaf[level] {
 			// the new branch node returned is on the right
-			newBranchNode, err = node.NewBranchNode(node.ZERO_INDEX, nextKey)
+			newBranchNode, err = node.NewBranchNode(node.ZERO_INDEX, nextKey, mt.hasher)
 		} else {
 			// the new branch node returned is on the left
-			newBranchNode, err = node.NewBranchNode(nextKey, node.ZERO_INDEX)
+			newBranchNode, err = node.NewBranchNode(nextKey, node.ZERO_INDEX, mt.hasher)
 		}
 		if err != nil {
 			return nil, err
@@ -341,10 +343,10 @@ func (mt *sparseMerkleTree) extendPath(batch core.Transaction, newLeaf core.Node
 	var err error
 	if pathNewLeaf[level] {
 		// the new leaf node is on the right
-		newBranchNode, err = node.NewBranchNode(oldLeafRef, newLeafRef)
+		newBranchNode, err = node.NewBranchNode(oldLeafRef, newLeafRef, mt.hasher)
 	} else {
 		// the new leaf node is on the left
-		newBranchNode, err = node.NewBranchNode(newLeafRef, oldLeafRef)
+		newBranchNode, err = node.NewBranchNode(newLeafRef, oldLeafRef, mt.hasher)
 	}
 	if err != nil {
 		return nil, err
