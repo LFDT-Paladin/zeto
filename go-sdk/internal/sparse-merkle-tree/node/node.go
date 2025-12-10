@@ -33,7 +33,10 @@ var ZERO_INDEX, _ = NewNodeIndexFromBigInt(big.NewInt(0), &hash.PoseidonHasher{}
 // nodeIndex is a wrapper around []byte to implement the NodeIndex interface.
 // it's a 256-bit number. the path from the root node to a leaf node is determined
 // by the index's bits. 0 means go left, 1 means go right.
-type nodeIndex [32]byte
+type nodeIndex struct {
+	index  [32]byte
+	hasher apicore.Hasher
+}
 
 // node is an implementation of the Node interface
 type node struct {
@@ -54,7 +57,7 @@ func NewEmptyNode() core.Node {
 
 // the value parameter is optional. if "nil", the index hash is used in the
 // place of the value when calculating the node reference hash (aka "node key").
-func NewLeafNode(s core.Indexable, v *big.Int, hasher apicore.Hasher) (core.Node, error) {
+func NewLeafNode(s core.Indexable, v *big.Int) (core.Node, error) {
 	n := &node{nodeType: core.NodeTypeLeaf, state: s}
 	idx, err := n.state.CalculateIndex()
 	if err != nil {
@@ -73,11 +76,11 @@ func NewLeafNode(s core.Indexable, v *big.Int, hasher apicore.Hasher) (core.Node
 		hValue = hKey
 	}
 	elements := []*big.Int{hKey, hValue, big.NewInt(1)}
-	hash, err := hasher.Hash(elements)
+	hash, err := s.GetHasher().Hash(elements)
 	if err != nil {
 		return nil, err
 	}
-	n.refKey, err = NewNodeIndexFromBigInt(hash, hasher)
+	n.refKey, err = NewNodeIndexFromBigInt(hash, s.GetHasher())
 	return n, err
 }
 
@@ -123,14 +126,14 @@ func NewNodeIndexFromBigInt(i *big.Int, hasher apicore.Hasher) (core.NodeIndex, 
 	if !hasher.CheckInRange(i) {
 		return nil, ErrNodeIndexTooLarge
 	}
-	idx := new(nodeIndex)
-	copy(idx[:], swapEndianness(i.Bytes()))
+	idx := &nodeIndex{hasher: hasher}
+	copy(idx.index[:], swapEndianness(i.Bytes()))
 	return idx, nil
 }
 
 // NewNodeIndexFromHex creates a new NodeIndex from a hex string that
 // represents the index in big-endian format.
-func NewNodeIndexFromHex(h string) (core.NodeIndex, error) {
+func NewNodeIndexFromHex(h string, hasher apicore.Hasher) (core.NodeIndex, error) {
 	h = strings.TrimPrefix(h, "0x")
 	b, err := hex.DecodeString(h)
 	if err != nil {
@@ -139,17 +142,17 @@ func NewNodeIndexFromHex(h string) (core.NodeIndex, error) {
 	if len(b) != INDEX_BYTES_LEN {
 		return nil, ErrNodeBytesBadSize
 	}
-	idx := new(nodeIndex)
-	copy(idx[:], b)
+	idx := &nodeIndex{hasher: hasher}
+	copy(idx.index[:], b)
 	return idx, nil
 }
 
 func (idx *nodeIndex) BigInt() *big.Int {
-	return new(big.Int).SetBytes(swapEndianness(idx[:]))
+	return new(big.Int).SetBytes(swapEndianness(idx.index[:]))
 }
 
 func (idx *nodeIndex) Hex() string {
-	return hex.EncodeToString(idx[:])
+	return hex.EncodeToString(idx.index[:])
 }
 
 func (idx *nodeIndex) IsZero() bool {
@@ -158,6 +161,10 @@ func (idx *nodeIndex) IsZero() bool {
 
 func (idx *nodeIndex) Equal(other core.NodeRef) bool {
 	return idx.BigInt().Cmp(other.BigInt()) == 0
+}
+
+func (idx *nodeIndex) GetHasher() apicore.Hasher {
+	return idx.hasher
 }
 
 // getPath returns the binary path, from the root to the leaf.
@@ -173,7 +180,7 @@ func (idx *nodeIndex) IsBitOne(pos uint) bool {
 	if pos >= 256 {
 		return false
 	}
-	return (idx[pos/8] & (1 << (pos % 8))) != 0
+	return (idx.index[pos/8] & (1 << (pos % 8))) != 0
 }
 
 // swapEndianness swaps the order of the bytes in the byte array of a node index.

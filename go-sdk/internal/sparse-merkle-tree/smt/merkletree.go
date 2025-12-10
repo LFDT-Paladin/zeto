@@ -176,7 +176,7 @@ func (mt *sparseMerkleTree) generateProof(key *big.Int, rootKey core.NodeRef) (c
 				return p, value, nil
 			}
 			// We found a leaf whose entry didn't match the node index
-			p.existingNode, err = node.NewLeafNode(utils.NewIndexOnly(idx), n.Value(), mt.hasher)
+			p.existingNode, err = node.NewLeafNode(utils.NewIndexOnly(idx), n.Value())
 			if err != nil {
 				return nil, nil, err
 			}

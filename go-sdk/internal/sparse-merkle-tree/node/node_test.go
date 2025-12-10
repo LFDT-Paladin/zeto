@@ -24,29 +24,31 @@ import (
 	"github.com/hyperledger-labs/zeto/go-sdk/internal/crypto/hash"
 	"github.com/hyperledger-labs/zeto/go-sdk/internal/sparse-merkle-tree/utils"
 	"github.com/hyperledger-labs/zeto/go-sdk/pkg/sparse-merkle-tree/core"
+	apicore "github.com/hyperledger-labs/zeto/go-sdk/pkg/utxo/core"
 	"github.com/iden3/go-iden3-crypto/poseidon"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestNodeIndex(t *testing.T) {
-	idx0, _ := NewNodeIndexFromBigInt(big.NewInt(0), &hash.PoseidonHasher{})
+	hasher := &hash.PoseidonHasher{}
+	idx0, _ := NewNodeIndexFromBigInt(big.NewInt(0), hasher)
 	assert.Equal(t, "0000000000000000000000000000000000000000000000000000000000000000", idx0.Hex())
-	idx1, _ := NewNodeIndexFromBigInt(big.NewInt(1), &hash.PoseidonHasher{})
+	idx1, _ := NewNodeIndexFromBigInt(big.NewInt(1), hasher)
 	assert.Equal(t, "0100000000000000000000000000000000000000000000000000000000000000", idx1.Hex())
-	idx2, _ := NewNodeIndexFromBigInt(big.NewInt(10), &hash.PoseidonHasher{})
+	idx2, _ := NewNodeIndexFromBigInt(big.NewInt(10), hasher)
 	assert.Equal(t, "0a00000000000000000000000000000000000000000000000000000000000000", idx2.Hex())
 
-	idx3, _ := NewNodeIndexFromBigInt(big.NewInt(12345678), &hash.PoseidonHasher{})
+	idx3, _ := NewNodeIndexFromBigInt(big.NewInt(12345678), hasher)
 	assert.Equal(t, "4e61bc0000000000000000000000000000000000000000000000000000000000", idx3.Hex())
 
 	v4, _ := new(big.Int).SetString("4932297968297298434239270129193057052722409868268166443802652458940273154854", 10)
-	idx4, _ := NewNodeIndexFromBigInt(v4, &hash.PoseidonHasher{})
+	idx4, _ := NewNodeIndexFromBigInt(v4, hasher)
 	assert.Equal(t, "265baaf161e875c372d08e50f52abddc01d32efc93e90290bb8b3d9ceb94e70a", idx4.Hex())
 	expectedBytes4 := []byte{38, 91, 170, 241, 97, 232, 117, 195, 114, 208, 142, 80, 245, 42, 189, 220, 1, 211, 46, 252, 147, 233, 2, 144, 187, 139, 61, 156, 235, 148, 231, 10}
 	rawIndex4 := idx4.(*nodeIndex)
-	assert.Equal(t, expectedBytes4, rawIndex4[:])
+	assert.Equal(t, expectedBytes4, rawIndex4.index[:])
 
-	idx5, err := NewNodeIndexFromHex("265baaf161e875c372d08e50f52abddc01d32efc93e90290bb8b3d9ceb94e70a")
+	idx5, err := NewNodeIndexFromHex("265baaf161e875c372d08e50f52abddc01d32efc93e90290bb8b3d9ceb94e70a", hasher)
 	assert.NoError(t, err)
 	assert.Equal(t, 0, v4.Cmp(idx5.BigInt()))
 }
@@ -63,7 +65,7 @@ func TestNewEmptyNode(t *testing.T) {
 func TestNewLeafNode(t *testing.T) {
 	idx, _ := NewNodeIndexFromBigInt(big.NewInt(10), &hash.PoseidonHasher{})
 	i := utils.NewIndexOnly(idx)
-	node, err := NewLeafNode(i, nil, &hash.PoseidonHasher{})
+	node, err := NewLeafNode(i, nil)
 	assert.NoError(t, err)
 	assert.Equal(t, node.Type(), core.NodeTypeLeaf)
 	assert.Equal(t, node.Index(), idx)
@@ -76,9 +78,9 @@ func TestNewLeafNode(t *testing.T) {
 }
 
 func TestNewLeafNodeKeccak256(t *testing.T) {
-	idx, _ := NewNodeIndexFromBigInt(big.NewInt(10), &hash.PoseidonHasher{})
+	idx, _ := NewNodeIndexFromBigInt(big.NewInt(10), &hash.Keccak256Hasher{})
 	i := utils.NewIndexOnly(idx)
-	node, err := NewLeafNode(i, nil, &hash.Keccak256Hasher{})
+	node, err := NewLeafNode(i, nil)
 	assert.NoError(t, err)
 	assert.Equal(t, node.Type(), core.NodeTypeLeaf)
 	assert.Equal(t, node.Index(), idx)
@@ -93,7 +95,7 @@ func TestNewLeafNodeKeccak256(t *testing.T) {
 func TestNewLeafNodeWithValue(t *testing.T) {
 	idx, _ := NewNodeIndexFromBigInt(big.NewInt(10), &hash.PoseidonHasher{})
 	i := utils.NewIndexOnly(idx)
-	node, err := NewLeafNode(i, big.NewInt(12345), &hash.PoseidonHasher{})
+	node, err := NewLeafNode(i, big.NewInt(12345))
 	assert.NoError(t, err)
 	assert.Equal(t, node.Type(), core.NodeTypeLeaf)
 	assert.Equal(t, node.Index(), idx)
@@ -125,8 +127,11 @@ type badIndex struct{}
 func (f *badIndex) CalculateIndex() (core.NodeIndex, error) {
 	return nil, errors.New("Bang!")
 }
+func (f *badIndex) GetHasher() apicore.Hasher {
+	return &hash.PoseidonHasher{}
+}
 
 func TestNewLeafNodeFail(t *testing.T) {
-	_, err := NewLeafNode(&badIndex{}, nil, &hash.PoseidonHasher{})
+	_, err := NewLeafNode(&badIndex{}, nil)
 	assert.EqualError(t, err, "Bang!")
 }

@@ -56,7 +56,7 @@ func (s *sqlStorage) GetRootNodeRef() (core.NodeRef, error) {
 	} else if err != nil {
 		return nil, err
 	}
-	idx, err := node.NewNodeIndexFromHex(root.RootRef)
+	idx, err := node.NewNodeIndexFromHex(root.RootRef, s.hasher)
 	return idx, err
 }
 
@@ -139,7 +139,7 @@ func getNode(batchOrDb *gorm.DB, nodesTableName string, ref core.NodeRef, hasher
 	nodeType := core.NodeTypeFromByte(n.Type)
 	switch nodeType {
 	case core.NodeTypeLeaf:
-		idx, err1 := node.NewNodeIndexFromHex(*n.Index)
+		idx, err1 := node.NewNodeIndexFromHex(*n.Index, hasher)
 		if err1 != nil {
 			return nil, err1
 		}
@@ -149,16 +149,16 @@ func getNode(batchOrDb *gorm.DB, nodesTableName string, ref core.NodeRef, hasher
 			if !ok {
 				return nil, core.ErrInvalidValue
 			}
-			newNode, err = node.NewLeafNode(index, value, hasher)
+			newNode, err = node.NewLeafNode(index, value)
 		} else {
-			newNode, err = node.NewLeafNode(index, nil, hasher)
+			newNode, err = node.NewLeafNode(index, nil)
 		}
 	case core.NodeTypeBranch:
-		leftChild, err1 := node.NewNodeIndexFromHex(*n.LeftChild)
+		leftChild, err1 := node.NewNodeIndexFromHex(*n.LeftChild, hasher)
 		if err1 != nil {
 			return nil, err1
 		}
-		rightChild, err2 := node.NewNodeIndexFromHex(*n.RightChild)
+		rightChild, err2 := node.NewNodeIndexFromHex(*n.RightChild, hasher)
 		if err2 != nil {
 			return nil, err2
 		}
