@@ -4,7 +4,7 @@
 data-path = "/opt/besu/data"
 genesis-file = "/data/l1-node-config/genesis.json"
 network-id = 1337
-logging = "INFO"
+logging = "DEBUG"
 
 # RPC
 rpc-http-enabled = true

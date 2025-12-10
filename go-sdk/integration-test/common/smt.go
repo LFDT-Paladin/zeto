@@ -4,6 +4,7 @@ import (
 	"math/big"
 	"testing"
 
+	"github.com/hyperledger-labs/zeto/go-sdk/internal/crypto/hash"
 	"github.com/hyperledger-labs/zeto/go-sdk/internal/sparse-merkle-tree/smt"
 	"github.com/hyperledger-labs/zeto/go-sdk/pkg/sparse-merkle-tree/core"
 	"github.com/hyperledger-labs/zeto/go-sdk/pkg/sparse-merkle-tree/node"
@@ -38,9 +39,9 @@ func BuildMerkleProofs(inputCommitments []*big.Int, db core.Storage, t *testing.
 }
 
 func AddCommitmentToMerkleTree(mt core.SparseMerkleTree, commitment *big.Int, t *testing.T) {
-	idx, _ := node.NewNodeIndexFromBigInt(commitment)
+	idx, _ := node.NewNodeIndexFromBigInt(commitment, &hash.PoseidonHasher{})
 	utxo := node.NewIndexOnly(idx)
-	n, err := node.NewLeafNode(utxo)
+	n, err := node.NewLeafNode(utxo, nil, &hash.PoseidonHasher{})
 	assert.NoError(t, err)
 	err = mt.AddLeaf(n)
 	assert.NoError(t, err)
