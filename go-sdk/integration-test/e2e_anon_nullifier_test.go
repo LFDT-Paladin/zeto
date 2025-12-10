@@ -75,12 +75,13 @@ func (s *E2ETestSuite) TestZeto_anon_nullifier_locked_SuccessfulProving() {
 	senderEthAddress, ok := new(big.Int).SetString("5d093e9b41911be5f5c4cf91b108bac5d130fa83", 16)
 	assert.True(s.T(), ok)
 	_, db, _, _ := common.NewSqliteStorage(s.T())
+	hasher := crypto.NewPoseidonHasher()
 	mt, err := smt.NewMerkleTree(db, common.MAX_HEIGHT)
 	assert.NoError(s.T(), err)
 
 	for i, value := range s.regularTest.InputValues {
-		utxo := node.NewFungible(value, s.sender.PublicKey, s.regularTest.InputSalts[i])
-		n, err := node.NewLeafNode(utxo, senderEthAddress)
+		utxo := node.NewFungible(value, s.sender.PublicKey, s.regularTest.InputSalts[i], hasher)
+		n, err := node.NewLeafNode(utxo, senderEthAddress, hasher)
 		assert.NoError(s.T(), err)
 		err = mt.AddLeaf(n)
 		assert.NoError(s.T(), err)

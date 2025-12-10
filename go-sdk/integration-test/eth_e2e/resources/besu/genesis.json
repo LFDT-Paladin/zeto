@@ -8,7 +8,8 @@
             "blockperiodseconds": 1,
             "epochlength": 30000,
             "requesttimeoutseconds": 4
-        }
+        },
+        "contractSizeLimit": 2147483647
     },
     "nonce": "0x0",
     "timestamp": "0x58ee40ba",

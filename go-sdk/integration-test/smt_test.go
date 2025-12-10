@@ -23,6 +23,7 @@ import (
 	"testing"
 
 	"github.com/hyperledger-labs/zeto/go-sdk/integration-test/common"
+	"github.com/hyperledger-labs/zeto/go-sdk/pkg/crypto"
 	"github.com/hyperledger-labs/zeto/go-sdk/pkg/sparse-merkle-tree/node"
 	"github.com/hyperledger-labs/zeto/go-sdk/pkg/sparse-merkle-tree/smt"
 	"github.com/iden3/go-iden3-crypto/babyjub"
@@ -72,6 +73,7 @@ func testConcurrentInsertion(t *testing.T, alice *babyjub.PublicKey, values []in
 		assert.NoError(t, err)
 	}()
 
+	hasher := crypto.NewPoseidonHasher()
 	mt, err := smt.NewMerkleTree(db, common.MAX_HEIGHT)
 	assert.NoError(t, err)
 	done := make(chan bool, len(values))
@@ -79,8 +81,8 @@ func testConcurrentInsertion(t *testing.T, alice *babyjub.PublicKey, values []in
 	for i, v := range values {
 		go func(i, v int) {
 			salt, _ := new(big.Int).SetString(salts[i], 16)
-			utxo := node.NewFungible(big.NewInt(int64(v)), alice, salt)
-			n, err := node.NewLeafNode(utxo)
+			utxo := node.NewFungible(big.NewInt(int64(v)), alice, salt, hasher)
+			n, err := node.NewLeafNode(utxo, nil, hasher)
 			assert.NoError(t, err)
 			err = mt.AddLeaf(n)
 			assert.NoError(t, err)

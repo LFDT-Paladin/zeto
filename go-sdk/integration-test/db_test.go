@@ -22,8 +22,10 @@ import (
 	"testing"
 
 	"github.com/hyperledger-labs/zeto/go-sdk/integration-test/common"
+	"github.com/hyperledger-labs/zeto/go-sdk/internal/crypto/hash"
 	"github.com/hyperledger-labs/zeto/go-sdk/internal/testutils"
 	"github.com/hyperledger-labs/zeto/go-sdk/pkg/crypto"
+
 	"github.com/hyperledger-labs/zeto/go-sdk/pkg/sparse-merkle-tree/core"
 	"github.com/hyperledger-labs/zeto/go-sdk/pkg/sparse-merkle-tree/node"
 	"github.com/hyperledger-labs/zeto/go-sdk/pkg/sparse-merkle-tree/smt"
@@ -54,6 +56,7 @@ func (s *SqliteTestSuite) TearDownTest() {
 }
 
 func (s *SqliteTestSuite) TestSqliteStorage() {
+	hasher := crypto.NewPoseidonHasher()
 	mt, err := smt.NewMerkleTree(s.db, common.MAX_HEIGHT)
 	assert.NoError(s.T(), err)
 
@@ -63,8 +66,8 @@ func (s *SqliteTestSuite) TestSqliteStorage() {
 	sender := testutils.NewKeypair()
 	salt1 := crypto.NewSalt()
 
-	utxo1 := node.NewNonFungible(tokenId, uriString, sender.PublicKey, salt1)
-	n1, err := node.NewLeafNode(utxo1)
+	utxo1 := node.NewNonFungible(tokenId, uriString, sender.PublicKey, salt1, hasher)
+	n1, err := node.NewLeafNode(utxo1, nil, hasher)
 	assert.NoError(s.T(), err)
 	err = mt.AddLeaf(n1)
 	assert.NoError(s.T(), err)
@@ -103,9 +106,10 @@ func TestPostgresStorage(t *testing.T) {
 	}()
 
 	provider := &common.TestSqlProvider{Db: db}
-	s, err := storage.NewSqlStorage(provider, "test_1")
+	s, err := storage.NewSqlStorage(provider, "test_1", &hash.PoseidonHasher{})
 	assert.NoError(t, err)
 
+	hasher := crypto.NewPoseidonHasher()
 	mt, err := smt.NewMerkleTree(s, common.MAX_HEIGHT)
 	assert.NoError(t, err)
 
@@ -115,8 +119,8 @@ func TestPostgresStorage(t *testing.T) {
 	sender := testutils.NewKeypair()
 	salt1 := crypto.NewSalt()
 
-	utxo1 := node.NewNonFungible(tokenId, tokenUri, sender.PublicKey, salt1)
-	n1, err := node.NewLeafNode(utxo1)
+	utxo1 := node.NewNonFungible(tokenId, tokenUri, sender.PublicKey, salt1, hasher)
+	n1, err := node.NewLeafNode(utxo1, nil, hasher)
 	assert.NoError(t, err)
 	err = mt.AddLeaf(n1)
 	assert.NoError(t, err)
