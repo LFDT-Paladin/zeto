@@ -19,8 +19,9 @@ package storage
 import (
 	"github.com/hyperledger-labs/zeto/go-sdk/internal/sparse-merkle-tree/storage"
 	"github.com/hyperledger-labs/zeto/go-sdk/pkg/sparse-merkle-tree/core"
+	apicore "github.com/hyperledger-labs/zeto/go-sdk/pkg/utxo/core"
 )
 
-func NewSqlStorage(provider core.SqlDBProvider, smtName string) (core.Storage, error) {
-	return storage.NewSqlStorage(provider, smtName), nil
+func NewSqlStorage(provider core.SqlDBProvider, smtName string, hasher apicore.Hasher) (core.Storage, error) {
+	return storage.NewSqlStorage(provider, smtName, hasher), nil
 }

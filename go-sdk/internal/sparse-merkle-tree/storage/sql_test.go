@@ -22,6 +22,7 @@ import (
 	"testing"
 
 	"github.com/hyperledger-labs/zeto/go-sdk/internal/crypto"
+	"github.com/hyperledger-labs/zeto/go-sdk/internal/crypto/hash"
 	"github.com/hyperledger-labs/zeto/go-sdk/internal/sparse-merkle-tree/node"
 	"github.com/hyperledger-labs/zeto/go-sdk/internal/testutils"
 	"github.com/hyperledger-labs/zeto/go-sdk/pkg/sparse-merkle-tree/core"
@@ -54,7 +55,7 @@ func TestSqliteStorage(t *testing.T) {
 	assert.NoError(t, err)
 
 	provider := &testSqlProvider{db: db}
-	s := NewSqlStorage(provider, "test_1")
+	s := NewSqlStorage(provider, "test_1", &hash.PoseidonHasher{})
 	assert.NoError(t, err)
 
 	tokenId := big.NewInt(1001)
@@ -63,8 +64,8 @@ func TestSqliteStorage(t *testing.T) {
 	sender := testutils.NewKeypair()
 	salt1 := crypto.NewSalt()
 
-	utxo1 := node.NewNonFungible(tokenId, uriString, sender.PublicKey, salt1)
-	n1, err := node.NewLeafNode(utxo1)
+	utxo1 := node.NewNonFungible(tokenId, uriString, sender.PublicKey, salt1, &hash.PoseidonHasher{})
+	n1, err := node.NewLeafNode(utxo1, nil, &hash.PoseidonHasher{})
 	assert.NoError(t, err)
 
 	idx, _ := utxo1.CalculateIndex()
@@ -91,7 +92,7 @@ func TestSqliteStorage(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, n1.Ref().Hex(), n2.Ref().Hex())
 
-	bn1, err := node.NewBranchNode(n1.Ref(), n1.Ref())
+	bn1, err := node.NewBranchNode(n1.Ref(), n1.Ref(), &hash.PoseidonHasher{})
 	assert.NoError(t, err)
 	err = s.InsertNode(bn1)
 	assert.NoError(t, err)
@@ -111,7 +112,7 @@ func TestSqliteStorageFail_NoRootTable(t *testing.T) {
 	assert.NoError(t, err)
 
 	provider := &testSqlProvider{db: db}
-	s := NewSqlStorage(provider, "test_1")
+	s := NewSqlStorage(provider, "test_1", &hash.PoseidonHasher{})
 	assert.NoError(t, err)
 
 	_, err = s.GetRootNodeRef()
@@ -134,7 +135,7 @@ func TestSqliteStorageFail_NoNodeTable(t *testing.T) {
 	assert.NoError(t, err)
 
 	provider := &testSqlProvider{db: db}
-	s := NewSqlStorage(provider, "test_1")
+	s := NewSqlStorage(provider, "test_1", &hash.PoseidonHasher{})
 	assert.NoError(t, err)
 
 	idx, err := node.NewNodeIndexFromHex("0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef")
@@ -163,14 +164,14 @@ func TestSqliteStorageFail_BadNodeIndex(t *testing.T) {
 	assert.NoError(t, err)
 
 	provider := &testSqlProvider{db: db}
-	s := NewSqlStorage(provider, "test_1")
+	s := NewSqlStorage(provider, "test_1", &hash.PoseidonHasher{})
 	assert.NoError(t, err)
 
 	sender := testutils.NewKeypair()
 	salt1 := crypto.NewSalt()
 
-	utxo1 := node.NewFungible(big.NewInt(100), sender.PublicKey, salt1)
-	n1, err := node.NewLeafNode(utxo1)
+	utxo1 := node.NewFungible(big.NewInt(100), sender.PublicKey, salt1, &hash.PoseidonHasher{})
+	n1, err := node.NewLeafNode(utxo1, nil, &hash.PoseidonHasher{})
 	assert.NoError(t, err)
 	err = s.InsertNode(n1)
 	assert.NoError(t, err)
@@ -187,7 +188,7 @@ func TestSqliteStorageFail_BadNodeIndex(t *testing.T) {
 	_, err = s.GetNode(n1.Ref())
 	assert.EqualError(t, err, "expected 32 bytes for the decoded node index")
 
-	bn1, err := node.NewBranchNode(n1.Ref(), n1.Ref())
+	bn1, err := node.NewBranchNode(n1.Ref(), n1.Ref(), &hash.PoseidonHasher{})
 	assert.NoError(t, err)
 	err = s.InsertNode(bn1)
 	assert.NoError(t, err)

@@ -21,6 +21,7 @@ import (
 
 	"github.com/hyperledger-labs/zeto/go-sdk/pkg/sparse-merkle-tree/core"
 	coreUTXO "github.com/hyperledger-labs/zeto/go-sdk/pkg/utxo"
+	apicore "github.com/hyperledger-labs/zeto/go-sdk/pkg/utxo/core"
 	"github.com/iden3/go-iden3-crypto/babyjub"
 )
 
@@ -29,24 +30,26 @@ type nonFungibleNode struct {
 	TokenUri string
 	Owner    *babyjub.PublicKey
 	Salt     *big.Int
+	hasher   apicore.Hasher
 }
 
-func NewNonFungible(tokenId *big.Int, tokenUri string, owner *babyjub.PublicKey, salt *big.Int) *nonFungibleNode {
+func NewNonFungible(tokenId *big.Int, tokenUri string, owner *babyjub.PublicKey, salt *big.Int, hasher apicore.Hasher) *nonFungibleNode {
 	return &nonFungibleNode{
 		TokenId:  tokenId,
 		TokenUri: tokenUri,
 		Owner:    owner,
 		Salt:     salt,
+		hasher:   hasher,
 	}
 }
 
 func (f *nonFungibleNode) CalculateIndex() (core.NodeIndex, error) {
-	u := coreUTXO.NewNonFungible(f.TokenId, f.TokenUri, f.Owner, f.Salt)
+	u := coreUTXO.NewNonFungible(f.TokenId, f.TokenUri, f.Owner, f.Salt, f.hasher)
 	hash, err := u.GetHash()
 	if err != nil {
 		return nil, err
 	}
-	return NewNodeIndexFromBigInt(hash)
+	return NewNodeIndexFromBigInt(hash, f.hasher)
 }
 
 // the "Owner" is the private key that must be properly hashed and trimmed to be
@@ -57,22 +60,24 @@ type nonFungibleNullifierNode struct {
 	TokenUri string
 	Owner    *big.Int
 	Salt     *big.Int
+	hasher   apicore.Hasher
 }
 
-func NewNonFungibleNullifier(tokenId *big.Int, tokenUri string, owner *big.Int, salt *big.Int) *nonFungibleNullifierNode {
+func NewNonFungibleNullifier(tokenId *big.Int, tokenUri string, owner *big.Int, salt *big.Int, hasher apicore.Hasher) *nonFungibleNullifierNode {
 	return &nonFungibleNullifierNode{
 		TokenId:  tokenId,
 		TokenUri: tokenUri,
 		Owner:    owner,
 		Salt:     salt,
+		hasher:   hasher,
 	}
 }
 
 func (f *nonFungibleNullifierNode) CalculateIndex() (core.NodeIndex, error) {
-	u := coreUTXO.NewNonFungibleNullifier(f.TokenId, f.TokenUri, f.Owner, f.Salt)
+	u := coreUTXO.NewNonFungibleNullifier(f.TokenId, f.TokenUri, f.Owner, f.Salt, f.hasher)
 	hash, err := u.GetHash()
 	if err != nil {
 		return nil, err
 	}
-	return NewNodeIndexFromBigInt(hash)
+	return NewNodeIndexFromBigInt(hash, f.hasher)
 }

@@ -16,7 +16,10 @@
 
 package core
 
-import "gorm.io/gorm"
+import (
+	"github.com/hyperledger-labs/zeto/go-sdk/pkg/utxo/core"
+	"gorm.io/gorm"
+)
 
 type Storage interface {
 	// GetRootNodeRef returns the root node index.
@@ -35,6 +38,8 @@ type Storage interface {
 	BeginTx() (Transaction, error)
 	// Close closes the storage resource
 	Close()
+	// GetHasher returns the hasher used by the storage
+	GetHasher() core.Hasher
 }
 
 type Transaction interface {

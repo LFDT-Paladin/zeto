@@ -21,6 +21,7 @@ import (
 
 	"github.com/hyperledger-labs/zeto/go-sdk/pkg/sparse-merkle-tree/core"
 	coreUTXO "github.com/hyperledger-labs/zeto/go-sdk/pkg/utxo"
+	apicore "github.com/hyperledger-labs/zeto/go-sdk/pkg/utxo/core"
 	"github.com/iden3/go-iden3-crypto/babyjub"
 )
 
@@ -28,23 +29,25 @@ type fungibleNode struct {
 	Amount *big.Int
 	Owner  *babyjub.PublicKey
 	Salt   *big.Int
+	hasher apicore.Hasher
 }
 
-func NewFungible(amount *big.Int, owner *babyjub.PublicKey, salt *big.Int) *fungibleNode {
+func NewFungible(amount *big.Int, owner *babyjub.PublicKey, salt *big.Int, hasher apicore.Hasher) *fungibleNode {
 	return &fungibleNode{
 		Amount: amount,
 		Owner:  owner,
 		Salt:   salt,
+		hasher: hasher,
 	}
 }
 
 func (f *fungibleNode) CalculateIndex() (core.NodeIndex, error) {
-	u := coreUTXO.NewFungible(f.Amount, f.Owner, f.Salt)
+	u := coreUTXO.NewFungible(f.Amount, f.Owner, f.Salt, f.hasher)
 	hash, err := u.GetHash()
 	if err != nil {
 		return nil, err
 	}
-	return NewNodeIndexFromBigInt(hash)
+	return NewNodeIndexFromBigInt(hash, f.hasher)
 }
 
 // the "Owner" is the private key that must be properly hashed and trimmed to be
@@ -54,21 +57,23 @@ type fungibleNullifierNode struct {
 	Amount *big.Int
 	Owner  *big.Int
 	Salt   *big.Int
+	hasher apicore.Hasher
 }
 
-func NewFungibleNullifier(amount *big.Int, owner *big.Int, salt *big.Int) *fungibleNullifierNode {
+func NewFungibleNullifier(amount *big.Int, owner *big.Int, salt *big.Int, hasher apicore.Hasher) *fungibleNullifierNode {
 	return &fungibleNullifierNode{
 		Amount: amount,
 		Owner:  owner,
 		Salt:   salt,
+		hasher: hasher,
 	}
 }
 
 func (f *fungibleNullifierNode) CalculateIndex() (core.NodeIndex, error) {
-	u := coreUTXO.NewFungibleNullifier(f.Amount, f.Owner, f.Salt)
+	u := coreUTXO.NewFungibleNullifier(f.Amount, f.Owner, f.Salt, f.hasher)
 	hash, err := u.GetHash()
 	if err != nil {
 		return nil, err
 	}
-	return NewNodeIndexFromBigInt(hash)
+	return NewNodeIndexFromBigInt(hash, f.hasher)
 }

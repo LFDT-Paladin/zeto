@@ -24,20 +24,20 @@ import (
 	"github.com/iden3/go-iden3-crypto/babyjub"
 )
 
-func NewFungible(amount *big.Int, owner *babyjub.PublicKey, salt *big.Int) core.UTXO {
-	return utxo.NewFungible(amount, owner, salt)
+func NewFungible(amount *big.Int, owner *babyjub.PublicKey, salt *big.Int, hasher core.Hasher) core.UTXO {
+	return utxo.NewFungible(amount, owner, salt, hasher)
 }
 
-func NewNonFungible(tokenId *big.Int, tokenUri string, owner *babyjub.PublicKey, salt *big.Int) core.UTXO {
-	return utxo.NewNonFungible(tokenId, tokenUri, owner, salt)
+func NewNonFungible(tokenId *big.Int, tokenUri string, owner *babyjub.PublicKey, salt *big.Int, hasher core.Hasher) core.UTXO {
+	return utxo.NewNonFungible(tokenId, tokenUri, owner, salt, hasher)
 }
 
-func NewFungibleNullifier(amount *big.Int, owner *big.Int, salt *big.Int) core.UTXO {
-	return utxo.NewFungibleNullifier(amount, owner, salt)
+func NewFungibleNullifier(amount *big.Int, owner *big.Int, salt *big.Int, hasher core.Hasher) core.UTXO {
+	return utxo.NewFungibleNullifier(amount, owner, salt, hasher)
 }
 
-func NewNonFungibleNullifier(tokenId *big.Int, tokenUri string, owner *big.Int, salt *big.Int) core.UTXO {
-	return utxo.NewNonFungibleNullifier(tokenId, tokenUri, owner, salt)
+func NewNonFungibleNullifier(tokenId *big.Int, tokenUri string, owner *big.Int, salt *big.Int, hasher core.Hasher) core.UTXO {
+	return utxo.NewNonFungibleNullifier(tokenId, tokenUri, owner, salt, hasher)
 }
 
 func HashTokenUri(tokenUri string) (*big.Int, error) {

@@ -22,6 +22,7 @@ import (
 	"github.com/hyperledger-labs/zeto/go-sdk/internal/sparse-merkle-tree/node"
 	"github.com/hyperledger-labs/zeto/go-sdk/internal/sparse-merkle-tree/utils"
 	"github.com/hyperledger-labs/zeto/go-sdk/pkg/sparse-merkle-tree/core"
+	apicore "github.com/hyperledger-labs/zeto/go-sdk/pkg/utxo/core"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
@@ -30,16 +31,18 @@ type sqlStorage struct {
 	p              core.SqlDBProvider
 	smtName        string
 	nodesTableName string
+	hasher         apicore.Hasher
 }
 
 // NewSqlStorage creates a new sqlStorage instance
 // The "smtName" is the name for the tree instance, it must
 // be unique within the backend database instance
-func NewSqlStorage(p core.SqlDBProvider, smtName string) *sqlStorage {
+func NewSqlStorage(p core.SqlDBProvider, smtName string, hasher apicore.Hasher) *sqlStorage {
 	return &sqlStorage{
 		p:              p,
 		smtName:        smtName,
 		nodesTableName: core.NodesTablePrefix + smtName,
+		hasher:         hasher,
 	}
 }
 
@@ -62,7 +65,7 @@ func (s *sqlStorage) UpsertRootNodeRef(root core.NodeRef) error {
 }
 
 func (s *sqlStorage) GetNode(ref core.NodeRef) (core.Node, error) {
-	return getNode(s.p.DB(), s.nodesTableName, ref)
+	return getNode(s.p.DB(), s.nodesTableName, ref, s.hasher)
 }
 
 func (s *sqlStorage) InsertNode(n core.Node) error {
@@ -81,6 +84,7 @@ type sqlTxStorage struct {
 	tx             *gorm.DB
 	smtName        string
 	nodesTableName string
+	hasher         apicore.Hasher
 }
 
 func (b *sqlTxStorage) UpsertRootNodeRef(root core.NodeRef) error {
@@ -88,7 +92,7 @@ func (b *sqlTxStorage) UpsertRootNodeRef(root core.NodeRef) error {
 }
 
 func (b *sqlTxStorage) GetNode(ref core.NodeRef) (core.Node, error) {
-	return getNode(b.tx, b.nodesTableName, ref)
+	return getNode(b.tx, b.nodesTableName, ref, b.hasher)
 }
 
 func (b *sqlTxStorage) InsertNode(n core.Node) error {
@@ -107,6 +111,10 @@ func (m *sqlStorage) Close() {
 	m.p.Close()
 }
 
+func (m *sqlStorage) GetHasher() apicore.Hasher {
+	return m.hasher
+}
+
 func upsertRootNodeRef(batchOrDb *gorm.DB, name string, root core.NodeRef) error {
 	err := batchOrDb.Table(core.TreeRootsTable).Save(&core.SMTRoot{
 		RootRef: root.Hex(),
@@ -115,7 +123,7 @@ func upsertRootNodeRef(batchOrDb *gorm.DB, name string, root core.NodeRef) error
 	return err
 }
 
-func getNode(batchOrDb *gorm.DB, nodesTableName string, ref core.NodeRef) (core.Node, error) {
+func getNode(batchOrDb *gorm.DB, nodesTableName string, ref core.NodeRef, hasher apicore.Hasher) (core.Node, error) {
 	// the node's reference key (not the index) is used as the key to
 	// store the node in the DB
 	n := core.SMTNode{
@@ -141,9 +149,9 @@ func getNode(batchOrDb *gorm.DB, nodesTableName string, ref core.NodeRef) (core.
 			if !ok {
 				return nil, core.ErrInvalidValue
 			}
-			newNode, err = node.NewLeafNode(index, value)
+			newNode, err = node.NewLeafNode(index, value, hasher)
 		} else {
-			newNode, err = node.NewLeafNode(index)
+			newNode, err = node.NewLeafNode(index, nil, hasher)
 		}
 	case core.NodeTypeBranch:
 		leftChild, err1 := node.NewNodeIndexFromHex(*n.LeftChild)
@@ -154,7 +162,7 @@ func getNode(batchOrDb *gorm.DB, nodesTableName string, ref core.NodeRef) (core.
 		if err2 != nil {
 			return nil, err2
 		}
-		newNode, err = node.NewBranchNode(leftChild, rightChild)
+		newNode, err = node.NewBranchNode(leftChild, rightChild, hasher)
 	}
 	return newNode, err
 }

@@ -20,6 +20,8 @@ import (
 	"math/big"
 
 	"github.com/hyperledger-labs/zeto/go-sdk/internal/crypto"
+	"github.com/hyperledger-labs/zeto/go-sdk/internal/crypto/hash"
+	"github.com/hyperledger-labs/zeto/go-sdk/pkg/utxo/core"
 	"github.com/iden3/go-iden3-crypto/babyjub"
 )
 
@@ -59,4 +61,12 @@ func RecoverMlkemCiphertextBytes(ciphertext []string) ([]byte, error) {
 
 func PublicKeyFromSeed(seed []byte) (*babyjub.Point, error) {
 	return crypto.PublicKeyFromSeed(seed)
+}
+
+func NewPoseidonHasher() core.Hasher {
+	return &hash.PoseidonHasher{}
+}
+
+func NewKeccak256Hasher() core.Hasher {
+	return &hash.Keccak256Hasher{}
 }

@@ -21,25 +21,26 @@ import (
 
 	"github.com/hyperledger-labs/zeto/go-sdk/pkg/utxo/core"
 	"github.com/iden3/go-iden3-crypto/babyjub"
-	"github.com/iden3/go-iden3-crypto/poseidon"
 )
 
 type fungible struct {
 	Amount *big.Int
 	Owner  *babyjub.PublicKey
 	Salt   *big.Int
+	hasher core.Hasher
 }
 
-func NewFungible(amount *big.Int, owner *babyjub.PublicKey, salt *big.Int) core.UTXO {
+func NewFungible(amount *big.Int, owner *babyjub.PublicKey, salt *big.Int, hasher core.Hasher) core.UTXO {
 	return &fungible{
 		Amount: amount,
 		Owner:  owner,
 		Salt:   salt,
+		hasher: hasher,
 	}
 }
 
 func (f *fungible) GetHash() (*big.Int, error) {
-	hash, err := poseidon.Hash([]*big.Int{f.Amount, f.Salt, f.Owner.X, f.Owner.Y})
+	hash, err := f.hasher.Hash([]*big.Int{f.Amount, f.Salt, f.Owner.X, f.Owner.Y})
 	if err != nil {
 		return nil, err
 	}
@@ -53,18 +54,20 @@ type fungibleNullifier struct {
 	Amount *big.Int
 	Owner  *big.Int
 	Salt   *big.Int
+	hasher core.Hasher
 }
 
-func NewFungibleNullifier(amount *big.Int, owner *big.Int, salt *big.Int) core.UTXO {
+func NewFungibleNullifier(amount *big.Int, owner *big.Int, salt *big.Int, hasher core.Hasher) core.UTXO {
 	return &fungibleNullifier{
 		Amount: amount,
 		Owner:  owner,
 		Salt:   salt,
+		hasher: hasher,
 	}
 }
 
 func (f *fungibleNullifier) GetHash() (*big.Int, error) {
-	hash, err := poseidon.Hash([]*big.Int{f.Amount, f.Salt, f.Owner})
+	hash, err := f.hasher.Hash([]*big.Int{f.Amount, f.Salt, f.Owner})
 	if err != nil {
 		return nil, err
 	}

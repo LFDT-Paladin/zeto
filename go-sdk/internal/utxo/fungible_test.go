@@ -20,6 +20,7 @@ import (
 	"math/big"
 	"testing"
 
+	"github.com/hyperledger-labs/zeto/go-sdk/internal/crypto/hash"
 	"github.com/iden3/go-iden3-crypto/babyjub"
 	"github.com/stretchr/testify/assert"
 )
@@ -32,7 +33,7 @@ func TestFungibleUTXOs(t *testing.T) {
 		Y: y,
 	}
 	salt, _ := new(big.Int).SetString("13de02d64a5736a56b2d35d2a83dd60397ba70aae6f8347629f0960d4fee5d58", 16)
-	utxo1 := NewFungible(big.NewInt(10), alice, salt)
+	utxo1 := NewFungible(big.NewInt(10), alice, salt, &hash.PoseidonHasher{})
 
 	idx1, err := utxo1.GetHash()
 	assert.NoError(t, err)
@@ -42,7 +43,7 @@ func TestFungibleUTXOs(t *testing.T) {
 func TestFungibleUTXOsWithNullifiers(t *testing.T) {
 	privateKey, _ := new(big.Int).SetString("df7ff8191db562f4ed9404e91f184502fe67f880cd1fe67c0f84d224a53ee55", 16)
 	salt, _ := new(big.Int).SetString("13de02d64a5736a56b2d35d2a83dd60397ba70aae6f8347629f0960d4fee5d58", 16)
-	utxo1 := NewFungibleNullifier(big.NewInt(10), privateKey, salt)
+	utxo1 := NewFungibleNullifier(big.NewInt(10), privateKey, salt, &hash.PoseidonHasher{})
 
 	idx1, err := utxo1.GetHash()
 	assert.NoError(t, err)
@@ -57,7 +58,7 @@ func TestFungibleUTXOsFail(t *testing.T) {
 		Y: y,
 	}
 	salt, _ := new(big.Int).SetString("ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff", 16)
-	utxo1 := NewFungible(big.NewInt(10), alice, salt)
+	utxo1 := NewFungible(big.NewInt(10), alice, salt, &hash.PoseidonHasher{})
 
 	_, err := utxo1.GetHash()
 	assert.EqualError(t, err, "inputs values not inside Finite Field")
@@ -66,7 +67,7 @@ func TestFungibleUTXOsFail(t *testing.T) {
 func TestFungibleUTXOsWithNullifiersFail(t *testing.T) {
 	privateKey, _ := new(big.Int).SetString("df7ff8191db562f4ed9404e91f184502fe67f880cd1fe67c0f84d224a53ee55", 16)
 	salt, _ := new(big.Int).SetString("ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff", 16)
-	utxo1 := NewFungibleNullifier(big.NewInt(10), privateKey, salt)
+	utxo1 := NewFungibleNullifier(big.NewInt(10), privateKey, salt, &hash.PoseidonHasher{})
 
 	_, err := utxo1.GetHash()
 	assert.EqualError(t, err, "inputs values not inside Finite Field")

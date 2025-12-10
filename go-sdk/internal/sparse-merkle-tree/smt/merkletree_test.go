@@ -20,7 +20,9 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/hyperledger-labs/zeto/go-sdk/internal/crypto/hash"
 	"github.com/hyperledger-labs/zeto/go-sdk/pkg/sparse-merkle-tree/core"
+	apicore "github.com/hyperledger-labs/zeto/go-sdk/pkg/utxo/core"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -53,6 +55,9 @@ func (ms *mockStorage) Rollback() error {
 	return nil
 }
 func (ms *mockStorage) Close() {}
+func (ms *mockStorage) GetHasher() apicore.Hasher {
+	return &hash.PoseidonHasher{}
+}
 
 func TestNewMerkleTreeFailures(t *testing.T) {
 	db := &mockStorage{}
