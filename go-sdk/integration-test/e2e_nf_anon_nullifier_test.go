@@ -56,7 +56,7 @@ func (s *E2ETestSuite) TestZeto_nf_anon_nullifier_SuccessfulProving() {
 	mt, err := smt.NewMerkleTree(s.db, common.MAX_HEIGHT)
 	assert.NoError(s.T(), err)
 	utxo1 := node.NewNonFungible(tokenId, uriString, sender.PublicKey, salt1, hasher)
-	n1, err := node.NewLeafNode(utxo1, nil, hasher)
+	n1, err := node.NewLeafNode(utxo1, nil)
 	assert.NoError(s.T(), err)
 	err = mt.AddLeaf(n1)
 	assert.NoError(s.T(), err)

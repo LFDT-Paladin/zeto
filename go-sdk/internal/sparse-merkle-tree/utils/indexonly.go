@@ -18,6 +18,7 @@ package utils
 
 import (
 	"github.com/hyperledger-labs/zeto/go-sdk/pkg/sparse-merkle-tree/core"
+	apicore "github.com/hyperledger-labs/zeto/go-sdk/pkg/utxo/core"
 )
 
 type IndexOnly struct {
@@ -32,4 +33,8 @@ func NewIndexOnly(index core.NodeIndex) *IndexOnly {
 
 func (f *IndexOnly) CalculateIndex() (core.NodeIndex, error) {
 	return f.Index, nil
+}
+
+func (f *IndexOnly) GetHasher() apicore.Hasher {
+	return f.Index.GetHasher()
 }

@@ -65,7 +65,7 @@ func TestSqliteStorage(t *testing.T) {
 	salt1 := crypto.NewSalt()
 
 	utxo1 := node.NewNonFungible(tokenId, uriString, sender.PublicKey, salt1, &hash.PoseidonHasher{})
-	n1, err := node.NewLeafNode(utxo1, nil, &hash.PoseidonHasher{})
+	n1, err := node.NewLeafNode(utxo1, nil)
 	assert.NoError(t, err)
 
 	idx, _ := utxo1.CalculateIndex()
@@ -138,7 +138,7 @@ func TestSqliteStorageFail_NoNodeTable(t *testing.T) {
 	s := NewSqlStorage(provider, "test_1", &hash.PoseidonHasher{})
 	assert.NoError(t, err)
 
-	idx, err := node.NewNodeIndexFromHex("0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef")
+	idx, err := node.NewNodeIndexFromHex("0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef", &hash.PoseidonHasher{})
 	assert.NoError(t, err)
 	_, err = s.GetNode(idx)
 	assert.EqualError(t, err, "no such table: smtNodes_test_1")
@@ -171,7 +171,7 @@ func TestSqliteStorageFail_BadNodeIndex(t *testing.T) {
 	salt1 := crypto.NewSalt()
 
 	utxo1 := node.NewFungible(big.NewInt(100), sender.PublicKey, salt1, &hash.PoseidonHasher{})
-	n1, err := node.NewLeafNode(utxo1, nil, &hash.PoseidonHasher{})
+	n1, err := node.NewLeafNode(utxo1, nil)
 	assert.NoError(t, err)
 	err = s.InsertNode(n1)
 	assert.NoError(t, err)

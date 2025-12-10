@@ -81,7 +81,7 @@ func (s *E2ETestSuite) TestZeto_anon_nullifier_locked_SuccessfulProving() {
 
 	for i, value := range s.regularTest.InputValues {
 		utxo := node.NewFungible(value, s.sender.PublicKey, s.regularTest.InputSalts[i], hasher)
-		n, err := node.NewLeafNode(utxo, senderEthAddress, hasher)
+		n, err := node.NewLeafNode(utxo, senderEthAddress)
 		assert.NoError(s.T(), err)
 		err = mt.AddLeaf(n)
 		assert.NoError(s.T(), err)

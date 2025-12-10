@@ -67,7 +67,7 @@ func (s *SqliteTestSuite) TestSqliteStorage() {
 	salt1 := crypto.NewSalt()
 
 	utxo1 := node.NewNonFungible(tokenId, uriString, sender.PublicKey, salt1, hasher)
-	n1, err := node.NewLeafNode(utxo1, nil, hasher)
+	n1, err := node.NewLeafNode(utxo1, nil)
 	assert.NoError(s.T(), err)
 	err = mt.AddLeaf(n1)
 	assert.NoError(s.T(), err)
@@ -120,7 +120,7 @@ func TestPostgresStorage(t *testing.T) {
 	salt1 := crypto.NewSalt()
 
 	utxo1 := node.NewNonFungible(tokenId, tokenUri, sender.PublicKey, salt1, hasher)
-	n1, err := node.NewLeafNode(utxo1, nil, hasher)
+	n1, err := node.NewLeafNode(utxo1, nil)
 	assert.NoError(t, err)
 	err = mt.AddLeaf(n1)
 	assert.NoError(t, err)

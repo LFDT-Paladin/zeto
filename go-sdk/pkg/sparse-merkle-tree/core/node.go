@@ -18,6 +18,8 @@ package core
 
 import (
 	"math/big"
+
+	"github.com/hyperledger-labs/zeto/go-sdk/pkg/utxo/core"
 )
 
 type NodeType int
@@ -44,6 +46,8 @@ type NodeRef interface {
 	IsZero() bool
 	// Equal returns true if two reference hashes equal to each other
 	Equal(NodeRef) bool
+	// GetHasher returns the hasher used to compute the node reference
+	GetHasher() core.Hasher
 }
 
 // NodeIndex defines the functions of leaf nodes in the SMT, which provide access to their node paths in addition to the NodeRef functions.
@@ -59,6 +63,7 @@ type NodeIndex interface {
 // Node, which is used to produce a unique index for the node.
 type Indexable interface {
 	CalculateIndex() (NodeIndex, error)
+	GetHasher() core.Hasher
 }
 
 // Node is the object of a node in the Sparse Merkle Tree, which has an

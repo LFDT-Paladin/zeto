@@ -41,7 +41,7 @@ func BuildMerkleProofs(inputCommitments []*big.Int, db core.Storage, t *testing.
 func AddCommitmentToMerkleTree(mt core.SparseMerkleTree, commitment *big.Int, t *testing.T) {
 	idx, _ := node.NewNodeIndexFromBigInt(commitment, &hash.PoseidonHasher{})
 	utxo := node.NewIndexOnly(idx)
-	n, err := node.NewLeafNode(utxo, nil, &hash.PoseidonHasher{})
+	n, err := node.NewLeafNode(utxo, nil)
 	assert.NoError(t, err)
 	err = mt.AddLeaf(n)
 	assert.NoError(t, err)

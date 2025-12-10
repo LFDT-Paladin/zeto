@@ -52,6 +52,10 @@ func (f *nonFungibleNode) CalculateIndex() (core.NodeIndex, error) {
 	return NewNodeIndexFromBigInt(hash, f.hasher)
 }
 
+func (f *nonFungibleNode) GetHasher() apicore.Hasher {
+	return f.hasher
+}
+
 // the "Owner" is the private key that must be properly hashed and trimmed to be
 // compatible with the BabyJub curve.
 // Reference: https://github.com/iden3/circomlib/blob/master/test/babyjub.js#L103
@@ -80,4 +84,8 @@ func (f *nonFungibleNullifierNode) CalculateIndex() (core.NodeIndex, error) {
 		return nil, err
 	}
 	return NewNodeIndexFromBigInt(hash, f.hasher)
+}
+
+func (f *nonFungibleNullifierNode) GetHasher() apicore.Hasher {
+	return f.hasher
 }

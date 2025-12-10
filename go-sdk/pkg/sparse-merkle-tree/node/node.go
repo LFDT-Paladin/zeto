@@ -34,8 +34,8 @@ func NewEmptyNode() core.Node {
 // which is used to calculate the hash of the node index.
 // the value parameter is optional. if "nil", the index hash is used in the
 // place of the value when calculating the node reference hash (aka "node key").
-func NewLeafNode(i core.Indexable, v *big.Int, hasher apicore.Hasher) (core.Node, error) {
-	return node.NewLeafNode(i, v, hasher)
+func NewLeafNode(i core.Indexable, v *big.Int) (core.Node, error) {
+	return node.NewLeafNode(i, v)
 }
 
 func NewBranchNode(leftChild, rightChild core.NodeRef, hasher apicore.Hasher) (core.Node, error) {
@@ -48,8 +48,8 @@ func NewNodeIndexFromBigInt(i *big.Int, hasher apicore.Hasher) (core.NodeIndex, 
 
 // NewNodeIndexFromHex creates a new NodeIndex from a hex string that
 // represents the index in big-endian format.
-func NewNodeIndexFromHex(h string) (core.NodeIndex, error) {
-	return node.NewNodeIndexFromHex(h)
+func NewNodeIndexFromHex(h string, hasher apicore.Hasher) (core.NodeIndex, error) {
+	return node.NewNodeIndexFromHex(h, hasher)
 }
 
 func NewFungible(amount *big.Int, owner *babyjub.PublicKey, salt *big.Int, hasher apicore.Hasher) core.Indexable {
