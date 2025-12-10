@@ -168,6 +168,38 @@ func (s *MerkleTreeTestSuite) TestAddNode() {
 	assert.Equal(s.T(), "abacf46f5217552ee28fe50b8fd7ca6aa46daeb9acf9f60928654c3b1a472f23", mt2.Root().Hex())
 }
 
+// cross-referenced with the unit tests in iden3/js-merkletree repo
+func (s *MerkleTreeTestSuite) TestAddNode_Keccak256_TwoNodes() {
+	provider := &testSqlProvider{db: s.gormDB}
+	db := storage.NewSqlStorage(provider, "test_1", &hash.Keccak256Hasher{})
+	mt, err := NewMerkleTree(db, 64)
+	assert.NoError(s.T(), err)
+
+	// adding first node: i=1, v=2
+	i1, _ := node.NewNodeIndexFromBigInt(big.NewInt(1), &hash.Keccak256Hasher{})
+	inode1 := utils.NewIndexOnly(i1)
+	v1 := big.NewInt(2)
+	n1, err := node.NewLeafNode(inode1, v1, &hash.Keccak256Hasher{})
+	assert.NoError(s.T(), err)
+
+	err = mt.AddLeaf(n1)
+	assert.NoError(s.T(), err)
+	assert.Equal(s.T(), "2d163ec3852e4a9110862823eb833344b6e15bc64b3e415d5634f5dc79a8fd2c", mt.Root().Hex())
+	assert.Equal(s.T(), "20349940423862035287868699599764962454537984981628200184279725786303353984557", mt.Root().BigInt().Text(10))
+
+	// adding second node: i=33, v=44
+	i2, _ := node.NewNodeIndexFromBigInt(big.NewInt(33), &hash.Keccak256Hasher{})
+	inode2 := utils.NewIndexOnly(i2)
+	v2 := big.NewInt(44)
+	n2_, err := node.NewLeafNode(inode2, v2, &hash.Keccak256Hasher{})
+	assert.NoError(s.T(), err)
+
+	err = mt.AddLeaf(n2_)
+	assert.NoError(s.T(), err)
+	assert.Equal(s.T(), "621b0f04a6486a2e9205ee837635daecd0feeb7409ad42f9a5f00cdf82c934a9", mt.Root().Hex())
+	assert.Equal(s.T(), "76534138237239231515859035502772486263463178175980489503663557460094727691106", mt.Root().BigInt().Text(10))
+}
+
 func (s *MerkleTreeTestSuite) TestAddNode_Keccak256() {
 	provider := &testSqlProvider{db: s.gormDB}
 	db := storage.NewSqlStorage(provider, "test_1", &hash.Keccak256Hasher{})
@@ -191,6 +223,7 @@ func (s *MerkleTreeTestSuite) TestAddNode_Keccak256() {
 	err = mt.AddLeaf(n1)
 	assert.NoError(s.T(), err)
 	assert.Equal(s.T(), "a82f5e2badeb0e558f3e198f2ab1d55eb2134d90d7d886f901c70b859fa24f59", mt.Root().Hex())
+	assert.Equal(s.T(), "40396546825579280798065248979086627653929672915398237421353407506268343381928", mt.Root().BigInt().Text(10))
 
 	// adding a 2nd node to test the tree update and branch nodes
 	salt2, _ := new(big.Int).SetString("19b965f7629e4f0c4bd0b8f9c87f17580f18a32a31b4641550071ee4916bbbfc", 16)
