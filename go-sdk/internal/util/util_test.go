@@ -460,10 +460,8 @@ func TestEncodeToBytes_Anon_InvalidStringValues(t *testing.T) {
 		C: []string{"415", "161"},
 	}
 
-	// This should panic due to zero value being passed to ABI encoding
-	assert.Panics(t, func() {
-		_, _ = EncodeToBytes_Anon(proof)
-	}, "Expected panic due to zero value from invalid string causing ABI encoding error")
+	_, err := EncodeToBytes_Anon(proof)
+	assert.ErrorContains(t, err, "FF22030: Unable to parse")
 }
 
 func TestEncodeToBytes_Anon_EmptyStringValues(t *testing.T) {
@@ -477,10 +475,8 @@ func TestEncodeToBytes_Anon_EmptyStringValues(t *testing.T) {
 		C: []string{"415", "161"},
 	}
 
-	// This should panic due to zero value being passed to ABI encoding
-	assert.Panics(t, func() {
-		_, _ = EncodeToBytes_Anon(proof)
-	}, "Expected panic due to zero value from empty string causing ABI encoding error")
+	_, err := EncodeToBytes_Anon(proof)
+	assert.ErrorContains(t, err, "FF22030: Unable to parse")
 }
 
 // Edge case tests
@@ -543,10 +539,8 @@ func TestEncodeToBytes_Enc_NilBigIntValues(t *testing.T) {
 		C: []string{"415", "161"},
 	}
 
-	// This should panic due to nil big.Int being passed to ABI encoding
-	assert.Panics(t, func() {
-		_, _ = EncodeToBytes_Enc(encryptionNonce, ecdhPublicKey, encryptedValues, proof)
-	}, "Expected panic due to nil big.Int causing ABI encoding error")
+	_, err := EncodeToBytes_Enc(encryptionNonce, ecdhPublicKey, encryptedValues, proof)
+	assert.ErrorContains(t, err, "FF22030: Unable to parse")
 }
 
 func TestEncodeToBytes_Qurrency_PartialEncapsulatedSharedSecret(t *testing.T) {
@@ -568,10 +562,8 @@ func TestEncodeToBytes_Qurrency_PartialEncapsulatedSharedSecret(t *testing.T) {
 		C: []string{"415", "161"},
 	}
 
-	// This should panic due to nil big.Int values in the array being passed to ABI encoding
-	assert.Panics(t, func() {
-		_, _ = EncodeToBytes_Qurrency(root, encryptionNonce, encryptedValues, encapsulatedSharedSecret, proof)
-	}, "Expected panic due to nil big.Int values in encapsulated shared secret causing ABI encoding error")
+	_, err := EncodeToBytes_Qurrency(root, encryptionNonce, encryptedValues, encapsulatedSharedSecret, proof)
+	assert.ErrorContains(t, err, "FF22030: Unable to parse")
 }
 
 // Tests for convertProof function directly
@@ -615,6 +607,6 @@ func TestConvertProof_ZeroValues(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NotNil(t, proofStruct)
 	// Should handle zero values correctly
-	assert.Equal(t, big.NewInt(0), proofStruct.PA[0])
-	assert.Equal(t, big.NewInt(0), proofStruct.PA[1])
+	assert.Equal(t, "0x0", proofStruct.PA[0])
+	assert.Equal(t, "0x0", proofStruct.PA[1])
 }
