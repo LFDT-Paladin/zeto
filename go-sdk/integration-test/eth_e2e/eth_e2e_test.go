@@ -316,7 +316,7 @@ func (s *EthE2ETestSuite) calculateAndDisplayAverages() {
 
 	// Display results
 	fmt.Printf("\n")
-	fmt.Printf("=== LATENCY STATISTICS (%d runs) ===\n", numRuns)
+	fmt.Printf("=== Performance STATISTICS (%d runs) ===\n", numRuns)
 	fmt.Printf("\n")
 	fmt.Printf("Witness Generation Time:\n")
 	fmt.Printf("  Average: %v\n", avgWitness)
@@ -343,7 +343,7 @@ func (s *EthE2ETestSuite) calculateAndDisplayAverages() {
 	fmt.Printf("  Min:     %v\n", minGasCost)
 	fmt.Printf("  Max:     %v\n", maxGasCost)
 	fmt.Printf("\n")
-	fmt.Printf("=== END LATENCY STATISTICS ===\n\n")
+	fmt.Printf("=== END Performance STATISTICS ===\n\n")
 }
 
 func TestEthE2ETestSuite(t *testing.T) {

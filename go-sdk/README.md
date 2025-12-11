@@ -35,17 +35,19 @@ $ make e2e
 
 ## Running the Ethereum integration test
 
-The `eth_e2e_test.go` file contains integration tests for interacting with Ethereum networks and Zeto contracts using the Go SDK.
+The `eth_e2e_test.go` file contains integration tests for interacting with Ethereum networks and Zeto contracts using the Go SDK. The test suite measures performance metrics and prints out a nice summary (see below).
 
 ### Environment Variables
 
 The test suite supports the following environment variables:
 
 #### Required
+
 - `ZETO_CONTRACT_ADDRESS`: Address of the deployed Zeto contract
 - `ZETO_CONTRACT_NAME`: Zeto_Anon, Zeto_AnonNullifier or Zeto_AnonNullifierQurrency
 
 #### Optional
+
 - `ETH_RPC_URL`: JSON RPC endpoint URL (default: `http://localhost:8545`)
 - `ETH_PRIVATE_KEY`: ECDSA private key for signing transactions (default: hardcoded test key)
 - `NUM_RUNS`: how many iterations to run the mint/transfer cycle (default: 10)
@@ -53,19 +55,74 @@ The test suite supports the following environment variables:
 ### Running the Tests
 
 #### Prerequisites
+
 1. Ensure your Ethereum node (e.g., local Besu) is running
+
+- this can be accomplished by using [`./integration-test/eth_e2e/resources/besu/docker-compose.yaml`](./integration-test/eth_e2e/resources/besu/docker-compose.yaml)
+
+```bash
+cd <project-root>/go-sdk/integration-test/eth_e2e
+docker compose -f resources/besu/docker-compose.yaml up -d
+```
+
 2. Deploy a Zeto contract, using the hardhat scripts in the `solidity` folder, and note its address
+
+```bash
+# set ETH_PRIVATE_KEY_1 to match the minter key used in the test
+export ETH_PRIVATE_KEY_1=ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80
+# set the Zeto token to deploy
+export ZETO_NAME=Zeto_Anon
+# deploy
+cd <project-root>/solidity
+npx hardhat run scripts/deploy_upgradeable.ts --network besu
+Deploying fungible Zeto token: Zeto_Anon
+ERC20 deployed:     0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512
+ZetoToken deployed: 0xB0D4afd8879eD9F52b28595d31B441D079B2Ca07
+```
+
 3. Set the required environment variables
+
+```bash
+export ETH_RPC_URL=http://localhost:8545
+export ZETO_CONTRACT_ADDRESS=0xB0D4afd8879eD9F52b28595d31B441D079B2Ca07
+export ZETO_CONTRACT_NAME=ZETO_Anon
+# make sure this is the same key as the ETH_PRIVATE_KEY_1 used for deployment above.
+# the deployer account is also the minter account, used in the test to mint Zeto tokens
+export ETH_PRIVATE_KEY=0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80
+```
 
 #### Example Commands
 
 ```bash
-# Set environment variables
-export ETH_RPC_URL=http://localhost:8545
-export ZETO_CONTRACT_ADDRESS=0x68B1D87F95878fE05B998F19b66F4baba5De1aed
-export ZETO_CONTRACT_NAME=ZETO_AnonNullifierQurrency
-export ETH_PRIVATE_KEY=0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80
-
 # Run all Ethereum tests
 go test -v ./integration-test/eth_e2e -run TestEthE2ETestSuite
+
+=== Performance STATISTICS (10 runs) ===
+
+Witness Generation Time:
+  Average: 64.58565ms
+  Min:     63.034792ms
+  Max:     68.816791ms
+
+Proving Time:
+  Average: 49.629037ms
+  Min:     47.232792ms
+  Max:     55.812583ms
+
+Transaction Time:
+  Average: 1.020575866s
+  Min:     1.012903375s
+  Max:     1.030475375s
+
+Total Transaction Latency:
+  Average: 1.134790554s
+  Min:     1.125578917s
+  Max:     1.146524958s
+
+Transaction Gas Cost:
+  Average: 352304
+  Min:     352279
+  Max:     352369
+
+=== END Performance STATISTICS ===
 ```
