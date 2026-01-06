@@ -21,13 +21,13 @@ import (
 	"os"
 	"time"
 
+	"github.com/LFDT-Paladin/smt/pkg/sparse-merkle-tree/core"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/ethclient"
 	itestcommon "github.com/hyperledger-labs/zeto/go-sdk/integration-test/common"
 	"github.com/hyperledger-labs/zeto/go-sdk/internal/testutils"
-	"github.com/hyperledger-labs/zeto/go-sdk/pkg/sparse-merkle-tree/core"
 	"github.com/stretchr/testify/suite"
 	"gorm.io/gorm"
 )

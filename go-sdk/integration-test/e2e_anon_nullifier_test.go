@@ -21,10 +21,11 @@ import (
 	"math/big"
 	"time"
 
+	"github.com/LFDT-Paladin/smt/pkg/crypto"
+	"github.com/LFDT-Paladin/smt/pkg/sparse-merkle-tree/node"
+	"github.com/LFDT-Paladin/smt/pkg/sparse-merkle-tree/smt"
+	"github.com/LFDT-Paladin/smt/pkg/utxo"
 	"github.com/hyperledger-labs/zeto/go-sdk/integration-test/common"
-	"github.com/hyperledger-labs/zeto/go-sdk/pkg/crypto"
-	"github.com/hyperledger-labs/zeto/go-sdk/pkg/sparse-merkle-tree/node"
-	"github.com/hyperledger-labs/zeto/go-sdk/pkg/sparse-merkle-tree/smt"
 	"github.com/iden3/go-iden3-crypto/poseidon"
 	"github.com/iden3/go-rapidsnark/prover"
 	"github.com/stretchr/testify/assert"
@@ -75,7 +76,7 @@ func (s *E2ETestSuite) TestZeto_anon_nullifier_locked_SuccessfulProving() {
 	senderEthAddress, ok := new(big.Int).SetString("5d093e9b41911be5f5c4cf91b108bac5d130fa83", 16)
 	assert.True(s.T(), ok)
 	_, db, _, _ := common.NewSqliteStorage(s.T())
-	hasher := crypto.NewPoseidonHasher()
+	hasher := utxo.NewPoseidonHasher()
 	mt, err := smt.NewMerkleTree(db, common.MAX_HEIGHT)
 	assert.NoError(s.T(), err)
 

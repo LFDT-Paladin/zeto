@@ -6,9 +6,9 @@ import (
 	"os"
 	"testing"
 
-	"github.com/hyperledger-labs/zeto/go-sdk/internal/crypto/hash"
-	"github.com/hyperledger-labs/zeto/go-sdk/pkg/sparse-merkle-tree/core"
-	"github.com/hyperledger-labs/zeto/go-sdk/pkg/sparse-merkle-tree/storage"
+	"github.com/LFDT-Paladin/smt/pkg/sparse-merkle-tree/core"
+	"github.com/LFDT-Paladin/smt/pkg/sparse-merkle-tree/storage"
+	"github.com/LFDT-Paladin/smt/pkg/utxo"
 	"github.com/stretchr/testify/assert"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
@@ -37,7 +37,7 @@ func NewSqliteStorage(t *testing.T) (*os.File, core.Storage, *gorm.DB, string) {
 	assert.NoError(t, err)
 
 	provider := &TestSqlProvider{Db: db}
-	sqlStorage, err := storage.NewSqlStorage(provider, testName, &hash.PoseidonHasher{})
+	sqlStorage, err := storage.NewSqlStorage(provider, testName, utxo.NewPoseidonHasher())
 	assert.NoError(t, err)
 	return dbfile, sqlStorage, db, testName
 }
