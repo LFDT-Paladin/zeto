@@ -21,15 +21,14 @@ import (
 	"os"
 	"testing"
 
+	"github.com/LFDT-Paladin/smt/pkg/crypto"
+	"github.com/LFDT-Paladin/smt/pkg/sparse-merkle-tree/core"
+	"github.com/LFDT-Paladin/smt/pkg/sparse-merkle-tree/node"
+	"github.com/LFDT-Paladin/smt/pkg/sparse-merkle-tree/smt"
+	"github.com/LFDT-Paladin/smt/pkg/sparse-merkle-tree/storage"
+	"github.com/LFDT-Paladin/smt/pkg/utxo"
 	"github.com/hyperledger-labs/zeto/go-sdk/integration-test/common"
-	"github.com/hyperledger-labs/zeto/go-sdk/internal/crypto/hash"
 	"github.com/hyperledger-labs/zeto/go-sdk/internal/testutils"
-	"github.com/hyperledger-labs/zeto/go-sdk/pkg/crypto"
-
-	"github.com/hyperledger-labs/zeto/go-sdk/pkg/sparse-merkle-tree/core"
-	"github.com/hyperledger-labs/zeto/go-sdk/pkg/sparse-merkle-tree/node"
-	"github.com/hyperledger-labs/zeto/go-sdk/pkg/sparse-merkle-tree/smt"
-	"github.com/hyperledger-labs/zeto/go-sdk/pkg/sparse-merkle-tree/storage"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
@@ -56,7 +55,7 @@ func (s *SqliteTestSuite) TearDownTest() {
 }
 
 func (s *SqliteTestSuite) TestSqliteStorage() {
-	hasher := crypto.NewPoseidonHasher()
+	hasher := utxo.NewPoseidonHasher()
 	mt, err := smt.NewMerkleTree(s.db, common.MAX_HEIGHT)
 	assert.NoError(s.T(), err)
 
@@ -106,10 +105,10 @@ func TestPostgresStorage(t *testing.T) {
 	}()
 
 	provider := &common.TestSqlProvider{Db: db}
-	s, err := storage.NewSqlStorage(provider, "test_1", &hash.PoseidonHasher{})
+	s, err := storage.NewSqlStorage(provider, "test_1", utxo.NewPoseidonHasher())
 	assert.NoError(t, err)
 
-	hasher := crypto.NewPoseidonHasher()
+	hasher := utxo.NewPoseidonHasher()
 	mt, err := smt.NewMerkleTree(s, common.MAX_HEIGHT)
 	assert.NoError(t, err)
 

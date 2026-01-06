@@ -20,16 +20,8 @@ import (
 	"math/big"
 
 	"github.com/hyperledger-labs/zeto/go-sdk/internal/crypto"
-	"github.com/hyperledger-labs/zeto/go-sdk/internal/crypto/hash"
-	"github.com/hyperledger-labs/zeto/go-sdk/pkg/utxo/core"
 	"github.com/iden3/go-iden3-crypto/babyjub"
 )
-
-// NewSalt generates a new random salt in the range of [0, MAX) where MAX is the order of the BabyJub curve.
-// This ensures that the salt is a valid scalar for the curve.
-func NewSalt() *big.Int {
-	return crypto.NewSalt()
-}
 
 func NewEncryptionNonce() *big.Int {
 	return crypto.NewEncryptionNonce()
@@ -61,12 +53,4 @@ func RecoverMlkemCiphertextBytes(ciphertext []string) ([]byte, error) {
 
 func PublicKeyFromSeed(seed []byte) (*babyjub.Point, error) {
 	return crypto.PublicKeyFromSeed(seed)
-}
-
-func NewPoseidonHasher() core.Hasher {
-	return &hash.PoseidonHasher{}
-}
-
-func NewKeccak256Hasher() core.Hasher {
-	return &hash.Keccak256Hasher{}
 }

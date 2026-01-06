@@ -4,9 +4,9 @@ import (
 	"math/big"
 	"testing"
 
+	"github.com/LFDT-Paladin/smt/pkg/crypto"
+	"github.com/LFDT-Paladin/smt/pkg/sparse-merkle-tree/core"
 	"github.com/hyperledger-labs/zeto/go-sdk/internal/testutils"
-	"github.com/hyperledger-labs/zeto/go-sdk/pkg/crypto"
-	"github.com/hyperledger-labs/zeto/go-sdk/pkg/sparse-merkle-tree/core"
 	"github.com/iden3/go-iden3-crypto/poseidon"
 )
 

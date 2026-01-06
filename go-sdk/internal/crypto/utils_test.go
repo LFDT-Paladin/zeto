@@ -21,12 +21,13 @@ import (
 	"math/big"
 	"testing"
 
+	"github.com/LFDT-Paladin/smt/pkg/crypto"
 	"github.com/iden3/go-iden3-crypto/constants"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestNewSalt(t *testing.T) {
-	salt := NewSalt()
+	salt := crypto.NewSalt()
 	assert.NotNil(t, salt)
 	max := constants.Q
 	assert.Less(t, salt.Cmp(max), 0)
