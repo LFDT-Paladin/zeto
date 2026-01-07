@@ -68,7 +68,7 @@ const BatchBurnNullifierVerifierModule = buildModule("Groth16Verifier_BurnNullif
 });
 
 export default buildModule("Zeto_AnonNullifier", (m) => {
-  const { smtLib, poseidon3 } = m.useModule(SmtLibModule);
+  const { smtLib, poseidon2, poseidon3 } = m.useModule(SmtLibModule);
   const { verifier } = m.useModule(VerifierModule);
   const { verifier: lockVerifier } = m.useModule(LockVerifierModule);
   const { verifier: batchVerifier } = m.useModule(BatchVerifierModule);
@@ -98,6 +98,7 @@ export default buildModule("Zeto_AnonNullifier", (m) => {
     burnVerifier,
     batchBurnVerifier,
     smtLib,
+    poseidon2,
     poseidon3,
   };
 });

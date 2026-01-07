@@ -15,8 +15,8 @@
 // limitations under the License.
 pragma solidity ^0.8.27;
 
-import {SmtLib} from "@iden3/contracts/lib/SmtLib.sol";
-import {PoseidonUnit3L} from "@iden3/contracts/lib/Poseidon.sol";
+import {SmtLib} from "@iden3/contracts/contracts/lib/SmtLib.sol";
+import {PoseidonUnit3L} from "@iden3/contracts/contracts/lib/Poseidon.sol";
 
 // test ground for better understanding of the SmtLib library implementation
 contract TestSmt {

@@ -15,7 +15,7 @@
 // limitations under the License.
 pragma solidity ^0.8.27;
 
-import {PoseidonUnit5L} from "@iden3/contracts/lib/Poseidon.sol";
+import {PoseidonUnit5L} from "@iden3/contracts/contracts/lib/Poseidon.sol";
 import {IZeto} from "./lib/interfaces/izeto.sol";
 import {MAX_BATCH} from "./lib/interfaces/izeto.sol";
 import {Groth16Verifier_Deposit} from "./verifiers/verifier_deposit.sol";
@@ -35,6 +35,7 @@ import {console} from "hardhat/console.sol";
 uint256 constant INPUT_SIZE = 9;
 // uint256 constant INPUT_SIZE_LOCKED = 8;
 uint256 constant BATCH_INPUT_SIZE = 33;
+
 // uint256 constant BATCH_INPUT_SIZE_LOCKED = 32;
 
 /// @title A sample implementation of a Zeto based fungible token with anonymity and history masking
@@ -54,6 +55,7 @@ contract Zeto_AnonNullifierQurrency is
 {
     Groth16Verifier_AnonNullifierQurrencyTransfer internal _verifier;
     Groth16Verifier_AnonNullifierQurrencyTransferBatch internal _batchVerifier;
+
     // Groth16Verifier_AnonNullifierTransferLocked internal _lockVerifier;
     // Groth16Verifier_AnonNullifierTransferLockedBatch
     //     internal _batchLockVerifier;
