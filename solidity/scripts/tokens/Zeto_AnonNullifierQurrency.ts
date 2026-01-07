@@ -29,6 +29,7 @@ export async function deployDependencies() {
     // batchLockVerifier,
     batchWithdrawVerifier,
     smtLib,
+    poseidon2,
     poseidon3,
     poseidon5,
     poseidon6,
@@ -53,6 +54,7 @@ export async function deployDependencies() {
     ],
     libraries: {
       SmtLib: smtLib.target,
+      PoseidonUnit2L: poseidon2.target,
       PoseidonUnit3L: poseidon3.target,
       PoseidonUnit5L: poseidon5.target,
       PoseidonUnit6L: poseidon6.target,

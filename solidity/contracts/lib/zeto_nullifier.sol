@@ -20,8 +20,10 @@ import {IZeto} from "./interfaces/izeto.sol";
 import {MAX_SMT_DEPTH} from "./interfaces/izeto.sol";
 import {IZetoLockable} from "./interfaces/izeto_lockable.sol";
 import {ZetoCommon} from "./zeto_common.sol";
-import {SmtLib} from "@iden3/contracts/lib/SmtLib.sol";
-import {PoseidonUnit3L} from "@iden3/contracts/lib/Poseidon.sol";
+import {SmtLib} from "@iden3/contracts/contracts/lib/SmtLib.sol";
+import {PoseidonHasher} from "@iden3/contracts/contracts/lib/hash/PoseidonHasher.sol";
+import {IHasher} from "@iden3/contracts/contracts/interfaces/IHasher.sol";
+import {PoseidonUnit3L} from "@iden3/contracts/contracts/lib/Poseidon.sol";
 import {console} from "hardhat/console.sol";
 
 /// @title A sample base implementation of a Zeto based token contract with nullifiers
@@ -38,6 +40,7 @@ abstract contract ZetoNullifier is IZeto, IZetoLockable, ZetoCommon {
     SmtLib.Data internal _lockedCommitmentsTree;
     using SmtLib for SmtLib.Data;
     mapping(uint256 => bool) private _nullifiers;
+    IHasher private _hasher;
 
     error UTXORootNotFound(uint256 root);
 
@@ -49,6 +52,9 @@ abstract contract ZetoNullifier is IZeto, IZetoLockable, ZetoCommon {
         __ZetoCommon_init(name_, symbol_, initialOwner);
         _commitmentsTree.initialize(MAX_SMT_DEPTH);
         _lockedCommitmentsTree.initialize(MAX_SMT_DEPTH);
+        _hasher = new PoseidonHasher();
+        _commitmentsTree.setHasher(_hasher);
+        _lockedCommitmentsTree.setHasher(_hasher);
     }
 
     function validateTransactionProposal(
