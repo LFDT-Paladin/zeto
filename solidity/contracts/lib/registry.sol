@@ -17,7 +17,7 @@ pragma solidity ^0.8.27;
 
 import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import {SmtLib} from "@iden3/contracts/contracts/lib/SmtLib.sol";
-import {PoseidonHash} from "@iden3/contracts/contracts/lib/Poseidon.sol";
+import {PoseidonHasher} from "@iden3/contracts/contracts/lib/hash/PoseidonHasher.sol";
 import {PoseidonUnit2L, PoseidonUnit3L} from "@iden3/contracts/contracts/lib/Poseidon.sol";
 import {Commonlib} from "./common.sol";
 import {IZeto} from "./interfaces/izeto.sol";

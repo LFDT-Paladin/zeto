@@ -44,7 +44,7 @@ func TestSqliteStorage(t *testing.T) {
 	dbfile, err := os.CreateTemp("", "gorm.db")
 	assert.NoError(t, err)
 	defer func() {
-		os.Remove(dbfile.Name())
+		_ = os.Remove(dbfile.Name())
 	}()
 	db, err := gorm.Open(sqlite.Open(dbfile.Name()), &gorm.Config{})
 	assert.NoError(t, err)
@@ -105,7 +105,7 @@ func TestSqliteStorageFail_NoRootTable(t *testing.T) {
 	dbfile, err := os.CreateTemp("", "gorm.db")
 	assert.NoError(t, err)
 	defer func() {
-		os.Remove(dbfile.Name())
+		_ = os.Remove(dbfile.Name())
 	}()
 	db, err := gorm.Open(sqlite.Open(dbfile.Name()), &gorm.Config{})
 	assert.NoError(t, err)
@@ -128,7 +128,7 @@ func TestSqliteStorageFail_NoNodeTable(t *testing.T) {
 	dbfile, err := os.CreateTemp("", "gorm.db")
 	assert.NoError(t, err)
 	defer func() {
-		os.Remove(dbfile.Name())
+		_ = os.Remove(dbfile.Name())
 	}()
 	db, err := gorm.Open(sqlite.Open(dbfile.Name()), &gorm.Config{})
 	assert.NoError(t, err)
@@ -153,7 +153,7 @@ func TestSqliteStorageFail_BadNodeIndex(t *testing.T) {
 	dbfile, err := os.CreateTemp("", "gorm.db")
 	assert.NoError(t, err)
 	defer func() {
-		os.Remove(dbfile.Name())
+		_ = os.Remove(dbfile.Name())
 	}()
 	db, err := gorm.Open(sqlite.Open(dbfile.Name()), &gorm.Config{})
 	assert.NoError(t, err)
