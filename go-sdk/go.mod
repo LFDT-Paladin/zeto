@@ -2,6 +2,8 @@ module github.com/hyperledger-labs/zeto/go-sdk
 
 go 1.24.0
 
+toolchain go1.24.4
+
 require (
 	github.com/iden3/go-rapidsnark/witness/wasmer v0.0.0-20230524142950-0986cf057d4e
 	github.com/sirupsen/logrus v1.9.3
