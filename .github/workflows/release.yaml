@@ -10,46 +10,24 @@ env:
   ZETO_VER: ${{ github.ref_name }}
 
 jobs:
+  setup-prerequisites:
+    uses: ./.github/workflows/e2e-deps.yaml
   build:
+    needs: setup-prerequisites
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Install circom
-        uses: supplypike/setup-bin@v4
-        with:
-          uri: https://github.com/iden3/circom/releases/download/v2.2.2/circom-linux-amd64
-          name: circom
-          version: 2.2.2
-
-      - name: Setup node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-
-      - name: install snarkjs
-        run: |
-          npm install -g snarkjs
-
-      - name: Checkout circuits
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
       - name: Setup temp dir for the artifacts
         run: |
           mkdir -p ${{ runner.temp }}/zeto-artifacts
 
-      - name: Build circuits
-        env:
-          CIRCUITS_ROOT: ${{ runner.temp }}/zeto-artifacts
-          PROVING_KEYS_ROOT: ${{ runner.temp }}/zeto-artifacts
-          PTAU_DOWNLOAD_PATH: ${{ runner.temp }}/zeto-artifacts
-        working-directory: zkp/circuits
-        run: |
-          npm install
-          npm run gen
+      - name: Download zeto artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ needs.setup-prerequisites.outputs.artifacts-name }}
+          path: ${{ runner.temp }}/zeto-artifacts
 
       - name: Build contracts
         working-directory: solidity
