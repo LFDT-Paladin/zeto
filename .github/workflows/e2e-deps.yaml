@@ -12,6 +12,9 @@ jobs:
     outputs:
       artifacts-name: ${{ steps.artifacts-name.outputs.artifacts-name }}
     steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
       - name: Free up disk space on runner
         uses: ./.github/actions/free-up-disk-space
 
