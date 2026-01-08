@@ -19,6 +19,9 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Free up disk space on runner
+        uses: ./.github/actions/free-up-disk-space
+
       - name: Setup temp dir for the artifacts
         run: |
           mkdir -p ${{ runner.temp }}/zeto-artifacts
