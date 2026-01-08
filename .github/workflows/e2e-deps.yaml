@@ -1,0 +1,73 @@
+name: e2e-deps
+
+on:
+  workflow_call:
+    outputs:
+      artifacts-name:
+        description: 'the name of the artifacts containing ZK circuit assemblies and proving keys'
+        value: ${{ jobs.integration-test-prerequisites.outputs.artifacts-name }}
+jobs:
+  integration-test-prerequisites:
+    runs-on: ubuntu-latest
+    outputs:
+      artifacts-name: ${{ steps.artifacts-name.outputs.artifacts-name }}
+    steps:
+      - name: Free up disk space on runner
+        uses: ./.github/actions/free-up-disk-space
+
+      - name: Install circom
+        uses: supplypike/setup-bin@v4
+        with:
+          uri: https://github.com/iden3/circom/releases/download/v2.2.2/circom-linux-amd64
+          name: circom
+          version: 2.2.2
+
+      - name: Setup node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: install snarkjs
+        run: |
+          npm install -g snarkjs
+
+      - name: Checkout Zeto
+        uses: actions/checkout@v4
+        with:
+          path: zeto
+          fetch-depth: 0
+
+      - name: Setup temp dir for the artifacts
+        run: |
+          mkdir -p ${{ runner.temp }}/zeto-artifacts
+
+      - name: Build circuits
+        env:
+          CIRCUITS_ROOT: ${{ runner.temp }}/zeto-artifacts
+          PROVING_KEYS_ROOT: ${{ runner.temp }}/zeto-artifacts
+          PTAU_DOWNLOAD_PATH: ${{ runner.temp }}/zeto-artifacts
+        working-directory: zeto/zkp/circuits
+        run: |
+          npm install
+          npm run gen
+          if [[ -n $(git status --porcelain) ]]; then
+            echo "Error: 'npm run gen' caused changes in the repository, please run the command locally to commit in all changes."
+            git status --porcelain
+            echo "Detailed changes:"
+            git diff
+            exit 1
+          fi
+
+      - name: Generate unique artifact name
+        id: artifacts-name
+        run: |
+          echo "artifacts-name=zeto-artifacts-$(date +%Y%m%d-%H%M%S)" >> $GITHUB_OUTPUT
+
+      - name: Upload zeto artifacts
+        id: upload-artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.artifacts-name.outputs.artifacts-name }}
+          path: ${{ runner.temp }}/zeto-artifacts
+          retention-days: 5
+          if-no-files-found: error
