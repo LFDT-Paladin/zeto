@@ -19,6 +19,7 @@
     "@iden3/js-merkletree": "^1.2.0",
     "@nomicfoundation/hardhat-chai-matchers": "^2.0.6",
     "@nomicfoundation/hardhat-ignition-ethers": "^0.15.0",
+    "@nomicfoundation/hardhat-ledger": "^1.0.3",
     "@nomicfoundation/hardhat-toolbox": "^5.0.0",
     "circomlibjs": "^0.1.7",
     "maci-crypto": "1.1.1",
