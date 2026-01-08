@@ -5,10 +5,6 @@ permissions:
   id-token: write
 on:
   workflow_call:
-    secrets:
-      NPM_TOKEN:
-        description: "NPM token"
-        required: true
     inputs:
       ref:
         description: "Commit ref for checkout"
@@ -23,30 +19,8 @@ on:
         description: 'Semicolon-separated list of tags (e.g., "latest;rc"). First tag is primary.'
         required: true
         type: string
-  workflow_dispatch:
-    inputs:
-      ref:
-        description: "Commit ref for checkout"
-        required: false
-        type: string
-        default: ""
-      package_version:
-        description: "The version to publish (e.g. v1.0.0)"
-        required: true
-        type: string
-      package_tag:
-        description: 'Semicolon-separated list of tags (e.g., "latest;rc"). First tag is primary.'
-        required: true
-        type: string
-      continue_on_error:
-        description: "Continue workflow even if publish fails (default: false)"
-        required: true
-        type: boolean
-        default: false
 jobs:
   publish:
-    env:
-      NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -65,8 +39,11 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: "22.x"
           registry-url: "https://registry.npmjs.org"
+
+      - name: Install latest npm
+        run: npm install -g npm@latest
 
       - name: Install dependencies
         working-directory: solidity
@@ -122,17 +99,16 @@ jobs:
           } >> $GITHUB_OUTPUT
 
       - name: Publish to npm with primary tag
-        continue-on-error: ${{ github.event_name == 'workflow_call' || inputs.continue_on_error != false }}
         working-directory: solidity
         shell: bash
         run: |
           set -e
           npm publish --provenance --access public --tag ${{ steps.parse_tags.outputs.primary_tag }}
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       - name: Add additional dist-tags
         if: steps.parse_tags.outputs.additional_tags != ''
+        # allowing this step to fail until https://github.com/npm/cli/issues/8547 is resolved
+        continue-on-error: true
         working-directory: solidity
         shell: bash
         run: |
@@ -150,5 +126,3 @@ jobs:
               npm dist-tag add "$PACKAGE_SPEC" "$tag"
             fi
           done <<< "${{ steps.parse_tags.outputs.additional_tags }}"
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
