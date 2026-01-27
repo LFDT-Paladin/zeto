@@ -37,9 +37,9 @@ const LockVerifierModule = buildModule(
 );
 
 export default buildModule("Zeto_NfAnonNullifier", (m) => {
-  const { smtLib, poseidon3 } = m.useModule(SmtLibModule);
+  const { smtLib, poseidon2, poseidon3 } = m.useModule(SmtLibModule);
   const { verifier } = m.useModule(VerifierModule);
   const { verifier: lockVerifier } = m.useModule(LockVerifierModule);
 
-  return { verifier, lockVerifier, smtLib, poseidon3 };
+  return { verifier, lockVerifier, smtLib, poseidon2, poseidon3 };
 });

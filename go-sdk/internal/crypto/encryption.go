@@ -151,11 +151,12 @@ func PoseidonDecrypt(cipherText []*big.Int, key []*big.Int, nonce *big.Int, leng
 	// If length > 3, check if the last (3 - (l mod 3)) elements of the message are 0
 	// this is a safty check because the message would have been padded with 0s
 	if length > 3 {
-		if length%3 == 2 {
+		switch length % 3 {
+		case 2:
 			if message[len(message)-1].Cmp(big.NewInt(0)) != 0 {
 				return nil, fmt.Errorf("the last element of the decrypted text must be 0")
 			}
-		} else if length%3 == 1 {
+		case 1:
 			if message[len(message)-2].Cmp(big.NewInt(0)) != 0 || message[len(message)-1].Cmp(big.NewInt(0)) != 0 {
 				return nil, fmt.Errorf("the last two elements of the decrypted text must be 0")
 			}

@@ -31,6 +31,7 @@ export async function deployDependencies() {
     burnVerifier,
     batchBurnVerifier,
     smtLib,
+    poseidon2,
     poseidon3,
   } = await ignition.deploy(zetoModule);
   return {
@@ -53,6 +54,7 @@ export async function deployDependencies() {
     ],
     libraries: {
       SmtLib: smtLib.target,
+      PoseidonUnit2L: poseidon2.target,
       PoseidonUnit3L: poseidon3.target,
     },
   };
