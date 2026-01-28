@@ -10,7 +10,10 @@ env:
   ZETO_VER: ${{ github.ref_name }}
 
 jobs:
+  setup-prerequisites:
+    uses: ./.github/workflows/e2e-deps.yaml
   build:
+    needs: setup-prerequisites
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -37,19 +40,18 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Free up disk space on runner
+        uses: ./.github/actions/free-up-disk-space
+
       - name: Setup temp dir for the artifacts
         run: |
           mkdir -p ${{ runner.temp }}/zeto-artifacts
 
-      - name: Build circuits
-        env:
-          CIRCUITS_ROOT: ${{ runner.temp }}/zeto-artifacts
-          PROVING_KEYS_ROOT: ${{ runner.temp }}/zeto-artifacts
-          PTAU_DOWNLOAD_PATH: ${{ runner.temp }}/zeto-artifacts
-        working-directory: zkp/circuits
-        run: |
-          npm install
-          npm run gen
+      - name: Download zeto artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ needs.setup-prerequisites.outputs.artifacts-name }}
+          path: ${{ runner.temp }}/zeto-artifacts
 
       - name: Build contracts
         working-directory: solidity
@@ -65,7 +67,7 @@ jobs:
           tar -czvf zeto-wasm-$ZETO_VER.tar.gz **/*.wasm
           tar --exclude='*qurrency*' -czvf zeto-test-proving-keys-$ZETO_VER.tar.gz *.zkey *-vkey.json
           tar -czvf zeto-qurrency-test-proving-keys-$ZETO_VER.tar.gz *qurrency*.zkey *qurrency*-vkey.json
-      
+
       - name: Create prover archives
         working-directory: ${{ runner.temp }}/zeto-artifacts
         run: |
@@ -79,14 +81,14 @@ jobs:
           ARTIFACTS_ROOT: ${{ runner.temp }}/zeto-artifacts
         run: |
           tar -czvf $ARTIFACTS_ROOT/zeto-contracts-$ZETO_VER.tar.gz artifacts/contracts artifacts/@iden3
-      
+
       - name: Create contract archives
         working-directory: solidity
         env:
           ARTIFACTS_ROOT: ${{ runner.temp }}/zeto-artifacts
         run: |
           tar -czvf $ARTIFACTS_ROOT/zeto-contracts.tar.gz artifacts/contracts artifacts/@iden3
-  
+
       - name: Publish Release Artifact
         uses: actions/upload-artifact@v4
         with:

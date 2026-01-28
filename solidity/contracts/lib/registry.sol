@@ -16,8 +16,9 @@
 pragma solidity ^0.8.27;
 
 import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
-import {SmtLib} from "@iden3/contracts/lib/SmtLib.sol";
-import {PoseidonUnit2L, PoseidonUnit3L} from "@iden3/contracts/lib/Poseidon.sol";
+import {SmtLib} from "@iden3/contracts/contracts/lib/SmtLib.sol";
+import {PoseidonHasher} from "@iden3/contracts/contracts/lib/hash/PoseidonHasher.sol";
+import {PoseidonUnit2L, PoseidonUnit3L} from "@iden3/contracts/contracts/lib/Poseidon.sol";
 import {Commonlib} from "./common/common.sol";
 import {IZeto} from "./interfaces/izeto.sol";
 import {IZetoKyc} from "./interfaces/izeto_kyc.sol";
@@ -38,6 +39,7 @@ abstract contract Registry is OwnableUpgradeable, IZetoKyc {
 
     function __Registry_init() internal onlyInitializing {
         _publicKeysTree.initialize(MAX_SMT_DEPTH);
+        _publicKeysTree.setHasher(new PoseidonHasher());
     }
 
     /**

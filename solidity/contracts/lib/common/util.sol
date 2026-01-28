@@ -16,7 +16,7 @@
 pragma solidity ^0.8.27;
 
 import {Arrays} from "@openzeppelin/contracts/utils/Arrays.sol";
-import {PoseidonUnit3L} from "@iden3/contracts/lib/Poseidon.sol";
+import {PoseidonUnit3L} from "@iden3/contracts/contracts/lib/Poseidon.sol";
 
 library Util {
     function sortCommitments(

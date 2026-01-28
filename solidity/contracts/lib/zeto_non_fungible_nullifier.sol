@@ -21,7 +21,6 @@ import {MAX_SMT_DEPTH} from "./interfaces/izeto.sol";
 import {IZetoLockable} from "./interfaces/izeto_lockable.sol";
 import {IZetoInitializable} from "./interfaces/izeto_initializable.sol";
 import {ZetoNonFungible} from "./zeto_non_fungible.sol";
-import {SmtLib} from "@iden3/contracts/lib/SmtLib.sol";
 import {IZetoStorage} from "./interfaces/izeto_storage.sol";
 import {NullifierStorage} from "./storage/nullifier.sol";
 

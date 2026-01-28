@@ -20,8 +20,10 @@ import {IZetoLockable} from "../interfaces/izeto_lockable.sol";
 import {IZetoStorage} from "../interfaces/izeto_storage.sol";
 import {Commonlib} from "../common/common.sol";
 import {Util} from "../common/util.sol";
-import {SmtLib} from "@iden3/contracts/lib/SmtLib.sol";
-import {PoseidonUnit3L} from "@iden3/contracts/lib/Poseidon.sol";
+import {SmtLib} from "@iden3/contracts/contracts/lib/SmtLib.sol";
+import {IHasher} from "@iden3/contracts/contracts/interfaces/IHasher.sol";
+import {PoseidonHasher} from "@iden3/contracts/contracts/lib/hash/PoseidonHasher.sol";
+import {PoseidonUnit3L} from "@iden3/contracts/contracts/lib/Poseidon.sol";
 
 contract NullifierStorage is IZetoStorage, IZetoConstants, IZetoLockable {
     // used for tracking regular (unlocked) UTXOs
@@ -40,6 +42,9 @@ contract NullifierStorage is IZetoStorage, IZetoConstants, IZetoLockable {
     constructor() {
         _commitmentsTree.initialize(MAX_SMT_DEPTH);
         _lockedCommitmentsTree.initialize(MAX_SMT_DEPTH);
+        IHasher hasher = new PoseidonHasher();
+        _commitmentsTree.setHasher(hasher);
+        _lockedCommitmentsTree.setHasher(hasher);
     }
 
     function validateInputs(
