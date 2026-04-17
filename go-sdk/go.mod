@@ -1,6 +1,8 @@
 module github.com/hyperledger-labs/zeto/go-sdk
 
-go 1.25.9
+go 1.25.7
+
+toolchain go1.25.9
 
 require (
 	github.com/LFDT-Paladin/smt v0.0.0-20260106165231-9195ebce0295
