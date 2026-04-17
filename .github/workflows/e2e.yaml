@@ -43,7 +43,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: 1.24
+          go-version: 1.25.9
 
       - name: Setup node.js
         uses: actions/setup-node@v4
@@ -70,7 +70,7 @@ jobs:
         env:
           PROVING_KEYS_ROOT: ${{ runner.temp }}/zeto-artifacts
           CIRCUITS_ROOT: ${{ runner.temp }}/zeto-artifacts
-        working-directory: zeto/go-sdk
+        working-directory: zeto/go-sdk/integration-test
         run: |
           echo "PROVING_KEYS_ROOT: $PROVING_KEYS_ROOT"
           echo "CIRCUITS_ROOT: $CIRCUITS_ROOT"

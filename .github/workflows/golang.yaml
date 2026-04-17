@@ -20,13 +20,13 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: 1.25
+          go-version: 1.25.9
 
       - name: Build and Test
-        working-directory: go-sdk
+        working-directory: go-sdk/src
         run: make
 
       - uses: codecov/codecov-action@v4
         with:
-          codecov_yml_path: ./go-sdk/coverage.txt
+          codecov_yml_path: ./go-sdk/src/coverage.txt
           token: ${{ secrets.CODECOV_TOKEN }}
