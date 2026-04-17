@@ -21,8 +21,6 @@ ${LINT}:
 		$(VGO) install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.64.8
 go-mod-tidy: .ALWAYS
 		$(VGO) mod tidy
-e2e: test
-		$(VGO) test -count=1  -v ./integration-test
 .ALWAYS: ;
 clean:
 		$(VGO) clean
