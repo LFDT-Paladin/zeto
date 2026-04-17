@@ -1,12 +1,11 @@
-module github.com/hyperledger-labs/zeto/go-sdk
+module github.com/LFDT-Paladin/zeto/go-sdk/integration-test
 
 go 1.25.7
 
-toolchain go1.25.9
-
 require (
-	github.com/LFDT-Paladin/smt v0.0.0-20260106165231-9195ebce0295
-	github.com/ethereum/go-ethereum v1.16.8
+	github.com/LFDT-Paladin/smt v0.2.0
+	github.com/LFDT-Paladin/zeto/go-sdk v0.0.0-00010101000000-000000000000
+	github.com/ethereum/go-ethereum v1.17.2
 	github.com/iden3/go-rapidsnark/witness/wasmer v0.0.0-20251113130218-15cc9f587b90
 	github.com/sirupsen/logrus v1.9.4
 	github.com/stretchr/testify v1.11.1
@@ -20,6 +19,7 @@ require (
 	github.com/bits-and-blooms/bitset v1.24.4 // indirect
 	github.com/btcsuite/btcd/btcec/v2 v2.3.2 // indirect
 	github.com/consensys/gnark-crypto v0.20.1 // indirect
+	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/crate-crypto/go-eth-kzg v1.5.0 // indirect
 	github.com/crate-crypto/go-ipa v0.0.0-20240724233137-53bbb0ceb27a // indirect
 	github.com/deckarep/golang-set/v2 v2.8.0 // indirect
@@ -74,3 +74,5 @@ require (
 	gorm.io/driver/sqlite v1.6.0
 	gorm.io/gorm v1.31.1
 )
+
+replace github.com/LFDT-Paladin/zeto/go-sdk => ../src
