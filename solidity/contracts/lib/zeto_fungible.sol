@@ -17,7 +17,7 @@ pragma solidity ^0.8.27;
 
 import {IGroth16Verifier} from "./interfaces/izeto_verifier.sol";
 import {IZetoInitializable} from "./interfaces/izeto_initializable.sol";
-import {IZetoLockable} from "./interfaces/izeto_lockable.sol";
+import {IZetoLockableCapability} from "./interfaces/izeto_lockable_capability.sol";
 import {Commonlib} from "./common/common.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {ZetoCommon} from "./zeto_common.sol";
@@ -26,7 +26,9 @@ import {IZetoStorage} from "./interfaces/izeto_storage.sol";
 /// @title A sample implementation of a base Zeto fungible token contract
 /// @author Kaleido, Inc.
 /// @dev Defines the verifier library for checking UTXOs against a claimed value.
-abstract contract ZetoFungible is ZetoCommon, IZetoLockable {
+///      Implements {IZetoLockableCapability} (which extends ILockableCapability)
+///      to provide the create/update/delegate/spend/cancel lock lifecycle.
+abstract contract ZetoFungible is ZetoCommon, IZetoLockableCapability {
     // _depositVerifier library for checking UTXOs against a claimed value.
     // this can be used in the optional deposit calls to verify that
     // the UTXOs match the deposited value
@@ -39,13 +41,40 @@ abstract contract ZetoFungible is ZetoCommon, IZetoLockable {
 
     IERC20 internal _erc20;
 
-    // mapping from lockId to LockData
-    mapping(bytes32 => LockData) internal _lockData;
+    // Stored lock state, indexed by lockId.
+    struct ZetoLockInfo {
+        address owner;
+        address spender;
+        bytes32 spendCommitment;
+        bytes32 cancelCommitment;
+        // The locked content: the lockedOutputs from createLock, which become
+        // the locked inputs for spendLock/cancelLock.
+        uint256[] lockedInputs;
+    }
 
-    modifier onlyDelegate(bytes32 lockId) {
-        uint256[] memory utxos = _lockData[lockId].inputs;
-        _checkDelegate(utxos);
+    mapping(bytes32 => ZetoLockInfo) internal _locks;
+    mapping(bytes32 => bool) internal _txIds;
+
+    modifier lockActive(bytes32 lockId) {
+        if (_locks[lockId].owner == address(0)) {
+            revert LockNotActive(lockId);
+        }
         _;
+    }
+
+    modifier onlySpender(bytes32 lockId) {
+        address spender = _locks[lockId].spender;
+        if (spender != msg.sender) {
+            revert LockUnauthorized(lockId, spender, msg.sender);
+        }
+        _;
+    }
+
+    function _useTxId(bytes32 txId) internal {
+        if (_txIds[txId]) {
+            revert DuplicateTransaction(txId);
+        }
+        _txIds[txId] = true;
     }
 
     function _checkDelegate(uint256[] memory utxos) internal view {
@@ -126,146 +155,347 @@ abstract contract ZetoFungible is ZetoCommon, IZetoLockable {
         emitTransferEvent(inputs, outputs, proof, data);
     }
 
-    function lock(
-        bytes32 lockId,
-        LockParameters calldata states,
-        bytes calldata proof,
+    // ------------------------------------------------------------------
+    // ILockableCapability lifecycle
+    // ------------------------------------------------------------------
+
+    /// @inheritdoc IZetoLockableCapability
+    function computeLockId(
+        bytes calldata createArgs
+    ) external view override returns (bytes32) {
+        ZetoCreateLockArgs memory args = abi.decode(
+            createArgs,
+            (ZetoCreateLockArgs)
+        );
+        return _computeLockId(args.txId);
+    }
+
+    function _computeLockId(bytes32 txId) internal view returns (bytes32) {
+        return keccak256(abi.encode(address(this), msg.sender, txId));
+    }
+
+    /// @inheritdoc IZetoLockableCapability
+    function computeUnlockHash(
+        uint256[] calldata lockedInputs,
+        uint256[] calldata lockedOutputs,
+        uint256[] calldata outputs,
         bytes calldata data
-    ) public {
+    ) external pure override returns (bytes32) {
+        return _buildUnlockHash(lockedInputs, lockedOutputs, outputs, data);
+    }
+
+    /**
+     * @dev Create a new lock by spending unlocked inputs and producing the
+     *      locked content. See {ILockableCapability.createLock} for the
+     *      generic semantics; the Zeto-specific payload is {ZetoCreateLockArgs}.
+     *
+     * Emits {LockCreated} (generic) and {ZetoLockCreated} (Zeto-specific).
+     */
+    function createLock(
+        bytes calldata createArgs,
+        bytes32 spendCommitment,
+        bytes32 cancelCommitment,
+        bytes calldata data
+    ) external override returns (bytes32) {
+        ZetoCreateLockArgs memory args = abi.decode(
+            createArgs,
+            (ZetoCreateLockArgs)
+        );
+
+        bytes32 lockId = _computeLockId(args.txId);
+        if (_locks[lockId].owner != address(0)) {
+            revert DuplicateLock(lockId);
+        }
+        _useTxId(args.txId);
+
+        // Verify the ZK proof and consume inputs / produce locked outputs.
+        _doLockTransition(args);
+
+        ZetoLockInfo storage lock = _locks[lockId];
+        lock.owner = msg.sender;
+        lock.spender = msg.sender;
+        lock.spendCommitment = spendCommitment;
+        lock.cancelCommitment = cancelCommitment;
+        lock.lockedInputs = args.lockedOutputs;
+
+        emit LockCreated(
+            lockId,
+            msg.sender,
+            msg.sender,
+            spendCommitment,
+            cancelCommitment,
+            data
+        );
+        emit ZetoLockCreated(
+            args.txId,
+            lockId,
+            msg.sender,
+            args.inputs,
+            args.outputs,
+            args.lockedOutputs,
+            args.proof,
+            data
+        );
+
+        return lockId;
+    }
+
+    /**
+     * @dev Update the spend/cancel commitments on an active, owner-controlled
+     *      lock. Mirrors the previous prepareUnlock flow but with full-update
+     *      semantics: both commitments are replaced atomically.
+     *
+     * Emits {LockUpdated} and {ZetoLockUpdated}.
+     */
+    function updateLock(
+        bytes32 lockId,
+        bytes calldata updateArgs,
+        bytes32 spendCommitment,
+        bytes32 cancelCommitment,
+        bytes calldata data
+    ) external override lockActive(lockId) {
+        ZetoLockInfo storage lock = _locks[lockId];
+        if (lock.spender != lock.owner) {
+            revert LockImmutable(lockId);
+        }
+        if (msg.sender != lock.owner) {
+            revert LockUnauthorized(lockId, lock.spender, msg.sender);
+        }
+
+        ZetoUpdateLockArgs memory args = abi.decode(
+            updateArgs,
+            (ZetoUpdateLockArgs)
+        );
+        _useTxId(args.txId);
+
+        lock.spendCommitment = spendCommitment;
+        lock.cancelCommitment = cancelCommitment;
+
+        emit LockUpdated(
+            lockId,
+            msg.sender,
+            spendCommitment,
+            cancelCommitment,
+            data
+        );
+        emit ZetoLockUpdated(args.txId, lockId, msg.sender, data);
+    }
+
+    /**
+     * @dev Delegate spending authority for the lock. The previous spender's
+     *      authority over the locked UTXOs is also moved at the storage layer
+     *      so that subsequent locked-input transactions are routed correctly.
+     *
+     * Emits {LockDelegated} and {ZetoLockDelegated}.
+     */
+    function delegateLock(
+        bytes32 lockId,
+        bytes calldata delegateArgs,
+        address newSpender,
+        bytes calldata data
+    ) external override lockActive(lockId) onlySpender(lockId) {
+        ZetoDelegateLockArgs memory args = abi.decode(
+            delegateArgs,
+            (ZetoDelegateLockArgs)
+        );
+        _useTxId(args.txId);
+
+        ZetoLockInfo storage lock = _locks[lockId];
+        address previousSpender = lock.spender;
+        lock.spender = newSpender;
+
+        _storage.delegateLock(lock.lockedInputs, newSpender, data);
+
+        emit LockDelegated(lockId, previousSpender, newSpender, data);
+        emit ZetoLockDelegated(
+            args.txId,
+            lockId,
+            previousSpender,
+            newSpender,
+            data
+        );
+    }
+
+    /**
+     * @dev Spend the lock by executing the committed unlock operation.
+     *      If `spendCommitment` is non-zero, the supplied spendArgs MUST hash
+     *      to it.
+     *
+     * Emits {LockSpent} and {ZetoLockSpent}.
+     */
+    function spendLock(
+        bytes32 lockId,
+        bytes calldata spendArgs,
+        bytes calldata data
+    ) external virtual override lockActive(lockId) onlySpender(lockId) {
+        ZetoSpendLockArgs memory args = abi.decode(
+            spendArgs,
+            (ZetoSpendLockArgs)
+        );
+
+        ZetoLockInfo memory lock = _locks[lockId];
+        _consumeLock(lockId, lock, lock.spendCommitment, args);
+
+        emit LockSpent(lockId, msg.sender, data);
+        emit ZetoLockSpent(
+            args.txId,
+            lockId,
+            msg.sender,
+            args.lockedInputs,
+            args.lockedOutputs,
+            args.outputs,
+            args.proof,
+            data
+        );
+    }
+
+    /**
+     * @dev Cancel the lock by executing the committed cancellation operation.
+     *      If `cancelCommitment` is non-zero, the supplied cancelArgs MUST hash
+     *      to it.
+     *
+     * Emits {LockCancelled} and {ZetoLockCancelled}.
+     */
+    function cancelLock(
+        bytes32 lockId,
+        bytes calldata cancelArgs,
+        bytes calldata data
+    ) external virtual override lockActive(lockId) onlySpender(lockId) {
+        ZetoSpendLockArgs memory args = abi.decode(
+            cancelArgs,
+            (ZetoSpendLockArgs)
+        );
+
+        ZetoLockInfo memory lock = _locks[lockId];
+        _consumeLock(lockId, lock, lock.cancelCommitment, args);
+
+        emit LockCancelled(lockId, msg.sender, data);
+        emit ZetoLockCancelled(
+            args.txId,
+            lockId,
+            msg.sender,
+            args.lockedInputs,
+            args.lockedOutputs,
+            args.outputs,
+            args.proof,
+            data
+        );
+    }
+
+    // ------------------------------------------------------------------
+    // ILockableCapability views
+    // ------------------------------------------------------------------
+
+    function getLock(
+        bytes32 lockId
+    ) external view override lockActive(lockId) returns (LockInfo memory) {
+        ZetoLockInfo storage lock = _locks[lockId];
+        return
+            LockInfo({
+                owner: lock.owner,
+                spender: lock.spender,
+                spendCommitment: lock.spendCommitment,
+                cancelCommitment: lock.cancelCommitment
+            });
+    }
+
+    function isLockActive(
+        bytes32 lockId
+    ) external view override returns (bool) {
+        return _locks[lockId].owner != address(0);
+    }
+
+    function getLockContent(
+        bytes32 lockId
+    )
+        external
+        view
+        override
+        lockActive(lockId)
+        returns (bytes memory content)
+    {
+        return abi.encode(_locks[lockId].lockedInputs);
+    }
+
+    // ------------------------------------------------------------------
+    // Internals
+    // ------------------------------------------------------------------
+
+    function _doLockTransition(ZetoCreateLockArgs memory args) internal {
         validateTransactionProposal(
-            states.inputs,
-            states.outputs,
-            states.lockedOutputs,
-            proof,
+            args.inputs,
+            args.outputs,
+            args.lockedOutputs,
+            args.proof,
             false
         );
 
-        // combine the locked outputs and the outputs, because the circuits
-        // do not care about the difference between locked and unlocked outputs
+        // Combine the locked outputs and the regular outputs because the
+        // circuits do not differentiate them.
         uint256[] memory allOutputs = new uint256[](
-            states.lockedOutputs.length + states.outputs.length
+            args.lockedOutputs.length + args.outputs.length
         );
-        for (uint256 i = 0; i < states.lockedOutputs.length; i++) {
-            allOutputs[i] = states.lockedOutputs[i];
+        for (uint256 i = 0; i < args.lockedOutputs.length; i++) {
+            allOutputs[i] = args.lockedOutputs[i];
         }
-        for (uint256 i = 0; i < states.outputs.length; i++) {
-            allOutputs[states.lockedOutputs.length + i] = states.outputs[i];
+        for (uint256 i = 0; i < args.outputs.length; i++) {
+            allOutputs[args.lockedOutputs.length + i] = args.outputs[i];
         }
-        // Check and pad inputs and outputs based on the max size
+
         (
             uint256[] memory paddedInputs,
             uint256[] memory paddedOutputs
-        ) = checkAndPadCommitments(states.inputs, allOutputs);
+        ) = checkAndPadCommitments(args.inputs, allOutputs);
 
-        // construct the public inputs for the proof verification
         (
             uint256[] memory publicInputs,
             Commonlib.Proof memory proofStruct
-        ) = constructPublicInputs(paddedInputs, paddedOutputs, proof, false);
+        ) = constructPublicInputs(paddedInputs, paddedOutputs, args.proof, false);
 
         bool isBatch = (paddedInputs.length > 2 ||
-            states.outputs.length > 2 ||
-            states.lockedOutputs.length > 2);
+            args.outputs.length > 2 ||
+            args.lockedOutputs.length > 2);
         verifyProof(proofStruct, publicInputs, isBatch, false);
 
-        processInputsAndOutputs(paddedInputs, states.outputs, false);
-        address delegate = msg.sender;
-        processLockedOutputs(states.lockedOutputs, delegate);
-
-        _lockData[lockId] = LockData({
-            inputs: states.lockedOutputs, // the transaction's locked outputs are the inputs to the lock
-            delegate: delegate,
-            settle: UnlockOperation({unlockHash: bytes32(0)})
-        });
-        emit LockCreate(lockId, msg.sender, _lockData[lockId], data);
+        processInputsAndOutputs(paddedInputs, args.outputs, false);
+        processLockedOutputs(args.lockedOutputs, msg.sender);
     }
 
-    function prepareUnlock(
+    function _consumeLock(
         bytes32 lockId,
-        UnlockOperation calldata settle,
-        bytes calldata data
-    ) public onlyDelegate(lockId) {
-        LockData storage lockData = _lockData[lockId];
-        if (lockData.settle.unlockHash != bytes32(0)) {
-            revert UnlockAlreadyPrepared(lockId);
+        ZetoLockInfo memory lock,
+        bytes32 expectedHash,
+        ZetoSpendLockArgs memory args
+    ) internal {
+        // Length check (full content check happens via the storage layer).
+        if (lock.lockedInputs.length != args.lockedInputs.length) {
+            revert NotLocked(0);
         }
-        _lockData[lockId].settle = settle;
-        emit UnlockPrepare(lockId, msg.sender, settle, data);
-    }
 
-    function unlock(
-        bytes32 lockId,
-        UnlockOperationData calldata opData
-    ) public virtual onlyDelegate(lockId) {
-        LockData storage lockData = _lockData[lockId];
-        _validateUnlock(
-            lockId,
-            lockData.settle,
-            lockData.inputs,
-            opData.lockedOutputs,
-            opData.outputs,
-            opData.data
-        );
+        _useTxId(args.txId);
+
+        if (expectedHash != 0) {
+            bytes32 actualHash = _buildUnlockHash(
+                args.lockedInputs,
+                args.lockedOutputs,
+                args.outputs,
+                args.data
+            );
+            if (actualHash != expectedHash) {
+                revert InvalidUnlockHash(expectedHash, actualHash);
+            }
+        }
 
         _transferLocked(
             lockId,
-            lockData.inputs,
-            opData.lockedOutputs,
-            opData.outputs,
-            opData.proof,
-            opData.data
+            args.lockedInputs,
+            args.lockedOutputs,
+            args.outputs,
+            args.proof,
+            args.data
         );
 
-        emitLockSettleEvent(
-            lockId,
-            lockData.inputs,
-            opData.lockedOutputs,
-            opData.outputs,
-            msg.sender,
-            opData.proof,
-            opData.data
-        );
-    }
-
-    function rollbackLock(
-        bytes32 lockId,
-        UnlockOperationData calldata opData
-    ) public onlyDelegate(lockId) {
-        LockData memory lockData = _lockData[lockId];
-        _transferLocked(
-            lockId,
-            lockData.inputs,
-            opData.lockedOutputs,
-            opData.outputs,
-            opData.proof,
-            opData.data
-        );
-
-        emitLockRollbackEvent(
-            lockId,
-            lockData.inputs,
-            opData.lockedOutputs,
-            opData.outputs,
-            msg.sender,
-            opData.proof,
-            opData.data
-        );
-    }
-
-    function delegateLock(
-        bytes32 lockId,
-        address delegate,
-        bytes calldata data
-    ) public {
-        _checkDelegate(_lockData[lockId].inputs);
-        _storage.delegateLock(_lockData[lockId].inputs, delegate, data);
-        emit LockDelegate(
-            lockId,
-            msg.sender,
-            _lockData[lockId].delegate,
-            delegate,
-            data
-        );
+        delete _locks[lockId];
     }
 
     /**
@@ -384,89 +614,21 @@ abstract contract ZetoFungible is ZetoCommon, IZetoLockable {
         emit UTXOTransfer(inputs, outputs, msg.sender, data);
     }
 
-    function emitLockSettleEvent(
-        bytes32 lockId,
-        uint256[] memory lockedInputs,
-        uint256[] memory lockedOutputs,
-        uint256[] memory outputs,
-        address delegate,
-        bytes memory proof,
-        bytes memory data
-    ) internal virtual {
-        emit Unlock(
-            lockId,
-            msg.sender,
-            lockedInputs,
-            delegate,
-            UnlockOperationData({
-                outputs: outputs,
-                lockedOutputs: lockedOutputs,
-                proof: proof,
-                data: data
-            })
-        );
-    }
-
-    function emitLockRollbackEvent(
-        bytes32 lockId,
-        uint256[] memory lockedInputs,
-        uint256[] memory lockedOutputs,
-        uint256[] memory outputs,
-        address delegate,
-        bytes memory proof,
-        bytes memory data
-    ) internal virtual {
-        emit LockRollback(
-            lockId,
-            msg.sender,
-            lockedInputs,
-            delegate,
-            UnlockOperationData({
-                outputs: outputs,
-                lockedOutputs: lockedOutputs,
-                proof: proof,
-                data: data
-            })
-        );
-    }
-
-    function _validateUnlock(
-        bytes32 lockId,
-        UnlockOperation storage unlockOp,
-        uint256[] memory lockedInputs,
-        uint256[] memory lockedOutputs,
-        uint256[] memory outputs,
-        bytes memory data
-    ) internal view {
-        if (unlockOp.unlockHash == 0) {
-            revert UnlockNotPrepared(lockId);
-        }
-        bytes32 actualHash = _buildUnlockHash(
-            lockedInputs,
-            lockedOutputs,
-            outputs,
-            data
-        );
-        if (actualHash != unlockOp.unlockHash) {
-            revert InvalidUnlockHash(unlockOp.unlockHash, actualHash);
-        }
-    }
-
     function _buildUnlockHash(
         uint256[] memory lockedInputs,
         uint256[] memory lockedOutputs,
         uint256[] memory outputs,
         bytes memory data
     ) internal pure returns (bytes32) {
-        bytes32 structHash = keccak256(
-            abi.encode(
-                keccak256(abi.encodePacked(lockedInputs)),
-                keccak256(abi.encodePacked(lockedOutputs)),
-                keccak256(abi.encodePacked(outputs)),
-                keccak256(data)
-            )
-        );
-        return structHash;
+        return
+            keccak256(
+                abi.encode(
+                    keccak256(abi.encodePacked(lockedInputs)),
+                    keccak256(abi.encodePacked(lockedOutputs)),
+                    keccak256(abi.encodePacked(outputs)),
+                    keccak256(data)
+                )
+            );
     }
 
     function _transferLocked(

@@ -16,12 +16,28 @@
 pragma solidity ^0.8.27;
 
 import {IZetoConstants} from "../interfaces/izeto.sol";
-import {IZetoLockable} from "../interfaces/izeto_lockable.sol";
+import {IZetoLockableCapability} from "../interfaces/izeto_lockable_capability.sol";
 import {IZetoStorage} from "../interfaces/izeto_storage.sol";
 import {Commonlib} from "../common/common.sol";
 import {Util} from "../common/util.sol";
 
 contract BaseStorage is IZetoStorage, IZetoConstants {
+    /// @dev Thrown when a state-mutating storage call is made by anyone other
+    ///      than the Zeto contract that deployed this storage instance.
+    error StorageUnauthorized(address caller);
+
+    /**
+     * @dev The Zeto contract that owns this storage instance. Captured at
+     *      construction time and immutable for the lifetime of the storage
+     *      contract. All state-mutating entry points are gated to this
+     *      address; view functions remain unrestricted.
+     *
+     *      This storage contract is created via `new BaseStorage()` (or a
+     *      subclass) from inside the Zeto contract's initializer, so
+     *      `msg.sender` at construction is the Zeto proxy address.
+     */
+    address internal immutable _zeto;
+
     // tracks all the regular (unlocked) UTXOs
     mapping(uint256 => UTXOStatus) internal _utxos;
     // used for tracking locked UTXOs. multi-step transaction flows that require counterparties
@@ -31,6 +47,26 @@ contract BaseStorage is IZetoStorage, IZetoConstants {
     // by the same party that did the locking.
     mapping(uint256 => UTXOStatus) internal _lockedUtxos;
     mapping(uint256 => address) internal delegates;
+
+    /// @dev Reverts unless the caller is the Zeto contract that deployed this
+    ///      storage instance. Applied to every state-mutating function so the
+    ///      storage contract cannot be poked directly by external accounts.
+    modifier onlyZeto() {
+        if (msg.sender != _zeto) {
+            revert StorageUnauthorized(msg.sender);
+        }
+        _;
+    }
+
+    constructor() {
+        _zeto = msg.sender;
+    }
+
+    /// @notice Returns the address authorized to call state-mutating
+    ///         functions on this storage contract.
+    function zeto() external view returns (address) {
+        return _zeto;
+    }
 
     function validateInputs(
         uint256[] calldata inputs,
@@ -63,7 +99,7 @@ contract BaseStorage is IZetoStorage, IZetoConstants {
                 !inputsLocked &&
                 _lockedUtxos[sortedInputs[i]] == UTXOStatus.UNSPENT
             ) {
-                revert IZetoLockable.AlreadyLocked(sortedInputs[i]);
+                revert IZetoLockableCapability.AlreadyLocked(sortedInputs[i]);
             }
         }
     }
@@ -110,7 +146,7 @@ contract BaseStorage is IZetoStorage, IZetoConstants {
     function processInputs(
         uint256[] calldata inputs,
         bool inputsLocked
-    ) public virtual {
+    ) public virtual onlyZeto {
         mapping(uint256 => UTXOStatus) storage utxos = inputsLocked
             ? _lockedUtxos
             : _utxos;
@@ -122,7 +158,9 @@ contract BaseStorage is IZetoStorage, IZetoConstants {
         }
     }
 
-    function processOutputs(uint256[] calldata outputs) public virtual {
+    function processOutputs(
+        uint256[] calldata outputs
+    ) public virtual onlyZeto {
         for (uint256 i = 0; i < outputs.length; ++i) {
             if (outputs[i] != 0) {
                 _utxos[outputs[i]] = UTXOStatus.UNSPENT;
@@ -133,7 +171,7 @@ contract BaseStorage is IZetoStorage, IZetoConstants {
     function processLockedOutputs(
         uint256[] calldata lockedOutputs,
         address delegate
-    ) public {
+    ) public onlyZeto {
         // put the locked UTXOs into the locked UTXO tree as UNSPENT
         for (uint256 i = 0; i < lockedOutputs.length; ++i) {
             if (lockedOutputs[i] != 0) {
@@ -149,13 +187,15 @@ contract BaseStorage is IZetoStorage, IZetoConstants {
         }
     }
 
-    // the call must perform the necessary checks to ensure the call is valid
-    // such as checking the sender is the current delegate
+    /// @dev Reassign the delegate of the supplied locked UTXOs.
+    ///      Caller is the Zeto contract, which is responsible for verifying
+    ///      that `msg.sender` (of the original transaction) is the current
+    ///      lock spender before invoking this function.
     function delegateLock(
         uint256[] calldata utxos,
         address newDelegate,
         bytes calldata data
-    ) public {
+    ) public onlyZeto {
         for (uint256 i = 0; i < utxos.length; ++i) {
             if (utxos[i] == 0) {
                 continue;
