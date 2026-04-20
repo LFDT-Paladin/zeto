@@ -1,6 +1,7 @@
 package common
 
 import (
+	"context"
 	"math/big"
 	"testing"
 
@@ -13,13 +14,13 @@ import (
 
 const MAX_HEIGHT = 64
 
-func BuildMerkleProofs(inputCommitments []*big.Int, db core.Storage, t *testing.T) ([][]*big.Int, []*big.Int, *big.Int) {
-	mt, err := smt.NewMerkleTree(db, MAX_HEIGHT)
+func BuildMerkleProofs(ctx context.Context, inputCommitments []*big.Int, db core.Storage, t *testing.T) ([][]*big.Int, []*big.Int, *big.Int) {
+	mt, err := smt.NewMerkleTree(ctx, db, MAX_HEIGHT)
 	assert.NoError(t, err)
 
 	root := mt.Root().BigInt()
 
-	proofs, _, err := mt.GenerateProofs(inputCommitments, nil)
+	proofs, _, err := mt.GenerateProofs(ctx, inputCommitments, nil)
 	assert.NoError(t, err)
 
 	smtProofs := make([][]*big.Int, len(proofs))
@@ -38,11 +39,11 @@ func BuildMerkleProofs(inputCommitments []*big.Int, db core.Storage, t *testing.
 	return smtProofs, enabled, root
 }
 
-func AddCommitmentToMerkleTree(mt core.SparseMerkleTree, commitment *big.Int, t *testing.T) {
+func AddCommitmentToMerkleTree(ctx context.Context, mt core.SparseMerkleTree, commitment *big.Int, t *testing.T) {
 	idx, _ := node.NewNodeIndexFromBigInt(commitment, utxo.NewPoseidonHasher())
 	utxo := node.NewIndexOnly(idx)
 	n, err := node.NewLeafNode(utxo, nil)
 	assert.NoError(t, err)
-	err = mt.AddLeaf(n)
+	err = mt.AddLeaf(ctx, n)
 	assert.NoError(t, err)
 }

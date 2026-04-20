@@ -25,8 +25,8 @@ import (
 	"github.com/LFDT-Paladin/smt/pkg/sparse-merkle-tree/node"
 	"github.com/LFDT-Paladin/smt/pkg/sparse-merkle-tree/smt"
 	"github.com/LFDT-Paladin/smt/pkg/utxo"
-	"github.com/hyperledger-labs/zeto/go-sdk/integration-test/common"
-	"github.com/hyperledger-labs/zeto/go-sdk/internal/testutils"
+	"github.com/LFDT-Paladin/zeto/go-sdk/integration-test/common"
+	"github.com/LFDT-Paladin/zeto/go-sdk/internal/testutils"
 	"github.com/iden3/go-iden3-crypto/poseidon"
 	"github.com/iden3/go-rapidsnark/prover"
 	"github.com/stretchr/testify/assert"
@@ -53,14 +53,15 @@ func (s *E2ETestSuite) TestZeto_nf_anon_nullifier_SuccessfulProving() {
 	nullifier1, _ := poseidon.Hash([]*big.Int{tokenId, tokenUri, salt1, sender.PrivateKeyBigInt})
 
 	hasher := utxo.NewPoseidonHasher()
-	mt, err := smt.NewMerkleTree(s.db, common.MAX_HEIGHT)
+	ctx := s.T().Context()
+	mt, err := smt.NewMerkleTree(ctx, s.db, common.MAX_HEIGHT)
 	assert.NoError(s.T(), err)
 	utxo1 := node.NewNonFungible(tokenId, uriString, sender.PublicKey, salt1, hasher)
 	n1, err := node.NewLeafNode(utxo1, nil)
 	assert.NoError(s.T(), err)
-	err = mt.AddLeaf(n1)
+	err = mt.AddLeaf(ctx, n1)
 	assert.NoError(s.T(), err)
-	proofs, _, err := mt.GenerateProofs([]*big.Int{input1}, nil)
+	proofs, _, err := mt.GenerateProofs(ctx, []*big.Int{input1}, nil)
 	assert.NoError(s.T(), err)
 	circomProof1, err := proofs[0].ToCircomVerifierProof(input1, input1, mt.Root(), common.MAX_HEIGHT)
 	assert.NoError(s.T(), err)

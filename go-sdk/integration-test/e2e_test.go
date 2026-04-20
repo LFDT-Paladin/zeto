@@ -22,8 +22,8 @@ import (
 
 	"github.com/LFDT-Paladin/smt/pkg/sparse-merkle-tree/core"
 	"github.com/LFDT-Paladin/smt/pkg/sparse-merkle-tree/smt"
-	"github.com/hyperledger-labs/zeto/go-sdk/integration-test/common"
-	"github.com/hyperledger-labs/zeto/go-sdk/internal/testutils"
+	"github.com/LFDT-Paladin/zeto/go-sdk/integration-test/common"
+	"github.com/LFDT-Paladin/zeto/go-sdk/internal/testutils"
 	"github.com/hyperledger/firefly-signer/pkg/keystorev3"
 	"github.com/hyperledger/firefly-signer/pkg/secp256k1"
 	"github.com/sirupsen/logrus"
@@ -94,25 +94,26 @@ func (s *E2ETestSuite) SetupTest() {
 
 	// setup the signals for the regular circuits with 2 inputs and 2 outputs
 	s.regularTest = common.NewSignals(sender, receiver, false, s.db, s.T())
-	mt, err := smt.NewMerkleTree(s.db, common.MAX_HEIGHT)
+	ctx := s.T().Context()
+	mt, err := smt.NewMerkleTree(ctx, s.db, common.MAX_HEIGHT)
 	assert.NoError(s.T(), err)
 	for _, commitment := range s.regularTest.InputCommitments {
-		common.AddCommitmentToMerkleTree(mt, commitment, s.T())
+		common.AddCommitmentToMerkleTree(ctx, mt, commitment, s.T())
 	}
 	for _, commitment := range s.regularTest.OutputCommitments {
-		common.AddCommitmentToMerkleTree(mt, commitment, s.T())
+		common.AddCommitmentToMerkleTree(ctx, mt, commitment, s.T())
 	}
-	s.regularTest.MerkleProofs, s.regularTest.Enabled, s.regularTest.Root = common.BuildMerkleProofs(s.regularTest.InputCommitments, s.db, s.T())
+	s.regularTest.MerkleProofs, s.regularTest.Enabled, s.regularTest.Root = common.BuildMerkleProofs(ctx, s.regularTest.InputCommitments, s.db, s.T())
 
 	// setup the signals for the batch circuits with 10 inputs and 10 outputs
 	s.batchTest = common.NewSignals(sender, receiver, true, s.db, s.T())
 	for _, commitment := range s.batchTest.InputCommitments {
-		common.AddCommitmentToMerkleTree(mt, commitment, s.T())
+		common.AddCommitmentToMerkleTree(ctx, mt, commitment, s.T())
 	}
 	for _, commitment := range s.batchTest.OutputCommitments {
-		common.AddCommitmentToMerkleTree(mt, commitment, s.T())
+		common.AddCommitmentToMerkleTree(ctx, mt, commitment, s.T())
 	}
-	s.batchTest.MerkleProofs, s.batchTest.Enabled, s.batchTest.Root = common.BuildMerkleProofs(s.batchTest.InputCommitments, s.db, s.T())
+	s.batchTest.MerkleProofs, s.batchTest.Enabled, s.batchTest.Root = common.BuildMerkleProofs(ctx, s.batchTest.InputCommitments, s.db, s.T())
 }
 
 func TestE2ETestSuite(t *testing.T) {

@@ -20,7 +20,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/hyperledger-labs/zeto/go-sdk/integration-test/common"
+	"github.com/LFDT-Paladin/zeto/go-sdk/integration-test/common"
 	"github.com/iden3/go-rapidsnark/prover"
 	"github.com/stretchr/testify/assert"
 )

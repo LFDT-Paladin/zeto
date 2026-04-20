@@ -19,7 +19,7 @@ package crypto
 import (
 	"math/big"
 
-	"github.com/hyperledger-labs/zeto/go-sdk/internal/crypto"
+	"github.com/LFDT-Paladin/zeto/go-sdk/internal/crypto"
 	"github.com/iden3/go-iden3-crypto/babyjub"
 )
 

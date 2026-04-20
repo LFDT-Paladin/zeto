@@ -17,7 +17,7 @@
 package integration_test
 
 import (
-	"github.com/hyperledger-labs/zeto/go-sdk/pkg/key-manager/key"
+	"github.com/LFDT-Paladin/zeto/go-sdk/pkg/key-manager/key"
 	"github.com/stretchr/testify/assert"
 )
 

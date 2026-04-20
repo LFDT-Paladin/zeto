@@ -27,8 +27,8 @@ import (
 	"github.com/LFDT-Paladin/smt/pkg/sparse-merkle-tree/smt"
 	"github.com/LFDT-Paladin/smt/pkg/sparse-merkle-tree/storage"
 	"github.com/LFDT-Paladin/smt/pkg/utxo"
-	"github.com/hyperledger-labs/zeto/go-sdk/integration-test/common"
-	"github.com/hyperledger-labs/zeto/go-sdk/internal/testutils"
+	"github.com/LFDT-Paladin/zeto/go-sdk/integration-test/common"
+	"github.com/LFDT-Paladin/zeto/go-sdk/internal/testutils"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
@@ -56,7 +56,8 @@ func (s *SqliteTestSuite) TearDownTest() {
 
 func (s *SqliteTestSuite) TestSqliteStorage() {
 	hasher := utxo.NewPoseidonHasher()
-	mt, err := smt.NewMerkleTree(s.db, common.MAX_HEIGHT)
+	ctx := s.T().Context()
+	mt, err := smt.NewMerkleTree(ctx, s.db, common.MAX_HEIGHT)
 	assert.NoError(s.T(), err)
 
 	tokenId := big.NewInt(1001)
@@ -68,7 +69,7 @@ func (s *SqliteTestSuite) TestSqliteStorage() {
 	utxo1 := node.NewNonFungible(tokenId, uriString, sender.PublicKey, salt1, hasher)
 	n1, err := node.NewLeafNode(utxo1, nil)
 	assert.NoError(s.T(), err)
-	err = mt.AddLeaf(n1)
+	err = mt.AddLeaf(ctx, n1)
 	assert.NoError(s.T(), err)
 
 	root := mt.Root()
@@ -109,7 +110,8 @@ func TestPostgresStorage(t *testing.T) {
 	assert.NoError(t, err)
 
 	hasher := utxo.NewPoseidonHasher()
-	mt, err := smt.NewMerkleTree(s, common.MAX_HEIGHT)
+	ctx := t.Context()
+	mt, err := smt.NewMerkleTree(ctx, s, common.MAX_HEIGHT)
 	assert.NoError(t, err)
 
 	tokenId := big.NewInt(1001)
@@ -121,7 +123,7 @@ func TestPostgresStorage(t *testing.T) {
 	utxo1 := node.NewNonFungible(tokenId, tokenUri, sender.PublicKey, salt1, hasher)
 	n1, err := node.NewLeafNode(utxo1, nil)
 	assert.NoError(t, err)
-	err = mt.AddLeaf(n1)
+	err = mt.AddLeaf(ctx, n1)
 	assert.NoError(t, err)
 
 	root := mt.Root()
