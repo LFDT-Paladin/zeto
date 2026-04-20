@@ -107,7 +107,7 @@ contract NullifierStorage is BaseStorage {
     function processInputs(
         uint256[] calldata nullifiers,
         bool inputsLocked
-    ) public override {
+    ) public override onlyZeto {
         if (inputsLocked) {
             // locked inputs are regular UTXOs (rather than nullifiers)
             // and are processed in the base storage
@@ -122,7 +122,9 @@ contract NullifierStorage is BaseStorage {
         }
     }
 
-    function processOutputs(uint256[] calldata outputs) public override {
+    function processOutputs(
+        uint256[] calldata outputs
+    ) public override onlyZeto {
         for (uint256 i = 0; i < outputs.length; ++i) {
             if (outputs[i] != 0) {
                 _commitmentsTree.addLeaf(outputs[i], outputs[i]);
