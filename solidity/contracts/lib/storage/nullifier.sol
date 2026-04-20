@@ -35,6 +35,8 @@ contract NullifierStorage is BaseStorage {
 
     constructor() {
         _commitmentsTree.initialize(MAX_SMT_DEPTH);
+        IHasher hasher = new PoseidonHasher();
+        _commitmentsTree.setHasher(hasher);
     }
 
     function validateInputs(
