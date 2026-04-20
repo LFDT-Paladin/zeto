@@ -27,14 +27,14 @@ import (
 	"time"
 
 	"github.com/LFDT-Paladin/smt/pkg/sparse-merkle-tree/smt"
+	itestcommon "github.com/LFDT-Paladin/zeto/go-sdk/integration-test/common"
+	"github.com/LFDT-Paladin/zeto/go-sdk/internal/testutils"
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
-	itestcommon "github.com/hyperledger-labs/zeto/go-sdk/integration-test/common"
-	"github.com/hyperledger-labs/zeto/go-sdk/internal/testutils"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -168,22 +168,23 @@ func (s *EthE2ETestSuite) setupTokensAndSignals() {
 	}
 
 	// prepare the merkle proofs for the regular tests
-	mt, err := smt.NewMerkleTree(s.db, itestcommon.MAX_HEIGHT)
+	ctx := s.T().Context()
+	mt, err := smt.NewMerkleTree(ctx, s.db, itestcommon.MAX_HEIGHT)
 	assert.NoError(s.T(), err)
 
 	for i := 0; i < s.numRuns; i++ {
 		// in the test we mint the input commitments for each test iteration on demand.
 		for _, commitment := range s.regularTests[i].InputCommitments {
-			itestcommon.AddCommitmentToMerkleTree(mt, commitment, s.T())
+			itestcommon.AddCommitmentToMerkleTree(ctx, mt, commitment, s.T())
 		}
 
 		// in addition, the output commitments from the previous iteration will have been added to the SMT.
 		if i > 0 {
 			for _, commitment := range s.regularTests[i-1].OutputCommitments {
-				itestcommon.AddCommitmentToMerkleTree(mt, commitment, s.T())
+				itestcommon.AddCommitmentToMerkleTree(ctx, mt, commitment, s.T())
 			}
 		}
-		s.regularTests[i].MerkleProofs, s.regularTests[i].Enabled, s.regularTests[i].Root = itestcommon.BuildMerkleProofs(s.regularTests[i].InputCommitments, s.db, s.T())
+		s.regularTests[i].MerkleProofs, s.regularTests[i].Enabled, s.regularTests[i].Root = itestcommon.BuildMerkleProofs(ctx, s.regularTests[i].InputCommitments, s.db, s.T())
 	}
 
 	// setup the signals for the batch circuits with 10 inputs and 10 outputs

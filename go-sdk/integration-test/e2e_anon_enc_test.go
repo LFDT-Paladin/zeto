@@ -21,9 +21,9 @@ import (
 	"math/big"
 	"time"
 
-	"github.com/hyperledger-labs/zeto/go-sdk/integration-test/common"
-	"github.com/hyperledger-labs/zeto/go-sdk/internal/testutils"
-	"github.com/hyperledger-labs/zeto/go-sdk/pkg/crypto"
+	"github.com/LFDT-Paladin/zeto/go-sdk/integration-test/common"
+	"github.com/LFDT-Paladin/zeto/go-sdk/internal/testutils"
+	"github.com/LFDT-Paladin/zeto/go-sdk/pkg/crypto"
 	"github.com/iden3/go-iden3-crypto/poseidon"
 	"github.com/iden3/go-rapidsnark/prover"
 	"github.com/stretchr/testify/assert"

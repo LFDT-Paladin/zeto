@@ -25,7 +25,7 @@ import (
 	"github.com/LFDT-Paladin/smt/pkg/sparse-merkle-tree/node"
 	"github.com/LFDT-Paladin/smt/pkg/sparse-merkle-tree/smt"
 	"github.com/LFDT-Paladin/smt/pkg/utxo"
-	"github.com/hyperledger-labs/zeto/go-sdk/integration-test/common"
+	"github.com/LFDT-Paladin/zeto/go-sdk/integration-test/common"
 	"github.com/iden3/go-iden3-crypto/poseidon"
 	"github.com/iden3/go-rapidsnark/prover"
 	"github.com/stretchr/testify/assert"
@@ -77,18 +77,19 @@ func (s *E2ETestSuite) TestZeto_anon_nullifier_locked_SuccessfulProving() {
 	assert.True(s.T(), ok)
 	_, db, _, _ := common.NewSqliteStorage(s.T())
 	hasher := utxo.NewPoseidonHasher()
-	mt, err := smt.NewMerkleTree(db, common.MAX_HEIGHT)
+	ctx := s.T().Context()
+	mt, err := smt.NewMerkleTree(ctx, db, common.MAX_HEIGHT)
 	assert.NoError(s.T(), err)
 
 	for i, value := range s.regularTest.InputValues {
 		utxo := node.NewFungible(value, s.sender.PublicKey, s.regularTest.InputSalts[i], hasher)
 		n, err := node.NewLeafNode(utxo, senderEthAddress)
 		assert.NoError(s.T(), err)
-		err = mt.AddLeaf(n)
+		err = mt.AddLeaf(ctx, n)
 		assert.NoError(s.T(), err)
 	}
 
-	proofs, _, err := mt.GenerateProofs(s.regularTest.InputCommitments, nil)
+	proofs, _, err := mt.GenerateProofs(ctx, s.regularTest.InputCommitments, nil)
 	assert.NoError(s.T(), err)
 	proofSiblingsArray := make([][]*big.Int, 0, len(proofs))
 	for i, proof := range proofs {

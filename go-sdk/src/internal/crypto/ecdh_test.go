@@ -21,7 +21,7 @@ import (
 	"math/big"
 	"testing"
 
-	"github.com/hyperledger-labs/zeto/go-sdk/internal/key-manager/key"
+	"github.com/LFDT-Paladin/zeto/go-sdk/internal/key-manager/key"
 	"github.com/iden3/go-iden3-crypto/babyjub"
 	"github.com/stretchr/testify/assert"
 )

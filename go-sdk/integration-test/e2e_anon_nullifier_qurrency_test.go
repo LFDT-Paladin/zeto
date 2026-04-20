@@ -24,9 +24,8 @@ import (
 
 	"github.com/cloudflare/circl/kem/mlkem/mlkem512"
 
-	"github.com/hyperledger-labs/zeto/go-sdk/integration-test/common"
-	"github.com/hyperledger-labs/zeto/go-sdk/pkg/crypto"
-	zetoCrypto "github.com/hyperledger-labs/zeto/go-sdk/pkg/crypto"
+	"github.com/LFDT-Paladin/zeto/go-sdk/integration-test/common"
+	"github.com/LFDT-Paladin/zeto/go-sdk/pkg/crypto"
 	"github.com/iden3/go-rapidsnark/prover"
 	"github.com/stretchr/testify/assert"
 )
@@ -36,12 +35,12 @@ func (s *E2ETestSuite) TestZeto_anon_nullifier_qurrency_SuccessfulProving() {
 	assert.NoError(s.T(), err)
 	assert.NotNil(s.T(), calc)
 
-	nonce := zetoCrypto.NewEncryptionNonce()
+	nonce := crypto.NewEncryptionNonce()
 	randomBytes := make([]byte, 32)
 	n, _ := rand.Read(randomBytes)
 	assert.Equal(s.T(), 32, n, "Expected to read 32 random bytes")
 	// convert the randomBytes into a little-endian bit array
-	bitArray := zetoCrypto.BytesToBits(randomBytes)
+	bitArray := crypto.BytesToBits(randomBytes)
 	// convert the bit array into a big.Int array
 	randomBits := make([]*big.Int, len(bitArray))
 	for i, bit := range bitArray {
@@ -87,7 +86,7 @@ func (s *E2ETestSuite) TestZeto_anon_nullifier_qurrency_SuccessfulProving() {
 	_, sk := mlkem512.NewKeyFromSeed(seed)
 
 	mlkemCiphertextStrs := proof.PubSignals[:25]
-	mlkemCiphertextBytes, err := zetoCrypto.RecoverMlkemCiphertextBytes(mlkemCiphertextStrs)
+	mlkemCiphertextBytes, err := crypto.RecoverMlkemCiphertextBytes(mlkemCiphertextStrs)
 	assert.NoError(s.T(), err, "Failed to recover MLKEM ciphertext bytes")
 	assert.Equal(s.T(), 768, len(mlkemCiphertextBytes), "MLKEM ciphertext bytes length mismatch")
 	// temporary debug to catch the case where the ciphertext bytes are not 768 bytes
@@ -102,7 +101,7 @@ func (s *E2ETestSuite) TestZeto_anon_nullifier_qurrency_SuccessfulProving() {
 	assert.Equal(s.T(), 32, len(ss), "Shared secret size mismatch")
 
 	// convert the shared secret bytes to a point on the BabyJub curve
-	ssPoint, err := zetoCrypto.PublicKeyFromSeed(ss)
+	ssPoint, err := crypto.PublicKeyFromSeed(ss)
 	assert.NoError(s.T(), err, "Failed to convert shared secret to public key")
 
 	// use the recovered shared secret to decrypt the output ciphertexts

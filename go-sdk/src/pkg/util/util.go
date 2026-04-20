@@ -3,7 +3,7 @@ package util
 import (
 	"math/big"
 
-	"github.com/hyperledger-labs/zeto/go-sdk/internal/util"
+	"github.com/LFDT-Paladin/zeto/go-sdk/internal/util"
 	"github.com/iden3/go-rapidsnark/types"
 )
 
