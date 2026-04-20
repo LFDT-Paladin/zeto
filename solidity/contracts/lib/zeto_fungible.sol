@@ -20,6 +20,7 @@ import {IZetoInitializable} from "./interfaces/izeto_initializable.sol";
 import {IZetoLockableCapability} from "./interfaces/izeto_lockable_capability.sol";
 import {Commonlib} from "./common/common.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {ReentrancyGuardUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
 import {ZetoCommon} from "./zeto_common.sol";
 import {IZetoStorage} from "./interfaces/izeto_storage.sol";
 
@@ -28,7 +29,16 @@ import {IZetoStorage} from "./interfaces/izeto_storage.sol";
 /// @dev Defines the verifier library for checking UTXOs against a claimed value.
 ///      Implements {IZetoLockableCapability} (which extends ILockableCapability)
 ///      to provide the create/update/delegate/spend/cancel lock lifecycle.
-abstract contract ZetoFungible is ZetoCommon, IZetoLockableCapability {
+///
+///      Inherits {ReentrancyGuardUpgradeable} so that {deposit} and {withdraw},
+///      which perform external ERC20 transfers, are protected from reentrant
+///      calls (defense-in-depth on top of the checks-effects-interactions
+///      ordering enforced inside those functions).
+abstract contract ZetoFungible is
+    ZetoCommon,
+    ReentrancyGuardUpgradeable,
+    IZetoLockableCapability
+{
     // _depositVerifier library for checking UTXOs against a claimed value.
     // this can be used in the optional deposit calls to verify that
     // the UTXOs match the deposited value
@@ -97,6 +107,7 @@ abstract contract ZetoFungible is ZetoCommon, IZetoLockableCapability {
         IZetoStorage storage_
     ) public onlyInitializing {
         __ZetoCommon_init(name_, symbol_, initialOwner, verifiers, storage_);
+        __ReentrancyGuard_init();
         _depositVerifier = verifiers.depositVerifier;
         _withdrawVerifier = verifiers.withdrawVerifier;
         _batchWithdrawVerifier = verifiers.batchWithdrawVerifier;
@@ -523,7 +534,8 @@ abstract contract ZetoFungible is ZetoCommon, IZetoLockableCapability {
         uint256[] calldata outputs,
         bytes calldata proof,
         bytes calldata data
-    ) public {
+    ) public nonReentrant {
+        // ---- Checks ----
         validateOutputs(outputs);
 
         // verifies that the output UTXOs match the claimed value
@@ -532,7 +544,6 @@ abstract contract ZetoFungible is ZetoCommon, IZetoLockableCapability {
             uint256[] memory publicInputs,
             Commonlib.Proof memory proofStruct
         ) = constructPublicInputsForDeposit(amount, outputs, proof);
-        // Check the proof
         require(
             _depositVerifier.verify(
                 proofStruct.pA,
@@ -543,11 +554,18 @@ abstract contract ZetoFungible is ZetoCommon, IZetoLockableCapability {
             "Invalid proof"
         );
 
+        // ---- Effects ----
+        // Mint the UTXOs (commits the new outputs to storage and emits
+        // {UTXOMint}) before the external ERC20 call. This ensures that any
+        // reentrant call into this contract triggered by the ERC20 transfer
+        // observes the new outputs as already-committed and cannot replay them.
+        _mint(outputs, data);
+
+        // ---- Interactions ----
         require(
             _erc20.transferFrom(msg.sender, address(this), amount),
             "Failed to transfer ERC20 tokens"
         );
-        _mint(outputs, data);
     }
 
     /**
@@ -567,10 +585,12 @@ abstract contract ZetoFungible is ZetoCommon, IZetoLockableCapability {
         uint256 output,
         bytes calldata proof,
         bytes calldata data
-    ) public {
+    ) public nonReentrant {
         uint256[] memory outputs = new uint256[](1);
         outputs[0] = output;
         uint256[] memory lockedOutputs;
+
+        // ---- Checks ----
         validateTransactionProposal(
             inputs,
             outputs,
@@ -592,7 +612,6 @@ abstract contract ZetoFungible is ZetoCommon, IZetoLockableCapability {
                 output,
                 proof
             );
-        // Check the proof
         IGroth16Verifier verifier = (inputs.length > 2)
             ? _batchWithdrawVerifier
             : _withdrawVerifier;
@@ -606,12 +625,23 @@ abstract contract ZetoFungible is ZetoCommon, IZetoLockableCapability {
             "Invalid proof"
         );
 
+        // ---- Effects ----
+        // Mark the input nullifiers as spent and commit the change-output
+        // before performing the external ERC20 transfer. Following
+        // checks-effects-interactions ensures a callback-style ERC20 cannot
+        // re-enter and double-spend the same nullifiers.
+        processInputsAndOutputs(paddedInputs, paddedOutputs, false);
+
+        // ---- Interactions ----
         require(
             _erc20.transfer(msg.sender, amount),
             "Failed to transfer ERC20 tokens"
         );
 
-        processInputsAndOutputs(paddedInputs, paddedOutputs, false);
+        // Emitted after the transfer so that the on-chain event order remains
+        // ERC20.Transfer → UTXOWithdraw, matching listeners and tests built
+        // before the CEI reorder. Event emission is a pure log and does not
+        // affect security; the nullifier state was already committed above.
         emit UTXOWithdraw(amount, inputs, output, msg.sender, data);
     }
 
