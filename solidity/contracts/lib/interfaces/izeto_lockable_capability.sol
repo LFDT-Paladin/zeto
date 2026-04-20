@@ -96,13 +96,18 @@ interface IZetoLockableCapability is ILockableCapability {
 
     /**
      * @dev Payload for {ILockableCapability.spendLock}.spendArgs and
-     *      {ILockableCapability.cancelLock}.cancelArgs. The {InvalidUnlockHash}
-     *      check is computed over `(lockedInputs, lockedOutputs, outputs, data)`
-     *      using the same encoding as the previous `prepareUnlock` flow.
+     *      {ILockableCapability.cancelLock}.cancelArgs.
+     *
+     *      The set of locked UTXOs being consumed is intentionally NOT carried
+     *      here: it is taken verbatim from the lock's storage-pinned content
+     *      (see {getLockContent}) so that "spending lock A always consumes lock
+     *      A's UTXOs" is a hard contract invariant rather than a soft hash
+     *      check. The {InvalidUnlockHash} check is therefore computed over
+     *      `(lock.lockedInputs, lockedOutputs, outputs, data)` where
+     *      `lock.lockedInputs` is read from storage.
      */
     struct ZetoSpendLockArgs {
         bytes32 txId;
-        uint256[] lockedInputs;
         uint256[] lockedOutputs;
         uint256[] outputs;
         bytes proof;
@@ -143,6 +148,8 @@ interface IZetoLockableCapability is ILockableCapability {
     );
 
     /// @dev Emitted alongside {LockSpent} with decoded Zeto parameters.
+    ///      `lockedInputs` is the lock's storage-pinned content, not a
+    ///      caller-supplied value (see {ZetoSpendLockArgs}).
     event ZetoLockSpent(
         bytes32 indexed txId,
         bytes32 indexed lockId,
@@ -155,6 +162,8 @@ interface IZetoLockableCapability is ILockableCapability {
     );
 
     /// @dev Emitted alongside {LockCancelled} with decoded Zeto parameters.
+    ///      `lockedInputs` is the lock's storage-pinned content, not a
+    ///      caller-supplied value (see {ZetoSpendLockArgs}).
     event ZetoLockCancelled(
         bytes32 indexed txId,
         bytes32 indexed lockId,

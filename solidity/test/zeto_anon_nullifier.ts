@@ -518,7 +518,7 @@ describe("Zeto based fungible token with anonymity using nullifiers without encr
     const UPDATE_ARGS_ABI = "tuple(bytes32 txId)";
     const DELEGATE_ARGS_ABI = "tuple(bytes32 txId)";
     const SPEND_ARGS_ABI =
-      "tuple(bytes32 txId, uint256[] lockedInputs, uint256[] lockedOutputs, uint256[] outputs, bytes proof, bytes data)";
+      "tuple(bytes32 txId, uint256[] lockedOutputs, uint256[] outputs, bytes proof, bytes data)";
 
     function encodeCreateArgs(args: {
       txId: string;
@@ -540,7 +540,6 @@ describe("Zeto based fungible token with anonymity using nullifiers without encr
 
     function encodeSpendArgs(args: {
       txId: string;
-      lockedInputs: BigNumberish[];
       lockedOutputs: BigNumberish[];
       outputs: BigNumberish[];
       proof: string;
@@ -715,7 +714,6 @@ describe("Zeto based fungible token with anonymity using nullifiers without encr
 
         const spendArgs = encodeSpendArgs({
           txId: randomBytes32(),
-          lockedInputs: [lockedUtxo1.hash],
           lockedOutputs: [],
           outputs: [outputUtxo1.hash, outputUtxo2.hash],
           proof: encodeToBytesForLocked(encodedZkProofForSettle),
@@ -840,7 +838,6 @@ describe("Zeto based fungible token with anonymity using nullifiers without encr
 
         const cancelArgs = encodeSpendArgs({
           txId: randomBytes32(),
-          lockedInputs: [lockedUtxo1.hash],
           lockedOutputs: [],
           outputs: [outUtxo1.hash, outUtxo2.hash],
           proof: encodeToBytesForLocked(encodedZkProofForCancel),
@@ -976,7 +973,6 @@ describe("Zeto based fungible token with anonymity using nullifiers without encr
 
         const spendArgs = encodeSpendArgs({
           txId: randomBytes32(),
-          lockedInputs: [lockedUtxo1.hash],
           lockedOutputs: [],
           outputs: [wrongOut1.hash, wrongOut2.hash],
           proof: encodeToBytesForLocked(encodedZkProofForSettle),

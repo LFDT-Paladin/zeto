@@ -333,15 +333,18 @@ abstract contract ZetoFungible is ZetoCommon, IZetoLockableCapability {
             (ZetoSpendLockArgs)
         );
 
-        ZetoLockInfo memory lock = _locks[lockId];
-        _consumeLock(lockId, lock, lock.spendCommitment, args);
+        // Snapshot the locked content from storage. The caller is intentionally
+        // not allowed to substitute a different set of locked inputs.
+        uint256[] memory lockedInputs = _locks[lockId].lockedInputs;
+        bytes32 expectedHash = _locks[lockId].spendCommitment;
+        _consumeLock(lockId, lockedInputs, expectedHash, args);
 
         emit LockSpent(lockId, msg.sender, data);
         emit ZetoLockSpent(
             args.txId,
             lockId,
             msg.sender,
-            args.lockedInputs,
+            lockedInputs,
             args.lockedOutputs,
             args.outputs,
             args.proof,
@@ -366,15 +369,16 @@ abstract contract ZetoFungible is ZetoCommon, IZetoLockableCapability {
             (ZetoSpendLockArgs)
         );
 
-        ZetoLockInfo memory lock = _locks[lockId];
-        _consumeLock(lockId, lock, lock.cancelCommitment, args);
+        uint256[] memory lockedInputs = _locks[lockId].lockedInputs;
+        bytes32 expectedHash = _locks[lockId].cancelCommitment;
+        _consumeLock(lockId, lockedInputs, expectedHash, args);
 
         emit LockCancelled(lockId, msg.sender, data);
         emit ZetoLockCancelled(
             args.txId,
             lockId,
             msg.sender,
-            args.lockedInputs,
+            lockedInputs,
             args.lockedOutputs,
             args.outputs,
             args.proof,
@@ -461,22 +465,26 @@ abstract contract ZetoFungible is ZetoCommon, IZetoLockableCapability {
         processLockedOutputs(args.lockedOutputs, msg.sender);
     }
 
+    /**
+     * @dev Consume an active lock.
+     *
+     *      `lockedInputs` MUST be the lock's storage-pinned content (read by
+     *      the caller from `_locks[lockId].lockedInputs`). The spender does
+     *      not get to choose which UTXOs are consumed: that decision was made
+     *      at {createLock} time. This is what makes "spending lock A consumes
+     *      lock A's UTXOs" a hard contract invariant.
+     */
     function _consumeLock(
         bytes32 lockId,
-        ZetoLockInfo memory lock,
+        uint256[] memory lockedInputs,
         bytes32 expectedHash,
         ZetoSpendLockArgs memory args
     ) internal {
-        // Length check (full content check happens via the storage layer).
-        if (lock.lockedInputs.length != args.lockedInputs.length) {
-            revert NotLocked(0);
-        }
-
         _useTxId(args.txId);
 
         if (expectedHash != 0) {
             bytes32 actualHash = _buildUnlockHash(
-                args.lockedInputs,
+                lockedInputs,
                 args.lockedOutputs,
                 args.outputs,
                 args.data
@@ -486,16 +494,18 @@ abstract contract ZetoFungible is ZetoCommon, IZetoLockableCapability {
             }
         }
 
+        // delete the lock metadata before performing the state transition,
+        // so any reentrant lookup observes the lock as inactive.
+        delete _locks[lockId];
+
         _transferLocked(
             lockId,
-            args.lockedInputs,
+            lockedInputs,
             args.lockedOutputs,
             args.outputs,
             args.proof,
             args.data
         );
-
-        delete _locks[lockId];
     }
 
     /**
