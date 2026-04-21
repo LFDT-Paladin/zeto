@@ -45,8 +45,12 @@ contract BaseStorage is IZetoStorage, IZetoConstants {
     // and prevent any other party from utilizing the uploaded proof to execute
     // a transaction, the input UTXOs or nullifiers can be locked and only usable
     // by the same party that did the locking.
+    //
+    // The "who is allowed to spend a locked UTXO" question is intentionally
+    // NOT answered at this layer; the Zeto contract on top owns that state
+    // (e.g. `_locks[lockId].spender` in ZetoFungible-style lockable
+    // capabilities). This contract only tracks whether the UTXO is locked.
     mapping(uint256 => UTXOStatus) internal _lockedUtxos;
-    mapping(uint256 => address) internal delegates;
 
     /// @dev Reverts unless the caller is the Zeto contract that deployed this
     ///      storage instance. Applied to every state-mutating function so the
@@ -154,17 +158,6 @@ contract BaseStorage is IZetoStorage, IZetoConstants {
         for (uint256 i = 0; i < inputs.length; ++i) {
             if (inputs[i] != 0) {
                 utxos[inputs[i]] = UTXOStatus.SPENT;
-                // Defense-in-depth: when a locked input is consumed, also
-                // wipe its delegate metadata. `_lockedUtxos[X] == SPENT` is
-                // already enough to make `locked(X)` return `(false,
-                // address(0))`, but a stale `delegates[X]` would resurface
-                // if a future code path ever resurrected the locked-state
-                // entry for X (for example, after a storage-access-control
-                // bypass). Clearing it here keeps the two mappings in sync
-                // and removes that footgun.
-                if (inputsLocked) {
-                    delete delegates[inputs[i]];
-                }
             }
         }
     }
@@ -180,46 +173,18 @@ contract BaseStorage is IZetoStorage, IZetoConstants {
     }
 
     function processLockedOutputs(
-        uint256[] calldata lockedOutputs,
-        address delegate
-    ) public onlyZeto {
-        // put the locked UTXOs into the locked UTXO tree as UNSPENT
+        uint256[] calldata lockedOutputs
+    ) public virtual onlyZeto {
+        // register the locked UTXOs as UNSPENT in the locked-UTXO ledger.
         for (uint256 i = 0; i < lockedOutputs.length; ++i) {
             if (lockedOutputs[i] != 0) {
                 _lockedUtxos[lockedOutputs[i]] = UTXOStatus.UNSPENT;
             }
         }
-        // set the delegate of the locked UTXOs
-        for (uint256 i = 0; i < lockedOutputs.length; ++i) {
-            if (lockedOutputs[i] == 0) {
-                continue;
-            }
-            delegates[lockedOutputs[i]] = delegate;
-        }
     }
 
-    /// @dev Reassign the delegate of the supplied locked UTXOs.
-    ///      Caller is the Zeto contract, which is responsible for verifying
-    ///      that `msg.sender` (of the original transaction) is the current
-    ///      lock spender before invoking this function.
-    function delegateLock(
-        uint256[] calldata utxos,
-        address newDelegate,
-        bytes calldata data
-    ) public onlyZeto {
-        for (uint256 i = 0; i < utxos.length; ++i) {
-            if (utxos[i] == 0) {
-                continue;
-            }
-            delegates[utxos[i]] = newDelegate;
-        }
-    }
-
-    function locked(uint256 utxo) public view returns (bool, address) {
-        if (_lockedUtxos[utxo] == UTXOStatus.UNSPENT) {
-            return (true, delegates[utxo]);
-        }
-        return (false, address(0));
+    function locked(uint256 utxo) public view returns (bool) {
+        return _lockedUtxos[utxo] == UTXOStatus.UNSPENT;
     }
 
     function spent(uint256 utxo) public view virtual returns (UTXOStatus) {

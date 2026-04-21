@@ -77,34 +77,30 @@ interface IZetoStorage {
     function processOutputs(uint256[] calldata outputs) external;
 
     /**
-     * @dev process the locked outputs
-     * @param lockedOutputs The locked outputs to process
-     * @param delegate The delegate to process the locked outputs
-     */
-    function processLockedOutputs(
-        uint256[] calldata lockedOutputs,
-        address delegate
-    ) external;
-
-    /**
-     * @dev move the ability to spend the locked UTXOs to the delegate account.
-     * The sender must be the current delegate.
+     * @dev Register freshly-minted locked UTXOs in the locked-UTXO ledger.
      *
-     * @param utxos The UTXOs to lock
-     * @param newDelegate The new delegate
-     * @param data Additional data to be passed to the lock function
+     *      The storage layer is intentionally a thin UTXO substrate and
+     *      does NOT track who is allowed to spend a locked UTXO; that
+     *      responsibility belongs to the Zeto contract on top (e.g. the
+     *      lock-id-keyed `_locks[lockId].spender` in
+     *      `ZetoFungible`-style lockable-capability contracts). Callers
+     *      that need delegate/spender semantics must maintain that state
+     *      themselves above this interface.
+     *
+     * @param lockedOutputs The locked UTXOs to register as UNSPENT
      */
-    function delegateLock(
-        uint256[] calldata utxos,
-        address newDelegate,
-        bytes calldata data
-    ) external;
+    function processLockedOutputs(uint256[] calldata lockedOutputs) external;
 
     /**
-     * @dev query whether a UTXO is currently locked
+     * @dev Query whether a UTXO is currently in the locked-unspent set.
+     *
+     *      The delegate / spender of the lock is intentionally NOT
+     *      returned here: the storage layer no longer tracks it. To
+     *      surface the spender alongside the locked-state, expose the
+     *      combined view at the Zeto layer instead.
+     *
      * @param utxo The UTXO to check
-     * @return bool whether the UTXO is locked
-     * @return address the current delegate of the UTXO
+     * @return whether the UTXO is currently locked-unspent
      */
-    function locked(uint256 utxo) external view returns (bool, address);
+    function locked(uint256 utxo) external view returns (bool);
 }

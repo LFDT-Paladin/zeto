@@ -19,7 +19,6 @@ import {Commonlib} from "./common/common.sol";
 import {IZeto, MAX_BATCH} from "./interfaces/izeto.sol";
 import {IGroth16Verifier} from "./interfaces/izeto_verifier.sol";
 import {IZetoInitializable} from "./interfaces/izeto_initializable.sol";
-import {IZetoLockableCapability} from "./interfaces/IZetoLockableCapability.sol";
 import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import {Util} from "./common/util.sol";
 import {IZetoStorage} from "./interfaces/izeto_storage.sol";
@@ -254,27 +253,27 @@ abstract contract ZetoCommon is IZeto, OwnableUpgradeable {
         _storage.processOutputs(outputs);
     }
 
+    /**
+     * @dev Forward freshly-minted locked outputs to storage.
+     *
+     *      Callers reach this function only after `validateOutputs` has been
+     *      invoked (via {validateTransactionProposal} in the lock-creation
+     *      flow), which already rejects any output that is known to storage
+     *      as locked or unlocked (revert {UTXOAlreadyOwned} /
+     *      {UTXOAlreadySpent}). It is therefore an invariant at this point
+     *      that none of the `lockedOutputs` already exist as locked.
+     *
+     *      The storage layer no longer tracks who can spend a locked UTXO;
+     *      the Zeto contract on top owns that state (e.g.
+     *      `_locks[lockId].spender` in `ZetoFungible`-style lockable
+     *      capabilities). Subclasses that implement a lock model are
+     *      responsible for recording the spender for each locked output
+     *      after calling this function.
+     */
     function processLockedOutputs(
-        uint256[] memory lockedOutputs,
-        address delegate
+        uint256[] memory lockedOutputs
     ) internal virtual {
-        for (uint256 i = 0; i < lockedOutputs.length; ++i) {
-            if (lockedOutputs[i] == 0) {
-                continue;
-            }
-            (bool isLocked, address currentDelegate) = locked(lockedOutputs[i]);
-            if (isLocked) {
-                // if the UTXO is locked, check if the sender is the current delegate
-                if (currentDelegate != msg.sender) {
-                    revert IZetoLockableCapability.NotLockDelegate(
-                        lockedOutputs[i],
-                        currentDelegate,
-                        msg.sender
-                    );
-                }
-            }
-        }
-        _storage.processLockedOutputs(lockedOutputs, delegate);
+        _storage.processLockedOutputs(lockedOutputs);
     }
 
     function verifyProof(
@@ -297,7 +296,19 @@ abstract contract ZetoCommon is IZeto, OwnableUpgradeable {
         return _storage.spent(utxo);
     }
 
-    function locked(uint256 utxo) public view returns (bool, address) {
-        return _storage.locked(utxo);
+    /**
+     * @dev Return whether `utxo` is currently locked, plus the address
+     *      authorized to spend it.
+     *
+     *      The base implementation returns `address(0)` for the spender
+     *      because `ZetoCommon` itself does not implement any lock model.
+     *      Subclasses that DO implement a lock model (e.g. `ZetoFungible`
+     *      via `IZetoLockableCapability`) MUST override this to return the
+     *      spender for the lock that owns `utxo`.
+     */
+    function locked(
+        uint256 utxo
+    ) public view virtual returns (bool, address) {
+        return (_storage.locked(utxo), address(0));
     }
 }

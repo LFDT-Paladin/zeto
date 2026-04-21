@@ -74,14 +74,30 @@ abstract contract ZetoFungible is
     // lockIds derived from createLock are globally unique per-sender.
     mapping(address => mapping(bytes32 => bool)) internal _txIds;
 
+    /// @dev Per-UTXO spender for any locked UTXO produced by this contract.
+    ///
+    ///      The lock-id-keyed `_locks[lockId].spender` is the source of
+    ///      truth for which lock a spender is authorized over; this map is
+    ///      a per-UTXO projection of that information so the public view
+    ///      `locked(uint256)` can answer "(isLocked, currentSpender)" for
+    ///      an arbitrary UTXO in O(1) without a UTXO -> lockId reverse
+    ///      index. Kept in sync by {_setLockDelegates} (on lock creation,
+    ///      delegation, and any new locked outputs produced by a spend)
+    ///      and {_clearLockDelegates} (when locked inputs are consumed).
+    ///
+    ///      Authorization decisions MUST go through {onlySpender}/`_locks`,
+    ///      never through this map.
+    mapping(uint256 => address) internal _utxoDelegates;
+
     /// @dev Reserved storage to allow new state variables to be added in
     ///      future upgrades of this contract without shifting the storage
     ///      layout of inheriting contracts (e.g. ZetoFungibleNullifier and
-    ///      its concrete implementations). Sized at 50 slots, matching the
-    ///      OpenZeppelin upgradeable convention. When a new state variable
-    ///      is added to ZetoFungible, decrement the gap by the equivalent
-    ///      number of slots so that descendants' layouts remain stable.
-    uint256[50] private __gap;
+    ///      its concrete implementations). Sized so that
+    ///      `<state slots> + __gap.length == 50`, matching the OpenZeppelin
+    ///      upgradeable convention. When a new state variable is added to
+    ///      ZetoFungible, decrement the gap by the equivalent number of
+    ///      slots so that descendants' layouts remain stable.
+    uint256[49] private __gap;
 
     modifier lockActive(bytes32 lockId) {
         if (_locks[lockId].owner == address(0)) {
@@ -105,14 +121,29 @@ abstract contract ZetoFungible is
         _txIds[msg.sender][txId] = true;
     }
 
-    function _checkDelegate(uint256[] memory utxos) internal view {
-        for (uint256 i = 0; i < utxos.length; i++) {
-            (bool isLocked, address currentDelegate) = locked(utxos[i]);
-            if (!isLocked) {
-                revert NotLocked(utxos[i]);
+    /// @dev Project the lock-level spender onto each UTXO in `utxos`.
+    ///      Skips zero-padding entries so it is safe to pass calldata
+    ///      arrays straight from the lock payloads.
+    function _setLockDelegates(
+        uint256[] memory utxos,
+        address spender
+    ) internal {
+        for (uint256 i = 0; i < utxos.length; ++i) {
+            if (utxos[i] != 0) {
+                _utxoDelegates[utxos[i]] = spender;
             }
-            if (currentDelegate != msg.sender) {
-                revert NotLockDelegate(utxos[i], currentDelegate, msg.sender);
+        }
+    }
+
+    /// @dev Wipe the per-UTXO spender projection for each UTXO in `utxos`.
+    ///      Called when a lock's inputs are consumed (spend or cancel) so
+    ///      that the public {locked} view returns
+    ///      `(false, address(0))` for them immediately, even if some
+    ///      future code path were to resurrect the locked-state entry.
+    function _clearLockDelegates(uint256[] memory utxos) internal {
+        for (uint256 i = 0; i < utxos.length; ++i) {
+            if (utxos[i] != 0) {
+                delete _utxoDelegates[utxos[i]];
             }
         }
     }
@@ -311,9 +342,10 @@ abstract contract ZetoFungible is
     }
 
     /**
-     * @dev Delegate spending authority for the lock. The previous spender's
-     *      authority over the locked UTXOs is also moved at the storage layer
-     *      so that subsequent locked-input transactions are routed correctly.
+     * @dev Delegate spending authority for the lock. The per-UTXO spender
+     *      projection used by the public {locked} view is also moved here so
+     *      that subsequent observers see the new spender for every locked
+     *      input belonging to this lock.
      *
      * Emits {LockDelegated} and {ZetoLockDelegated}.
      */
@@ -333,7 +365,7 @@ abstract contract ZetoFungible is
         address previousSpender = lock.spender;
         lock.spender = newSpender;
 
-        _storage.delegateLock(lock.lockedInputs, newSpender, data);
+        _setLockDelegates(lock.lockedInputs, newSpender);
 
         emit LockDelegated(lockId, previousSpender, newSpender, data);
         emit ZetoLockDelegated(
@@ -444,6 +476,27 @@ abstract contract ZetoFungible is
         return abi.encode(_locks[lockId].lockedInputs);
     }
 
+    /**
+     * @dev Override of {ZetoCommon.locked} that fills in the per-UTXO
+     *      spender from the {_utxoDelegates} projection. The storage
+     *      layer only tells us "is this locked"; the spender lives at
+     *      this layer because the lock model itself does.
+     *
+     *      Returns `(false, address(0))` for any UTXO that is not
+     *      currently locked-unspent, including UTXOs whose lock has
+     *      been spent or cancelled (since both `_lockedUtxos[X]` is
+     *      flipped to `SPENT` and `_utxoDelegates[X]` is cleared in the
+     *      consume path).
+     */
+    function locked(
+        uint256 utxo
+    ) public view override returns (bool, address) {
+        if (!_storage.locked(utxo)) {
+            return (false, address(0));
+        }
+        return (true, _utxoDelegates[utxo]);
+    }
+
     // ------------------------------------------------------------------
     // Internals
     // ------------------------------------------------------------------
@@ -490,7 +543,11 @@ abstract contract ZetoFungible is
         verifyProof(proofStruct, publicInputs, isBatch, false);
 
         processInputsAndOutputs(paddedInputs, args.outputs, false);
-        processLockedOutputs(args.lockedOutputs, msg.sender);
+        processLockedOutputs(args.lockedOutputs);
+        // The freshly-locked outputs all start under the lock creator as
+        // both owner and spender; record that on the per-UTXO projection
+        // so {locked} can report it without a reverse lookup.
+        _setLockDelegates(args.lockedOutputs, msg.sender);
     }
 
     /**
@@ -522,8 +579,10 @@ abstract contract ZetoFungible is
             }
         }
 
-        // delete the lock metadata before performing the state transition,
-        // so any reentrant lookup observes the lock as inactive.
+        // Tear down all lock-spender state BEFORE performing the state
+        // transition, so any reentrant lookup observes both `_locks[lockId]`
+        // and the per-UTXO `_utxoDelegates` projection as cleared.
+        _clearLockDelegates(lockedInputs);
         delete _locks[lockId];
 
         _transferLocked(
@@ -727,7 +786,11 @@ abstract contract ZetoFungible is
         bool isBatch = (lockedInputs.length > 2 || allOutputs.length > 2);
         verifyProof(proofStruct, publicInputs, isBatch, true);
         processInputsAndOutputs(paddedInputs, paddedOutputs, true);
-        processLockedOutputs(lockedOutputs, msg.sender);
+        processLockedOutputs(lockedOutputs);
+        // Any newly-locked outputs produced by this spend default to the
+        // current spender as their delegate. (When `lockedOutputs` is empty
+        // -- the common case -- this is a no-op.)
+        _setLockDelegates(lockedOutputs, msg.sender);
     }
 
     // this is a utility function that constructs the public inputs for a proof of a deposit() call.
