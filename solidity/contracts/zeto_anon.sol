@@ -46,6 +46,18 @@ contract Zeto_Anon is ZetoFungibleBase, UUPSUpgradeable {
     ///      storage compatibility for live deployments.
     uint256[50] private __gap;
 
+    /// @dev Lock the implementation contract on construction so that
+    ///      {initialize} can only ever run on a proxy. Without this,
+    ///      anyone could call {initialize} directly on the deployed
+    ///      implementation, become its owner, and then `upgradeTo(any)`
+    ///      via {_authorizeUpgrade} (the OZ "implementation takeover"
+    ///      pattern, CVE-2022-35961 family). See OpenZeppelin's
+    ///      `Initializable._disableInitializers` for the rationale.
+    /// @custom:oz-upgrades-unsafe-allow constructor
+    constructor() {
+        _disableInitializers();
+    }
+
     function initialize(
         string calldata name,
         string calldata symbol,

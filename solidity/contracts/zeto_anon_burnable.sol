@@ -45,6 +45,18 @@ import {ZetoCommon} from "./lib/zeto_common.sol";
 ///      separate `constructPublicInputsForLock` hook to override; the lock
 ///      lifecycle now reuses {constructPublicInputs} with `inputsLocked = true`.
 contract Zeto_AnonBurnable is Zeto_Anon, ZetoFungibleBurnable {
+    /// @dev Lock the implementation contract on construction. The parent
+    ///      {Zeto_Anon} already does this via its own constructor (which
+    ///      Solidity invokes as part of every leaf's deployment), but we
+    ///      restate it here so the H-2 protection survives any future
+    ///      refactor that changes the inheritance graph.
+    ///      `_disableInitializers()` is idempotent, so the duplicate call
+    ///      is a harmless no-op.
+    /// @custom:oz-upgrades-unsafe-allow constructor
+    constructor() {
+        _disableInitializers();
+    }
+
     function initialize(
         string calldata name,
         string calldata symbol,
