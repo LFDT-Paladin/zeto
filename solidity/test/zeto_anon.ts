@@ -41,11 +41,12 @@ import {
   loadProvingKeys,
   prepareDepositProof,
   prepareWithdrawProof,
+  prepareBurnProof,
   inflateUtxos,
   inflateOwners,
   calculateUnlockHash,
 } from "./utils";
-import { Zeto_Anon } from "../typechain-types";
+import { Zeto_Anon, Zeto_AnonBurnable } from "../typechain-types";
 import { deployZeto } from "./lib/deploy";
 
 const ZERO_PUBKEY = [0n, 0n];
@@ -58,6 +59,7 @@ describe("Zeto based fungible token with anonymity without encryption or nullifi
   let Charlie: User;
   let erc20: any;
   let zeto: Zeto_Anon;
+  let zetoBurnable: Zeto_AnonBurnable;
   let utxo100: UTXO;
   let utxo1: UTXO;
   let utxo2: UTXO;
@@ -82,6 +84,7 @@ describe("Zeto based fungible token with anonymity without encryption or nullifi
     Charlie = await newUser(c);
 
     ({ deployer, zeto, erc20 } = await deployZeto("Zeto_Anon"));
+    ({ zeto: zetoBurnable } = await deployZeto("Zeto_AnonBurnable"));
 
     circuit = await loadCircuit("anon");
     ({ provingKeyFile: provingKey } = loadProvingKeys("anon"));
@@ -1108,6 +1111,64 @@ describe("Zeto based fungible token with anonymity without encryption or nullifi
 
     return results;
   }
+
+  describe("Zeto_AnonBurnable", function () {
+    it("(burnable) mint to Alice and burn a subset should succeed", async function () {
+      const inputUtxos = [];
+      for (let i = 0; i < 3; i++) {
+        inputUtxos.push(newUTXO(10, Alice));
+      }
+      await doMint(zetoBurnable, deployer, inputUtxos);
+
+      const remainder = newUTXO(5, Alice);
+
+      const { inputCommitments, outputCommitment, encodedProof } =
+        await prepareBurnProof(Alice, inputUtxos.slice(0, 2), remainder);
+      const tx = await zetoBurnable
+        .connect(Alice.signer)
+        .burn(inputCommitments, outputCommitment, encodedProof, "0x");
+      const result = await tx.wait();
+      logger.debug(`Method burn() complete. Gas used: ${result?.gasUsed}`);
+
+      let spent = await zetoBurnable.spent(inputCommitments[0]);
+      expect(spent).to.equal(2n); // UTXOStatus.SPENT
+      spent = await zetoBurnable.spent(inputCommitments[1]);
+      expect(spent).to.equal(2n); // UTXOStatus.SPENT
+      spent = await zetoBurnable.spent(inputUtxos[2].hash as BigNumberish);
+      expect(spent).to.equal(1n); // UTXOStatus.UNSPENT
+      spent = await zetoBurnable.spent(outputCommitment);
+      expect(spent).to.equal(1n); // UTXOStatus.UNSPENT (the burn remainder)
+    });
+
+    it("burn rejects already-spent inputs", async function () {
+      const inputUtxos = [newUTXO(10, Alice), newUTXO(10, Alice)];
+      await doMint(zetoBurnable, deployer, inputUtxos);
+
+      const remainder1 = newUTXO(5, Alice);
+      const proof1 = await prepareBurnProof(Alice, inputUtxos, remainder1);
+      await zetoBurnable
+        .connect(Alice.signer)
+        .burn(
+          proof1.inputCommitments,
+          proof1.outputCommitment,
+          proof1.encodedProof,
+          "0x",
+        );
+
+      const remainder2 = newUTXO(5, Alice);
+      const proof2 = await prepareBurnProof(Alice, inputUtxos, remainder2);
+      await expect(
+        zetoBurnable
+          .connect(Alice.signer)
+          .burn(
+            proof2.inputCommitments,
+            proof2.outputCommitment,
+            proof2.encodedProof,
+            "0x",
+          ),
+      ).to.be.rejectedWith("UTXOAlreadySpent");
+    });
+  });
 });
 
 async function prepareProof(
