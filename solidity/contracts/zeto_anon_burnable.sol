@@ -24,6 +24,9 @@ import {ZetoCommon} from "./lib/zeto_common.sol";
 /// @title A sample implementation of a Zeto based fungible token with
 ///        anonymity, no encryption, and {burn} support.
 /// @author Kaleido, Inc.
+/// @notice Decimals: this token uses **4** decimals, inherited from
+///         {ZetoCommon.decimals}. Indexers and UIs reading this contract
+///         directly should treat balances accordingly.
 /// @dev The transfer proof has the following statements:
 ///        - each value in the output commitments must be a positive number in the range 0 ~ (2\*\*40 - 1)
 ///        - the sum of the input values match the sum of output values

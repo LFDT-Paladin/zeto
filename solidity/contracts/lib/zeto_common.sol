@@ -19,14 +19,32 @@ import {Commonlib} from "./common/common.sol";
 import {IZeto, MAX_BATCH} from "./interfaces/izeto.sol";
 import {IGroth16Verifier} from "./interfaces/izeto_verifier.sol";
 import {IZetoInitializable} from "./interfaces/izeto_initializable.sol";
-import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import {Ownable2StepUpgradeable} from "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";
 import {Util} from "./common/util.sol";
 import {IZetoStorage} from "./interfaces/izeto_storage.sol";
 
 /// @title A sample base implementation of a Zeto based token contract
 /// @author Kaleido, Inc.
-/// @dev Implements common functionalities of Zeto based tokens
-abstract contract ZetoCommon is IZeto, OwnableUpgradeable {
+/// @dev Implements common functionalities of Zeto based tokens.
+///
+///      Ownership uses {Ownable2StepUpgradeable}: the current owner cannot
+///      transfer ownership in a single call. {transferOwnership} stages a
+///      pending owner that the candidate must accept by calling
+///      {acceptOwnership}. This eliminates the "fat-finger to the wrong
+///      address" risk of single-step transfer for accounts that, in this
+///      contract, can mint, configure verifiers (via upgrades), bind the
+///      backing ERC20 (via {ZetoFungible.setERC20}), and authorize UUPS
+///      upgrades on the concrete tokens.
+///
+///      Operators are nonetheless STRONGLY advised to assign ownership to
+///      a multisig (e.g. Gnosis Safe) or a timelock-governed account, since
+///      the privileges above are still concentrated in a single role.
+abstract contract ZetoCommon is IZeto, Ownable2StepUpgradeable {
+    /// @dev Thrown when the supplied Groth16 proof fails verification.
+    ///      Replaces the previous `require(..., "Invalid proof")` strings
+    ///      so callers can match a typed error in their error decoders.
+    error InvalidProof();
+
     string private _name;
     string private _symbol;
 
@@ -276,6 +294,15 @@ abstract contract ZetoCommon is IZeto, OwnableUpgradeable {
         _storage.processLockedOutputs(lockedOutputs);
     }
 
+    /**
+     * @dev Verify a Groth16 proof against the appropriate verifier for the
+     *      requested flavour (regular vs batch, locked-input vs unlocked).
+     *
+     *      Reverts with {InvalidProof} on failure. The boolean return value
+     *      is preserved for ABI compatibility with existing off-chain
+     *      callers, and is always `true` when the call returns: a `false`
+     *      verification result is never observed.
+     */
     function verifyProof(
         Commonlib.Proof memory proof,
         uint256[] memory publicInputs,
@@ -285,10 +312,9 @@ abstract contract ZetoCommon is IZeto, OwnableUpgradeable {
         IGroth16Verifier verifier = inputsLocked
             ? (isBatch ? _batchLockVerifier : _lockVerifier)
             : (isBatch ? _batchVerifier : _verifier);
-        require(
-            verifier.verify(proof.pA, proof.pB, proof.pC, publicInputs),
-            "Invalid proof"
-        );
+        if (!verifier.verify(proof.pA, proof.pB, proof.pC, publicInputs)) {
+            revert InvalidProof();
+        }
         return true;
     }
 

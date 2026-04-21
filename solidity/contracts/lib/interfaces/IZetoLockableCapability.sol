@@ -191,13 +191,47 @@ interface IZetoLockableCapability is ILockableCapability {
     ) external view returns (bytes32 lockId);
 
     /**
-     * @dev Compute the unlock hash used as the spend/cancel commitment for a
-     *      prospective {ZetoSpendLockArgs} payload.
+     * @dev Compute the spend-intent commitment for a prospective
+     *      {ZetoSpendLockArgs} payload. The returned hash is what the lock
+     *      creator should pass as `spendCommitment` to {createLock} (or to
+     *      {updateLock}) if they want to bind the spender to a specific
+     *      spend payload.
+     *
+     *      Implementations MUST compute this in a hash space that is
+     *      disjoint from {computeCancelHash} so that a spender cannot
+     *      transpose a spend payload into {cancelLock} (or vice versa).
      */
-    function computeUnlockHash(
+    function computeSpendHash(
         uint256[] calldata lockedInputs,
         uint256[] calldata lockedOutputs,
         uint256[] calldata outputs,
         bytes calldata data
     ) external pure returns (bytes32);
+
+    /**
+     * @dev Compute the cancel-intent commitment for a prospective
+     *      {ZetoSpendLockArgs} payload. See {computeSpendHash} for the
+     *      domain-separation rationale.
+     */
+    function computeCancelHash(
+        uint256[] calldata lockedInputs,
+        uint256[] calldata lockedOutputs,
+        uint256[] calldata outputs,
+        bytes calldata data
+    ) external pure returns (bytes32);
+
+    /**
+     * @dev Typed view returning the locked UTXOs held under `lockId`.
+     *
+     *      This is the canonical accessor for the lock content. The generic
+     *      {ILockableCapability.getLockContent} returns the same data
+     *      `abi.encode`-d into `bytes` for compatibility with callers that
+     *      treat lock contents opaquely.
+     *
+     * Requirements:
+     *  - MUST revert with {LockNotActive}(lockId) if the lock is not active.
+     */
+    function getLockedInputs(
+        bytes32 lockId
+    ) external view returns (uint256[] memory lockedInputs);
 }

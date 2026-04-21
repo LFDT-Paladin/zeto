@@ -26,6 +26,12 @@ contract BaseStorage is IZetoStorage, IZetoConstants {
     ///      than the Zeto contract that deployed this storage instance.
     error StorageUnauthorized(address caller);
 
+    /// @dev Thrown by view stubs that only have a meaningful implementation
+    ///      in nullifier-based storage (e.g. {validateRoot}, {getRoot}).
+    ///      Replaces the previous `revert("Not implemented")` strings so
+    ///      callers can match a typed error.
+    error NotImplemented();
+
     /**
      * @dev The Zeto contract that owns this storage instance. Captured at
      *      construction time and immutable for the lifetime of the storage
@@ -138,13 +144,13 @@ contract BaseStorage is IZetoStorage, IZetoConstants {
     }
 
     // Only needed for the nullifier based implementation
-    function validateRoot(uint256 root) public view virtual returns (bool) {
-        revert("Not implemented");
+    function validateRoot(uint256) public view virtual returns (bool) {
+        revert NotImplemented();
     }
 
     // Only needed for the nullifier based implementation
     function getRoot() public view virtual returns (uint256) {
-        revert("Not implemented");
+        revert NotImplemented();
     }
 
     function processInputs(

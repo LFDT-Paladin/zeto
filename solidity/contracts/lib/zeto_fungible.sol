@@ -20,6 +20,7 @@ import {IZetoInitializable} from "./interfaces/izeto_initializable.sol";
 import {IZetoLockableCapability} from "./interfaces/IZetoLockableCapability.sol";
 import {Commonlib} from "./common/common.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {ReentrancyGuardUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
 import {ZetoCommon} from "./zeto_common.sol";
 import {IZetoStorage} from "./interfaces/izeto_storage.sol";
@@ -39,6 +40,22 @@ abstract contract ZetoFungible is
     ReentrancyGuardUpgradeable,
     IZetoLockableCapability
 {
+    using SafeERC20 for IERC20;
+
+    /// @dev Emitted when {setERC20} successfully binds the backing ERC20.
+    ///      Indexed by the new token address so subscribers can filter.
+    event ERC20Set(address indexed erc20);
+
+    /// @dev Thrown when {setERC20} is called with the zero address.
+    error ZeroERC20Address();
+
+    /// @dev Thrown when {setERC20} is called after the backing ERC20 has
+    ///      already been bound. {setERC20} is one-shot: once a Zeto contract
+    ///      is paired with an ERC20, that pairing is permanent for the
+    ///      lifetime of the proxy. This protects depositors from having
+    ///      their backing token rug-pulled out from under existing UTXOs.
+    error ERC20AlreadySet(address current);
+
     // _depositVerifier library for checking UTXOs against a claimed value.
     // this can be used in the optional deposit calls to verify that
     // the UTXOs match the deposited value
@@ -148,13 +165,17 @@ abstract contract ZetoFungible is
         }
     }
 
+    /// @dev Initializer should only ever be called from a derived
+    ///      contract's own `initializer`-guarded entrypoint, so the
+    ///      `internal` visibility prevents external poking of the
+    ///      lifecycle on a partially-initialized proxy.
     function __ZetoFungible_init(
         string calldata name_,
         string calldata symbol_,
         address initialOwner,
         IZetoInitializable.VerifiersInfo calldata verifiers,
         IZetoStorage storage_
-    ) public onlyInitializing {
+    ) internal onlyInitializing {
         __ZetoCommon_init(name_, symbol_, initialOwner, verifiers, storage_);
         __ReentrancyGuard_init();
         _depositVerifier = verifiers.depositVerifier;
@@ -163,12 +184,30 @@ abstract contract ZetoFungible is
     }
 
     /**
-     * @dev Set the ERC20 token that this Zeto contract will interact with.
+     * @dev Bind the ERC20 token that this Zeto contract will interact with
+     *      for {deposit} and {withdraw}. One-shot: a subsequent call reverts
+     *      with {ERC20AlreadySet}.
      *
-     * @param erc20 The ERC20 token to be used.
+     *      Rationale: depositors trust that the asset backing their UTXOs is
+     *      stable for the lifetime of the contract. Letting the owner swap
+     *      the backing ERC20 after deposits exist would let them silently
+     *      change what `withdraw` pays out. Making this one-shot removes
+     *      that vector entirely while still allowing the operator to wire
+     *      up the pairing post-deployment.
+     *
+     * @param erc20 The ERC20 token to be used. Must be non-zero.
+     *
+     * Emits {ERC20Set}.
      */
     function setERC20(IERC20 erc20) public onlyOwner {
+        if (address(erc20) == address(0)) {
+            revert ZeroERC20Address();
+        }
+        if (address(_erc20) != address(0)) {
+            revert ERC20AlreadySet(address(_erc20));
+        }
         _erc20 = erc20;
+        emit ERC20Set(address(erc20));
     }
 
     /**
@@ -234,14 +273,52 @@ abstract contract ZetoFungible is
         return keccak256(abi.encode(address(this), msg.sender, txId));
     }
 
+    /// @dev Domain-separation tag for spend-intent commitments. Included in
+    ///      {_buildUnlockHash} so that a payload hashing to a lock's
+    ///      {ZetoLockInfo.spendCommitment} cannot also hash to its
+    ///      {ZetoLockInfo.cancelCommitment}, preventing a spender from
+    ///      transposing a spend payload into {cancelLock} (or vice versa)
+    ///      when one of the commitments is non-zero.
+    bytes32 private constant _SPEND_HASH_DOMAIN =
+        keccak256("Zeto.spendCommitment.v1");
+
+    /// @dev Domain-separation tag for cancel-intent commitments. See
+    ///      {_SPEND_HASH_DOMAIN} for the rationale.
+    bytes32 private constant _CANCEL_HASH_DOMAIN =
+        keccak256("Zeto.cancelCommitment.v1");
+
     /// @inheritdoc IZetoLockableCapability
-    function computeUnlockHash(
+    function computeSpendHash(
         uint256[] calldata lockedInputs,
         uint256[] calldata lockedOutputs,
         uint256[] calldata outputs,
         bytes calldata data
     ) external pure override returns (bytes32) {
-        return _buildUnlockHash(lockedInputs, lockedOutputs, outputs, data);
+        return
+            _buildUnlockHash(
+                lockedInputs,
+                lockedOutputs,
+                outputs,
+                data,
+                _SPEND_HASH_DOMAIN
+            );
+    }
+
+    /// @inheritdoc IZetoLockableCapability
+    function computeCancelHash(
+        uint256[] calldata lockedInputs,
+        uint256[] calldata lockedOutputs,
+        uint256[] calldata outputs,
+        bytes calldata data
+    ) external pure override returns (bytes32) {
+        return
+            _buildUnlockHash(
+                lockedInputs,
+                lockedOutputs,
+                outputs,
+                data,
+                _CANCEL_HASH_DOMAIN
+            );
     }
 
     /**
@@ -315,11 +392,14 @@ abstract contract ZetoFungible is
         bytes calldata data
     ) external override lockActive(lockId) {
         ZetoLockInfo storage lock = _locks[lockId];
-        if (lock.spender != lock.owner) {
-            revert LockImmutable(lockId);
-        }
+        // Authorization first, mutability second, so that an unauthorized
+        // caller never learns about the lock's mutability state via the
+        // revert reason.
         if (msg.sender != lock.owner) {
             revert LockUnauthorized(lockId, lock.spender, msg.sender);
+        }
+        if (lock.spender != lock.owner) {
+            revert LockImmutable(lockId);
         }
 
         ZetoUpdateLockArgs memory args = abi.decode(
@@ -398,7 +478,7 @@ abstract contract ZetoFungible is
         // not allowed to substitute a different set of locked inputs.
         uint256[] memory lockedInputs = _locks[lockId].lockedInputs;
         bytes32 expectedHash = _locks[lockId].spendCommitment;
-        _consumeLock(lockId, lockedInputs, expectedHash, args);
+        _consumeLock(lockId, lockedInputs, expectedHash, _SPEND_HASH_DOMAIN, args);
 
         emit LockSpent(lockId, msg.sender, data);
         emit ZetoLockSpent(
@@ -432,7 +512,7 @@ abstract contract ZetoFungible is
 
         uint256[] memory lockedInputs = _locks[lockId].lockedInputs;
         bytes32 expectedHash = _locks[lockId].cancelCommitment;
-        _consumeLock(lockId, lockedInputs, expectedHash, args);
+        _consumeLock(lockId, lockedInputs, expectedHash, _CANCEL_HASH_DOMAIN, args);
 
         emit LockCancelled(lockId, msg.sender, data);
         emit ZetoLockCancelled(
@@ -474,6 +554,19 @@ abstract contract ZetoFungible is
         bytes32 lockId
     ) external view override lockActive(lockId) returns (bytes memory content) {
         return abi.encode(_locks[lockId].lockedInputs);
+    }
+
+    /// @inheritdoc IZetoLockableCapability
+    function getLockedInputs(
+        bytes32 lockId
+    )
+        external
+        view
+        override
+        lockActive(lockId)
+        returns (uint256[] memory lockedInputs)
+    {
+        return _locks[lockId].lockedInputs;
     }
 
     /**
@@ -563,6 +656,7 @@ abstract contract ZetoFungible is
         bytes32 lockId,
         uint256[] memory lockedInputs,
         bytes32 expectedHash,
+        bytes32 hashDomain,
         ZetoSpendLockArgs memory args
     ) internal {
         _useTxId(args.txId);
@@ -572,7 +666,8 @@ abstract contract ZetoFungible is
                 lockedInputs,
                 args.lockedOutputs,
                 args.outputs,
-                args.data
+                args.data,
+                hashDomain
             );
             if (actualHash != expectedHash) {
                 revert InvalidUnlockHash(expectedHash, actualHash);
@@ -620,15 +715,16 @@ abstract contract ZetoFungible is
             uint256[] memory publicInputs,
             Commonlib.Proof memory proofStruct
         ) = constructPublicInputsForDeposit(amount, outputs, proof);
-        require(
-            _depositVerifier.verify(
+        if (
+            !_depositVerifier.verify(
                 proofStruct.pA,
                 proofStruct.pB,
                 proofStruct.pC,
                 publicInputs
-            ),
-            "Invalid proof"
-        );
+            )
+        ) {
+            revert InvalidProof();
+        }
 
         // ---- Effects ----
         // Mint the UTXOs (commits the new outputs to storage and emits
@@ -638,10 +734,10 @@ abstract contract ZetoFungible is
         _mint(outputs, data);
 
         // ---- Interactions ----
-        require(
-            _erc20.transferFrom(msg.sender, address(this), amount),
-            "Failed to transfer ERC20 tokens"
-        );
+        // SafeERC20 handles non-standard tokens that return no value on
+        // success and reverts cleanly when the underlying call fails or
+        // returns false.
+        _erc20.safeTransferFrom(msg.sender, address(this), amount);
     }
 
     /**
@@ -691,15 +787,16 @@ abstract contract ZetoFungible is
         IGroth16Verifier verifier = (inputs.length > 2)
             ? _batchWithdrawVerifier
             : _withdrawVerifier;
-        require(
-            verifier.verify(
+        if (
+            !verifier.verify(
                 proofStruct.pA,
                 proofStruct.pB,
                 proofStruct.pC,
                 publicInputs
-            ),
-            "Invalid proof"
-        );
+            )
+        ) {
+            revert InvalidProof();
+        }
 
         // ---- Effects ----
         // Mark the input nullifiers as spent and commit the change-output
@@ -709,10 +806,10 @@ abstract contract ZetoFungible is
         processInputsAndOutputs(paddedInputs, paddedOutputs, false);
 
         // ---- Interactions ----
-        require(
-            _erc20.transfer(msg.sender, amount),
-            "Failed to transfer ERC20 tokens"
-        );
+        // SafeERC20 handles non-standard tokens that return no value on
+        // success and reverts cleanly when the underlying call fails or
+        // returns false.
+        _erc20.safeTransfer(msg.sender, amount);
 
         // Emitted after the transfer so that the on-chain event order remains
         // ERC20.Transfer → UTXOWithdraw, matching listeners and tests built
@@ -730,18 +827,30 @@ abstract contract ZetoFungible is
         emit UTXOTransfer(inputs, outputs, msg.sender, data);
     }
 
+    /// @dev Build the unlock hash committed to by {ZetoLockInfo.spendCommitment}
+    ///      or {ZetoLockInfo.cancelCommitment}. `domain` is a per-intent
+    ///      separation tag (see {_SPEND_HASH_DOMAIN} / {_CANCEL_HASH_DOMAIN})
+    ///      so that the two commitments live in disjoint hash spaces.
+    ///
+    ///      Each variable-length component is hashed as `abi.encode(...)`
+    ///      rather than `abi.encodePacked(...)` to avoid the cross-array
+    ///      length-ambiguity that `encodePacked` introduces for dynamic
+    ///      arguments (e.g. `[1, 2]` and `[12]` collide under
+    ///      `encodePacked` but not under `encode`).
     function _buildUnlockHash(
         uint256[] memory lockedInputs,
         uint256[] memory lockedOutputs,
         uint256[] memory outputs,
-        bytes memory data
+        bytes memory data,
+        bytes32 domain
     ) internal pure returns (bytes32) {
         return
             keccak256(
                 abi.encode(
-                    keccak256(abi.encodePacked(lockedInputs)),
-                    keccak256(abi.encodePacked(lockedOutputs)),
-                    keccak256(abi.encodePacked(outputs)),
+                    domain,
+                    keccak256(abi.encode(lockedInputs)),
+                    keccak256(abi.encode(lockedOutputs)),
+                    keccak256(abi.encode(outputs)),
                     keccak256(data)
                 )
             );

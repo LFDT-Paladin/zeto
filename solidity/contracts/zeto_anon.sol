@@ -37,6 +37,9 @@ import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/U
 ///      proof and public-input layout is identical regardless of
 ///      `inputsLocked`, since neither a nullifier merkle root nor an
 ///      enabled-flags vector is part of the witness.
+/// @notice Decimals: this token uses **4** decimals, inherited from
+///         {ZetoCommon.decimals}. Indexers and UIs reading this contract
+///         directly should treat balances accordingly.
 contract Zeto_Anon is ZetoFungibleBase, UUPSUpgradeable {
     /// @dev Reserved storage to allow new state variables to be added in
     ///      future upgrades of this contract. Even though Zeto_Anon is a

@@ -16,7 +16,7 @@
 
 import { readFileSync } from "fs";
 import * as path from "path";
-import { AbiCoder, BigNumberish, solidityPacked, keccak256 } from "ethers";
+import { AbiCoder, BigNumberish, keccak256, toUtf8Bytes } from "ethers";
 import { groth16 } from "snarkjs";
 import { loadCircuit, encodeProof } from "zeto-js";
 import { User, UTXO, ZERO_UTXO, logger } from "./lib/utils";
@@ -423,17 +423,44 @@ export function encodeToBytesForWithdraw(root: any, proof: any) {
   );
 }
 
-export function calculateUnlockHash(lockedInputs: UTXO[], lockedOutputs: UTXO[], outputs: UTXO[], data: any) {
+// Domain-separation tags mirroring `_SPEND_HASH_DOMAIN` /
+// `_CANCEL_HASH_DOMAIN` in `lib/zeto_fungible.sol`. Keep these strings
+// in sync with the on-chain constants; otherwise computed commitments
+// will not match what the contract expects.
+const SPEND_HASH_DOMAIN = keccak256(toUtf8Bytes("Zeto.spendCommitment.v1"));
+const CANCEL_HASH_DOMAIN = keccak256(toUtf8Bytes("Zeto.cancelCommitment.v1"));
+
+function buildUnlockHash(
+  lockedInputs: UTXO[],
+  lockedOutputs: UTXO[],
+  outputs: UTXO[],
+  data: any,
+  domain: string,
+) {
   const abiCoder = new AbiCoder();
+  // Hash each dynamic component with `abi.encode` rather than
+  // `abi.encodePacked` so dynamic-length arrays cannot collide
+  // (mirrors `_buildUnlockHash` in zeto_fungible.sol).
   return keccak256(
     abiCoder.encode(
-      ["bytes32", "bytes32", "bytes32", "bytes32"],
+      ["bytes32", "bytes32", "bytes32", "bytes32", "bytes32"],
       [
-        keccak256(solidityPacked(["uint256[]"], [lockedInputs.map((utxo) => utxo.hash)])),
-        keccak256(solidityPacked(["uint256[]"], [lockedOutputs.map((utxo) => utxo.hash)])),
-        keccak256(solidityPacked(["uint256[]"], [outputs.map((utxo) => utxo.hash)])),
+        domain,
+        keccak256(abiCoder.encode(["uint256[]"], [lockedInputs.map((utxo) => utxo.hash)])),
+        keccak256(abiCoder.encode(["uint256[]"], [lockedOutputs.map((utxo) => utxo.hash)])),
+        keccak256(abiCoder.encode(["uint256[]"], [outputs.map((utxo) => utxo.hash)])),
         keccak256(data),
       ],
     ),
   );
+}
+
+/// Mirror of `IZetoLockableCapability.computeSpendHash`.
+export function calculateSpendHash(lockedInputs: UTXO[], lockedOutputs: UTXO[], outputs: UTXO[], data: any) {
+  return buildUnlockHash(lockedInputs, lockedOutputs, outputs, data, SPEND_HASH_DOMAIN);
+}
+
+/// Mirror of `IZetoLockableCapability.computeCancelHash`.
+export function calculateCancelHash(lockedInputs: UTXO[], lockedOutputs: UTXO[], outputs: UTXO[], data: any) {
+  return buildUnlockHash(lockedInputs, lockedOutputs, outputs, data, CANCEL_HASH_DOMAIN);
 }
