@@ -42,10 +42,12 @@ abstract contract ZetoFungibleBurnable is ZetoFungibleBase {
     ///      OpenZeppelin upgradeable convention.
     uint256[48] private __gap;
 
+    /// @dev Internal-only so it can only be called from a derived
+    ///      contract's own `initializer`-guarded entrypoint.
     function __ZetoFungibleBurnable_init(
         IGroth16Verifier burnVerifier,
         IGroth16Verifier batchBurnVerifier
-    ) public onlyInitializing {
+    ) internal onlyInitializing {
         _burnVerifier = burnVerifier;
         _batchBurnVerifier = batchBurnVerifier;
     }
@@ -77,10 +79,9 @@ abstract contract ZetoFungibleBurnable is ZetoFungibleBase {
         IGroth16Verifier verifier = (inputs.length > 2)
             ? _batchBurnVerifier
             : _burnVerifier;
-        require(
-            verifier.verify(proof.pA, proof.pB, proof.pC, publicInputs),
-            "Invalid proof"
-        );
+        if (!verifier.verify(proof.pA, proof.pB, proof.pC, publicInputs)) {
+            revert InvalidProof();
+        }
 
         _burn(inputs, output, data);
     }

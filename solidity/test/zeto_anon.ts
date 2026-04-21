@@ -44,7 +44,8 @@ import {
   prepareBurnProof,
   inflateUtxos,
   inflateOwners,
-  calculateUnlockHash,
+  calculateSpendHash,
+  calculateCancelHash,
 } from "./utils";
 import { Zeto_Anon, Zeto_AnonBurnable } from "../typechain-types";
 import { deployZeto } from "./lib/deploy";
@@ -158,6 +159,68 @@ describe("Zeto based fungible token with anonymity without encryption or nullifi
         batchBurnVerifier: ZeroAddress,
       }),
     ).to.be.revertedWithCustomError(impl, "InvalidInitialization");
+  });
+
+  describe("administrative invariants", function () {
+    it("setERC20() rejects the zero address", async function () {
+      // Use the burnable proxy as a stand-in: it has not had its ERC20
+      // bound during deployZeto (only the non-burnable Zeto_Anon does),
+      // so we are exercising the not-yet-set branch.
+      await expect(zetoBurnable.connect(deployer).setERC20(ZeroAddress))
+        .to.be.revertedWithCustomError(zetoBurnable, "ZeroERC20Address");
+    });
+
+    it("setERC20() is one-shot: a second call reverts with ERC20AlreadySet", async function () {
+      // `zeto` already had setERC20(erc20) wired up in deployZeto, so the
+      // backing token is bound. Any subsequent call -- even by the owner,
+      // even to the same address -- must revert.
+      const current = await erc20.getAddress();
+      await expect(zeto.connect(deployer).setERC20(current))
+        .to.be.revertedWithCustomError(zeto, "ERC20AlreadySet")
+        .withArgs(current);
+    });
+
+    it("ownership transfer is two-step (Ownable2Step)", async function () {
+      // Stage Alice as the pending owner. The current owner (deployer)
+      // remains in control until Alice accepts.
+      const aliceAddr = await Alice.signer.getAddress();
+      const deployerAddr = await deployer.getAddress();
+      await (await zeto.connect(deployer).transferOwnership(aliceAddr)).wait();
+      expect(await zeto.owner()).to.equal(deployerAddr);
+      expect(await zeto.pendingOwner()).to.equal(aliceAddr);
+
+      // Anyone other than the pending owner accepting must revert.
+      await expect(
+        zeto.connect(Bob.signer).acceptOwnership(),
+      ).to.be.revertedWithCustomError(zeto, "OwnableUnauthorizedAccount");
+
+      // Alice accepts and the swap completes atomically.
+      await (await zeto.connect(Alice.signer).acceptOwnership()).wait();
+      expect(await zeto.owner()).to.equal(aliceAddr);
+
+      // Restore the original owner so subsequent tests are unaffected.
+      await (await zeto.connect(Alice.signer).transferOwnership(deployerAddr)).wait();
+      await (await zeto.connect(deployer).acceptOwnership()).wait();
+      expect(await zeto.owner()).to.equal(deployerAddr);
+    });
+
+    it("computeSpendHash() and computeCancelHash() live in disjoint hash spaces", async function () {
+      // Defense-in-depth from M-7. Same payload must produce different
+      // commitments under the spend-vs-cancel domain so a spender cannot
+      // transpose a payload between spendLock and cancelLock.
+      const utxo = newUTXO(1, Alice);
+      const out = newUTXO(1, Bob);
+      const lockedInputs = [utxo.hash];
+      const lockedOutputs: bigint[] = [];
+      const outputs = [out.hash];
+      const data = "0x";
+      const spend = await zeto.computeSpendHash(lockedInputs, lockedOutputs, outputs, data);
+      const cancel = await zeto.computeCancelHash(lockedInputs, lockedOutputs, outputs, data);
+      expect(spend).to.not.equal(cancel);
+      // Mirror of off-chain helpers used by other tests.
+      expect(spend).to.equal(calculateSpendHash([utxo], [], [out], data));
+      expect(cancel).to.equal(calculateCancelHash([utxo], [], [out], data));
+    });
   });
 
   describe("batch transfers", () => {
@@ -569,7 +632,7 @@ describe("Zeto based fungible token with anonymity without encryption or nullifi
         outUtxo1 = newUTXO(10, Alice);
         outUtxo2 = newUTXO(90, Bob);
 
-        unlockHash = calculateUnlockHash(
+        unlockHash = calculateSpendHash(
           [lockedUtxo],
           [],
           [outUtxo1, outUtxo2],
@@ -699,7 +762,7 @@ describe("Zeto based fungible token with anonymity without encryption or nullifi
 
         outUtxo1 = newUTXO(10, Alice);
         outUtxo2 = newUTXO(90, Bob);
-        cancelHash = calculateUnlockHash(
+        cancelHash = calculateCancelHash(
           [lockedUtxo],
           [],
           [outUtxo1, outUtxo2],
@@ -803,7 +866,7 @@ describe("Zeto based fungible token with anonymity without encryption or nullifi
 
         const expectedOut1 = newUTXO(10, Alice);
         const expectedOut2 = newUTXO(90, Bob);
-        expectedHash = calculateUnlockHash(
+        expectedHash = calculateSpendHash(
           [lockedUtxo],
           [],
           [expectedOut1, expectedOut2],
@@ -846,7 +909,7 @@ describe("Zeto based fungible token with anonymity without encryption or nullifi
           data: "0x",
         });
 
-        const calculatedHash = calculateUnlockHash(
+        const calculatedHash = calculateSpendHash(
           [lockedUtxo],
           [],
           [wrongOut1, wrongOut2],
@@ -954,6 +1017,39 @@ describe("Zeto based fungible token with anonymity without encryption or nullifi
         )
           .to.be.revertedWithCustomError(zeto, "LockUnauthorized")
           .withArgs(lockId, Bob.ethAddress, Alice.ethAddress);
+      });
+
+      it("updateLock() prefers LockUnauthorized over LockImmutable when both apply (M-5)", async function () {
+        // Lock is delegated (so spender != owner -> immutable) AND the
+        // caller is neither owner nor spender. The contract MUST report
+        // LockUnauthorized, not leak the immutability state to the
+        // unauthorized caller.
+        const { lockId } = await freshLock(Bob);
+        await (
+          await zeto
+            .connect(Bob.signer)
+            .delegateLock(
+              lockId,
+              encodeDelegateArgs(randomBytes32()),
+              Alice.ethAddress,
+              "0x",
+            )
+        ).wait();
+
+        await expect(
+          zeto
+            .connect(Charlie.signer)
+            .updateLock(
+              lockId,
+              encodeUpdateArgs(randomBytes32()),
+              ethers.ZeroHash,
+              ethers.ZeroHash,
+              "0x",
+            ),
+        )
+          .to.be.revertedWithCustomError(zeto, "LockUnauthorized")
+          // spender at this point is Alice (the new delegate).
+          .withArgs(lockId, Alice.ethAddress, Charlie.ethAddress);
       });
 
       it("updateLock() after delegateLock() reverts with LockImmutable", async function () {

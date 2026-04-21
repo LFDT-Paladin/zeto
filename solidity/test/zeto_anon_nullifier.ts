@@ -47,7 +47,8 @@ import {
   encodeToBytesForWithdraw,
   inflateUtxos,
   inflateOwners,
-  calculateUnlockHash
+  calculateSpendHash,
+  calculateCancelHash,
 } from "./utils";
 process.env.SKIP_ANON_TESTS = "true";
 import { prepareProof as prepareProofForLocked, encodeToBytes as encodeToBytesForLocked } from "./zeto_anon";
@@ -691,7 +692,7 @@ describe("Zeto based fungible token with anonymity using nullifiers without encr
         outputUtxo1 = newUTXO(10, Alice);
         outputUtxo2 = newUTXO(90, Bob);
 
-        unlockHash = calculateUnlockHash(
+        unlockHash = calculateSpendHash(
           [lockedUtxo1],
           [],
           [outputUtxo1, outputUtxo2],
@@ -837,7 +838,7 @@ describe("Zeto based fungible token with anonymity using nullifiers without encr
         // Commit the cancel hash up-front to exercise the cancelCommitment branch.
         outUtxo1 = newUTXO(10, Alice);
         outUtxo2 = newUTXO(90, Bob);
-        cancelHash = calculateUnlockHash(
+        cancelHash = calculateCancelHash(
           [lockedUtxo1],
           [],
           [outUtxo1, outUtxo2],
@@ -971,7 +972,7 @@ describe("Zeto based fungible token with anonymity using nullifiers without encr
       it("Bob updateLock() committing a specific spend hash", async function () {
         const expectedOut1 = newUTXO(10, Alice);
         const expectedOut2 = newUTXO(90, Bob);
-        expectedHash = calculateUnlockHash(
+        expectedHash = calculateSpendHash(
           [lockedUtxo1],
           [],
           [expectedOut1, expectedOut2],
@@ -1012,7 +1013,7 @@ describe("Zeto based fungible token with anonymity using nullifiers without encr
           data: "0x",
         });
 
-        const calculatedHash = calculateUnlockHash(
+        const calculatedHash = calculateSpendHash(
           [lockedUtxo1],
           [],
           [wrongOut1, wrongOut2],
@@ -1240,7 +1241,7 @@ describe("Zeto based fungible token with anonymity using nullifiers without encr
           proof: encodeToBytesForLocked(wrongProof),
           data: "0x",
         });
-        const calculatedHash = calculateUnlockHash(
+        const calculatedHash = calculateCancelHash(
           [lockedUtxo],
           [],
           [expectedOut1, expectedOut2],

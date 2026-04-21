@@ -24,6 +24,9 @@ import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/U
 
 /// @title A sample implementation of a Zeto based fungible token with anonymity and history masking
 /// @author Kaleido, Inc.
+/// @notice Decimals: this token uses **4** decimals, inherited from
+///         {ZetoCommon.decimals}. Indexers and UIs reading this contract
+///         directly should treat balances accordingly.
 /// @dev The proof has the following statements:
 ///        - each value in the output commitments must be a positive number in the range 0 ~ (2\*\*40 - 1)
 ///        - the sum of the nullified values match the sum of output values
@@ -82,11 +85,15 @@ contract Zeto_AnonNullifier is ZetoFungibleNullifier, UUPSUpgradeable {
         override
         returns (uint256[] memory, Commonlib.Proof memory)
     {
-        // Decode the proof to extract root and proof structure
+        // Decode the proof to extract root and proof structure. Done once
+        // here so that {validateTransactionProposal} below can skip the
+        // root-only pre-decode it used to perform; root validation happens
+        // here instead.
         uint256 root;
         Commonlib.Proof memory proofStruct;
         if (!inputsLocked) {
             (root, proofStruct) = abi.decode(proof, (uint256, Commonlib.Proof));
+            validateRoot(root);
         } else {
             proofStruct = abi.decode(proof, (Commonlib.Proof));
         }
@@ -227,28 +234,6 @@ contract Zeto_AnonNullifier is ZetoFungibleNullifier, UUPSUpgradeable {
 
     function extraInputs() internal view virtual returns (uint256[] memory) {
         // no extra inputs for this contract
-        uint256[] memory empty = new uint256[](0);
-        return empty;
-    }
-
-    function validateTransactionProposal(
-        uint256[] memory inputs,
-        uint256[] memory outputs,
-        uint256[] memory lockedOutputs,
-        bytes memory proof,
-        bool inputsLocked
-    ) internal view virtual override {
-        super.validateTransactionProposal(
-            inputs,
-            outputs,
-            lockedOutputs,
-            proof,
-            inputsLocked
-        );
-        if (!inputsLocked) {
-            // only regular transactions (not for locked inputs) need to validate the root
-            uint256 root = abi.decode(proof, (uint256)); // only decode the root from the proof, which is the first 32 bytes
-            validateRoot(root);
-        }
+        return new uint256[](0);
     }
 }

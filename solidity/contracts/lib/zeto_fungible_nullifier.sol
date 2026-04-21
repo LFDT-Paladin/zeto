@@ -52,11 +52,15 @@ abstract contract ZetoFungibleNullifier is ZetoFungible {
         uint256 output,
         bytes memory proof
     ) internal override returns (uint256[] memory, Commonlib.Proof memory) {
-        // Decode the proof to extract root and proof structure
+        // Decode the proof to extract root and proof structure. Root
+        // validation is performed here (rather than in a separate
+        // pre-decode hop in {validateTransactionProposal}, see L-4) so the
+        // proof bytes are decoded exactly once per withdraw call.
         (uint256 root, Commonlib.Proof memory proofStruct) = abi.decode(
             proof,
             (uint256, Commonlib.Proof)
         );
+        validateRoot(root);
 
         // Calculate the total size needed for public inputs
         uint256 size = _calculateWithdrawPublicInputsSize(nullifiers);
