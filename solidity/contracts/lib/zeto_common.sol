@@ -19,7 +19,7 @@ import {Commonlib} from "./common/common.sol";
 import {IZeto, MAX_BATCH} from "./interfaces/izeto.sol";
 import {IGroth16Verifier} from "./interfaces/izeto_verifier.sol";
 import {IZetoInitializable} from "./interfaces/izeto_initializable.sol";
-import {IZetoLockableCapability} from "./interfaces/izeto_lockable_capability.sol";
+import {IZetoLockableCapability} from "./interfaces/IZetoLockableCapability.sol";
 import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import {Util} from "./common/util.sol";
 import {IZetoStorage} from "./interfaces/izeto_storage.sol";
@@ -37,6 +37,14 @@ abstract contract ZetoCommon is IZeto, OwnableUpgradeable {
     IGroth16Verifier internal _batchVerifier;
     IGroth16Verifier internal _lockVerifier;
     IGroth16Verifier internal _batchLockVerifier;
+
+    /// @dev Reserved storage to allow new state variables to be added in
+    ///      future upgrades of this contract without shifting the storage
+    ///      layout of inheriting contracts. Sized at 50 slots, matching the
+    ///      OpenZeppelin upgradeable convention. When a new state variable
+    ///      is added to ZetoCommon, decrement the gap by the equivalent
+    ///      number of slots so that descendants' layouts remain stable.
+    uint256[50] private __gap;
 
     function __ZetoCommon_init(
         string calldata name_,

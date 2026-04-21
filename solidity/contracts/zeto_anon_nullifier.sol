@@ -31,6 +31,14 @@ import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/U
 ///        - the sender possesses the private BabyJubjub key, whose public key is part of the pre-image of the input commitment hashes, which match the corresponding nullifiers
 ///        - the nullifiers represent input commitments that are included in a Sparse Merkle Tree represented by the root hash
 contract Zeto_AnonNullifier is ZetoFungibleNullifier, UUPSUpgradeable {
+    /// @dev Reserved storage to allow new state variables to be added in
+    ///      future upgrades of this contract. Even though Zeto_AnonNullifier
+    ///      is a concrete (leaf) contract today, reserving a gap keeps the
+    ///      door open for further specialization (e.g. embedding KYC,
+    ///      registry, or non-repudiation extensions in a derived contract)
+    ///      without breaking storage compatibility for live deployments.
+    uint256[50] private __gap;
+
     function initialize(
         string calldata name,
         string calldata symbol,

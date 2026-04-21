@@ -16,7 +16,7 @@
 pragma solidity ^0.8.27;
 
 import {IZetoConstants} from "../interfaces/izeto.sol";
-import {IZetoLockableCapability} from "../interfaces/izeto_lockable_capability.sol";
+import {IZetoLockableCapability} from "../interfaces/IZetoLockableCapability.sol";
 import {IZetoStorage} from "../interfaces/izeto_storage.sol";
 import {Commonlib} from "../common/common.sol";
 import {Util} from "../common/util.sol";
@@ -154,6 +154,17 @@ contract BaseStorage is IZetoStorage, IZetoConstants {
         for (uint256 i = 0; i < inputs.length; ++i) {
             if (inputs[i] != 0) {
                 utxos[inputs[i]] = UTXOStatus.SPENT;
+                // Defense-in-depth: when a locked input is consumed, also
+                // wipe its delegate metadata. `_lockedUtxos[X] == SPENT` is
+                // already enough to make `locked(X)` return `(false,
+                // address(0))`, but a stale `delegates[X]` would resurface
+                // if a future code path ever resurrected the locked-state
+                // entry for X (for example, after a storage-access-control
+                // bypass). Clearing it here keeps the two mappings in sync
+                // and removes that footgun.
+                if (inputsLocked) {
+                    delete delegates[inputs[i]];
+                }
             }
         }
     }
