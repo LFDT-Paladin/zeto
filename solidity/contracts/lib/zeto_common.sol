@@ -16,12 +16,12 @@
 pragma solidity ^0.8.27;
 
 import {Commonlib} from "./common/common.sol";
-import {IZeto, MAX_BATCH} from "./interfaces/izeto.sol";
-import {IGroth16Verifier} from "./interfaces/izeto_verifier.sol";
-import {IZetoInitializable} from "./interfaces/izeto_initializable.sol";
+import {IZeto, MAX_BATCH} from "./interfaces/IZeto.sol";
+import {IGroth16Verifier} from "./interfaces/IZetoVerifier.sol";
+import {IZetoInitializable} from "./interfaces/IZetoInitializable.sol";
 import {Ownable2StepUpgradeable} from "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";
 import {Util} from "./common/util.sol";
-import {IZetoStorage} from "./interfaces/izeto_storage.sol";
+import {IZetoStorage} from "./interfaces/IZetoStorage.sol";
 
 /// @title A sample base implementation of a Zeto based token contract
 /// @author Kaleido, Inc.
@@ -332,9 +332,7 @@ abstract contract ZetoCommon is IZeto, Ownable2StepUpgradeable {
      *      via `IZetoLockableCapability`) MUST override this to return the
      *      spender for the lock that owns `utxo`.
      */
-    function locked(
-        uint256 utxo
-    ) public view virtual returns (bool, address) {
+    function locked(uint256 utxo) public view virtual returns (bool, address) {
         return (_storage.locked(utxo), address(0));
     }
 }

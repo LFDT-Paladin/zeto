@@ -16,11 +16,10 @@
 pragma solidity ^0.8.27;
 
 import {Commonlib} from "./common/common.sol";
-import {IZeto} from "./interfaces/izeto.sol";
-import {MAX_SMT_DEPTH} from "./interfaces/izeto.sol";
-import {IZetoInitializable} from "./interfaces/izeto_initializable.sol";
+import {IZeto, MAX_SMT_DEPTH} from "./interfaces/IZeto.sol";
+import {IZetoInitializable} from "./interfaces/IZetoInitializable.sol";
 import {ZetoFungible} from "./zeto_fungible.sol";
-import {IZetoStorage} from "./interfaces/izeto_storage.sol";
+import {IZetoStorage} from "./interfaces/IZetoStorage.sol";
 import {NullifierStorage} from "./storage/nullifier.sol";
 
 /// @title A sample base implementation of a Zeto based token contract with nullifiers

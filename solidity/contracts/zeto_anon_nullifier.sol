@@ -15,11 +15,10 @@
 // limitations under the License.
 pragma solidity ^0.8.27;
 
-import {IZeto} from "./lib/interfaces/izeto.sol";
-import {MAX_BATCH} from "./lib/interfaces/izeto.sol";
+import {IZeto, MAX_BATCH} from "./lib/interfaces/IZeto.sol";
 import {ZetoFungibleNullifier} from "./lib/zeto_fungible_nullifier.sol";
 import {Commonlib} from "./lib/common/common.sol";
-import {IZetoInitializable} from "./lib/interfaces/izeto_initializable.sol";
+import {IZetoInitializable} from "./lib/interfaces/IZetoInitializable.sol";
 import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 
 /// @title A sample implementation of a Zeto based fungible token with anonymity and history masking

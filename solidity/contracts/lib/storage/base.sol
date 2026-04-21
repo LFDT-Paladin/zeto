@@ -15,9 +15,9 @@
 // limitations under the License.
 pragma solidity ^0.8.27;
 
-import {IZetoConstants} from "../interfaces/izeto.sol";
+import {IZetoConstants} from "../interfaces/IZeto.sol";
 import {IZetoLockableCapability} from "../interfaces/IZetoLockableCapability.sol";
-import {IZetoStorage} from "../interfaces/izeto_storage.sol";
+import {IZetoStorage} from "../interfaces/IZetoStorage.sol";
 import {Commonlib} from "../common/common.sol";
 import {Util} from "../common/util.sol";
 

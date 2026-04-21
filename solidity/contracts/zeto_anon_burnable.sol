@@ -15,7 +15,7 @@
 // limitations under the License.
 pragma solidity ^0.8.27;
 
-import {IZetoInitializable} from "./lib/interfaces/izeto_initializable.sol";
+import {IZetoInitializable} from "./lib/interfaces/IZetoInitializable.sol";
 import {Zeto_Anon} from "./zeto_anon.sol";
 import {ZetoFungibleBurnable} from "./lib/zeto_fungible_burn.sol";
 import {Commonlib} from "./lib/common/common.sol";

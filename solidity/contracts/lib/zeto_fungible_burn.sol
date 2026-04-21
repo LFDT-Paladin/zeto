@@ -15,7 +15,7 @@
 // limitations under the License.
 pragma solidity ^0.8.27;
 
-import {IGroth16Verifier} from "./interfaces/izeto_verifier.sol";
+import {IGroth16Verifier} from "./interfaces/IZetoVerifier.sol";
 import {ZetoFungibleBase} from "./zeto_fungible_base.sol";
 import {Commonlib} from "./common/common.sol";
 
@@ -40,7 +40,7 @@ abstract contract ZetoFungibleBurnable is ZetoFungibleBase {
     ///      layout of inheriting contracts (e.g. Zeto_AnonBurnable). Sized
     ///      so that `<state slots> + __gap.length == 50`, matching the
     ///      OpenZeppelin upgradeable convention.
-    uint256[48] private __gap;
+    uint256[50] private __gap;
 
     /// @dev Internal-only so it can only be called from a derived
     ///      contract's own `initializer`-guarded entrypoint.
