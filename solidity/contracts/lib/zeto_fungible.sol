@@ -15,15 +15,15 @@
 // limitations under the License.
 pragma solidity ^0.8.27;
 
-import {IGroth16Verifier} from "./interfaces/izeto_verifier.sol";
-import {IZetoInitializable} from "./interfaces/izeto_initializable.sol";
+import {IGroth16Verifier} from "./interfaces/IZetoVerifier.sol";
+import {IZetoInitializable} from "./interfaces/IZetoInitializable.sol";
 import {IZetoLockableCapability} from "./interfaces/IZetoLockableCapability.sol";
 import {Commonlib} from "./common/common.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {ReentrancyGuardUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
 import {ZetoCommon} from "./zeto_common.sol";
-import {IZetoStorage} from "./interfaces/izeto_storage.sol";
+import {IZetoStorage} from "./interfaces/IZetoStorage.sol";
 
 /// @title A sample implementation of a base Zeto fungible token contract
 /// @author Kaleido, Inc.
@@ -114,7 +114,7 @@ abstract contract ZetoFungible is
     ///      upgradeable convention. When a new state variable is added to
     ///      ZetoFungible, decrement the gap by the equivalent number of
     ///      slots so that descendants' layouts remain stable.
-    uint256[49] private __gap;
+    uint256[50] private __gap;
 
     modifier lockActive(bytes32 lockId) {
         if (_locks[lockId].owner == address(0)) {
@@ -478,7 +478,13 @@ abstract contract ZetoFungible is
         // not allowed to substitute a different set of locked inputs.
         uint256[] memory lockedInputs = _locks[lockId].lockedInputs;
         bytes32 expectedHash = _locks[lockId].spendCommitment;
-        _consumeLock(lockId, lockedInputs, expectedHash, _SPEND_HASH_DOMAIN, args);
+        _consumeLock(
+            lockId,
+            lockedInputs,
+            expectedHash,
+            _SPEND_HASH_DOMAIN,
+            args
+        );
 
         emit LockSpent(lockId, msg.sender, data);
         emit ZetoLockSpent(
@@ -512,7 +518,13 @@ abstract contract ZetoFungible is
 
         uint256[] memory lockedInputs = _locks[lockId].lockedInputs;
         bytes32 expectedHash = _locks[lockId].cancelCommitment;
-        _consumeLock(lockId, lockedInputs, expectedHash, _CANCEL_HASH_DOMAIN, args);
+        _consumeLock(
+            lockId,
+            lockedInputs,
+            expectedHash,
+            _CANCEL_HASH_DOMAIN,
+            args
+        );
 
         emit LockCancelled(lockId, msg.sender, data);
         emit ZetoLockCancelled(
@@ -581,9 +593,7 @@ abstract contract ZetoFungible is
      *      flipped to `SPENT` and `_utxoDelegates[X]` is cleared in the
      *      consume path).
      */
-    function locked(
-        uint256 utxo
-    ) public view override returns (bool, address) {
+    function locked(uint256 utxo) public view override returns (bool, address) {
         if (!_storage.locked(utxo)) {
             return (false, address(0));
         }

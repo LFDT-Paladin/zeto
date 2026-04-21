@@ -19,7 +19,7 @@ import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Ini
 import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import {Clones} from "@openzeppelin/contracts/proxy/Clones.sol";
-import {IZetoInitializable} from "./lib/interfaces/izeto_initializable.sol";
+import {IZetoInitializable} from "./lib/interfaces/IZetoInitializable.sol";
 
 contract ZetoTokenFactoryUpgradeable is
     Initializable,

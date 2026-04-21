@@ -17,7 +17,7 @@ pragma solidity ^0.8.27;
 
 import {ZetoFungibleBase} from "./lib/zeto_fungible_base.sol";
 import {Commonlib} from "./lib/common/common.sol";
-import {IZetoInitializable} from "./lib/interfaces/izeto_initializable.sol";
+import {IZetoInitializable} from "./lib/interfaces/IZetoInitializable.sol";
 import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 
 /// @title A sample implementation of a Zeto based fungible token with anonymity and no encryption

@@ -15,8 +15,8 @@
 // limitations under the License.
 pragma solidity ^0.8.27;
 
-import {IZetoConstants, MAX_SMT_DEPTH} from "../interfaces/izeto.sol";
-import {IZetoStorage} from "../interfaces/izeto_storage.sol";
+import {IZetoConstants, MAX_SMT_DEPTH} from "../interfaces/IZeto.sol";
+import {IZetoStorage} from "../interfaces/IZetoStorage.sol";
 import {Commonlib} from "../common/common.sol";
 import {Util} from "../common/util.sol";
 import {SmtLib} from "@iden3/contracts/lib/SmtLib.sol";

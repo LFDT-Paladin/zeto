@@ -15,7 +15,7 @@
 // limitations under the License.
 pragma solidity ^0.8.27;
 
-import {IGroth16Verifier} from "./izeto_verifier.sol";
+import {IGroth16Verifier} from "./IZetoVerifier.sol";
 
 interface IZetoInitializable {
     struct VerifiersInfo {
