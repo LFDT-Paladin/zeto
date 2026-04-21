@@ -139,14 +139,10 @@ contract NullifierStorage is BaseStorage {
 
     // check the existence of a UTXO in either the unlocked or locked commitments storage
     function exists(uint256 utxo) internal view returns (bool) {
-        bool existsInTree = everExistedAsUnlocked(utxo);
-        if (!existsInTree) {
-            (bool existsInLockedTree, address currentDelegate) = existsAsLocked(
-                utxo
-            );
-            return existsInLockedTree;
+        if (everExistedAsUnlocked(utxo)) {
+            return true;
         }
-        return true;
+        return existsAsLocked(utxo);
     }
 
     // check the existence of a UTXO in the commitments tree. we take a shortcut
@@ -159,14 +155,10 @@ contract NullifierStorage is BaseStorage {
         return node.nodeType != SmtLib.NodeType.EMPTY;
     }
 
-    function existsAsLocked(
-        uint256 utxo
-    ) internal view returns (bool, address) {
-        (bool locked, address delegate) = super.locked(utxo);
-        if (locked) {
-            return (true, delegate);
+    function existsAsLocked(uint256 utxo) internal view returns (bool) {
+        if (super.locked(utxo)) {
+            return true;
         }
-        bool known = super.spent(utxo) != UTXOStatus.UNKNOWN;
-        return (known, address(0));
+        return super.spent(utxo) != UTXOStatus.UNKNOWN;
     }
 }
