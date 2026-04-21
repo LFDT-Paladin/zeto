@@ -14,7 +14,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { ethers, network } from "hardhat";
+import { ethers, network, upgrades } from "hardhat";
 import {
   Signer,
   BigNumberish,
@@ -110,6 +110,54 @@ describe("Zeto based fungible token with anonymity without encryption or nullifi
     await expect(doMint(zeto, Alice.signer, [utxo1, utxo2])).to.be.rejectedWith(
       "OwnableUnauthorizedAccount",
     );
+  });
+
+  // H-2: implementation contracts must be initialization-locked so an
+  // attacker cannot call initialize() directly on the impl, become its
+  // owner, and then upgradeTo(any) via _authorizeUpgrade (the OZ
+  // "implementation takeover" pattern, CVE-2022-35961 family). We test
+  // against the *actual deployed* implementation (read from the EIP-1967
+  // impl slot on the proxy) so this asserts the production deployment
+  // path produces a locked impl, not just that a redeployed contract
+  // would be locked.
+  it("initialize() reverts on the bare Zeto_Anon implementation contract", async function () {
+    const implAddress = await upgrades.erc1967.getImplementationAddress(
+      await zeto.getAddress(),
+    );
+    const impl = await ethers.getContractAt("Zeto_Anon", implAddress);
+    await expect(
+      impl.initialize("Z", "Z", await Alice.signer.getAddress(), {
+        verifier: ZeroAddress,
+        depositVerifier: ZeroAddress,
+        withdrawVerifier: ZeroAddress,
+        lockVerifier: ZeroAddress,
+        burnVerifier: ZeroAddress,
+        batchVerifier: ZeroAddress,
+        batchWithdrawVerifier: ZeroAddress,
+        batchLockVerifier: ZeroAddress,
+        batchBurnVerifier: ZeroAddress,
+      }),
+    ).to.be.revertedWithCustomError(impl, "InvalidInitialization");
+  });
+
+  it("initialize() reverts on the bare Zeto_AnonBurnable implementation contract", async function () {
+    const implAddress = await upgrades.erc1967.getImplementationAddress(
+      await zetoBurnable.getAddress(),
+    );
+    const impl = await ethers.getContractAt("Zeto_AnonBurnable", implAddress);
+    await expect(
+      impl.initialize("Z", "Z", await Alice.signer.getAddress(), {
+        verifier: ZeroAddress,
+        depositVerifier: ZeroAddress,
+        withdrawVerifier: ZeroAddress,
+        lockVerifier: ZeroAddress,
+        burnVerifier: ZeroAddress,
+        batchVerifier: ZeroAddress,
+        batchWithdrawVerifier: ZeroAddress,
+        batchLockVerifier: ZeroAddress,
+        batchBurnVerifier: ZeroAddress,
+      }),
+    ).to.be.revertedWithCustomError(impl, "InvalidInitialization");
   });
 
   describe("batch transfers", () => {
