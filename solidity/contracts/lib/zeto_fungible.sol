@@ -17,7 +17,7 @@ pragma solidity ^0.8.27;
 
 import {IGroth16Verifier} from "./interfaces/izeto_verifier.sol";
 import {IZetoInitializable} from "./interfaces/izeto_initializable.sol";
-import {IZetoLockableCapability} from "./interfaces/izeto_lockable_capability.sol";
+import {IZetoLockableCapability} from "./interfaces/IZetoLockableCapability.sol";
 import {Commonlib} from "./common/common.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {ReentrancyGuardUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
@@ -63,7 +63,25 @@ abstract contract ZetoFungible is
     }
 
     mapping(bytes32 => ZetoLockInfo) internal _locks;
-    mapping(bytes32 => bool) internal _txIds;
+    // Replay-protection map for caller-supplied txIds, keyed by (sender, txId).
+    // Keying by txId alone would let any observer of the mempool front-run a
+    // victim's lock-lifecycle call by submitting a tiny tx that reserves the
+    // same global txId, causing the victim's tx to revert with
+    // DuplicateTransaction. Per-sender keying preserves replay protection
+    // for the legitimate caller while making the reservation collision-free
+    // across senders. Combined with _computeLockId =
+    // keccak256(address(this), msg.sender, txId), this also guarantees
+    // lockIds derived from createLock are globally unique per-sender.
+    mapping(address => mapping(bytes32 => bool)) internal _txIds;
+
+    /// @dev Reserved storage to allow new state variables to be added in
+    ///      future upgrades of this contract without shifting the storage
+    ///      layout of inheriting contracts (e.g. ZetoFungibleNullifier and
+    ///      its concrete implementations). Sized at 50 slots, matching the
+    ///      OpenZeppelin upgradeable convention. When a new state variable
+    ///      is added to ZetoFungible, decrement the gap by the equivalent
+    ///      number of slots so that descendants' layouts remain stable.
+    uint256[50] private __gap;
 
     modifier lockActive(bytes32 lockId) {
         if (_locks[lockId].owner == address(0)) {
@@ -81,10 +99,10 @@ abstract contract ZetoFungible is
     }
 
     function _useTxId(bytes32 txId) internal {
-        if (_txIds[txId]) {
+        if (_txIds[msg.sender][txId]) {
             revert DuplicateTransaction(txId);
         }
-        _txIds[txId] = true;
+        _txIds[msg.sender][txId] = true;
     }
 
     function _checkDelegate(uint256[] memory utxos) internal view {
@@ -422,13 +440,7 @@ abstract contract ZetoFungible is
 
     function getLockContent(
         bytes32 lockId
-    )
-        external
-        view
-        override
-        lockActive(lockId)
-        returns (bytes memory content)
-    {
+    ) external view override lockActive(lockId) returns (bytes memory content) {
         return abi.encode(_locks[lockId].lockedInputs);
     }
 
@@ -465,7 +477,12 @@ abstract contract ZetoFungible is
         (
             uint256[] memory publicInputs,
             Commonlib.Proof memory proofStruct
-        ) = constructPublicInputs(paddedInputs, paddedOutputs, args.proof, false);
+        ) = constructPublicInputs(
+                paddedInputs,
+                paddedOutputs,
+                args.proof,
+                false
+            );
 
         bool isBatch = (paddedInputs.length > 2 ||
             args.outputs.length > 2 ||

@@ -161,6 +161,10 @@ describe("Zeto based fungible token with anonymity using nullifiers without encr
     });
 
     it("Alice transfers some UTXOs to Bob and Charlie", async function () {
+      // Batched proof generation routinely runs ~38–40s on a warm machine;
+      // the mocha default of 40s flakes on cold starts. Mirror the explicit
+      // timeout already used for the batch-withdraw it() below.
+      this.timeout(60000);
       // Alice generates inclusion proofs for the UTXOs to be spent
       let root = await smtAlice.root();
       const mtps = [];
