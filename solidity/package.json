@@ -29,7 +29,7 @@
     "zeto-js": "file:../zkp/js"
   },
   "dependencies": {
-    "@iden3/contracts": "git+https://github.com/kaleido-io/contracts.git#keccak256",
+    "@iden3/contracts": "file:/Users/jimzhang/workspace.paladin/kaleido-io/contracts",
     "@openzeppelin/contracts": "^5.1.0",
     "@openzeppelin/contracts-upgradeable": "^5.0.2",
     "@openzeppelin/hardhat-upgrades": "^3.2.1",

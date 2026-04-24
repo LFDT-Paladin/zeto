@@ -658,7 +658,7 @@ describe("Zeto based fungible token with anonymity using nullifiers and encrypti
             encodeToBytesForDeposit(encodedProof),
             "0x",
           ),
-      ).to.be.rejectedWith("Invalid proof");
+      ).to.be.rejectedWith("VM Exception while processing transaction: reverted with custom error 'InvalidProof()'");
     });
   });
 

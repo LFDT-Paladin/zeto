@@ -157,20 +157,4 @@ abstract contract ZetoFungibleNullifier is ZetoFungible {
     ) internal pure {
         publicInputs[startIndex] = output;
     }
-
-    // This function is used to burn the owner's UTXOs
-    function _burn(
-        uint256[] memory nullifiers,
-        uint256 output,
-        uint256 root,
-        bytes calldata data
-    ) internal virtual {
-        validateInputs(nullifiers, false);
-        uint256[] memory outputStates = new uint256[](1);
-        outputStates[0] = output;
-        validateOutputs(outputStates);
-        validateRoot(root);
-
-        emit UTXOBurn(nullifiers, output, msg.sender, data);
-    }
 }
