@@ -25,16 +25,20 @@ const VerifierModule = buildModule(
   },
 );
 
-const LockVerifierModule = buildModule(
-  "Groth16Verifier_NfAnonNullifierTransferLocked",
-  (m) => {
-    const verifier = m.contract(
-      "Groth16Verifier_NfAnonNullifierTransferLocked",
-      [],
-    );
-    return { verifier };
-  },
-);
+// Locked-input transition for the NF nullifier token reuses the simple
+// {Groth16Verifier_NfAnon} verifier, mirroring how Zeto_AnonNullifier
+// reuses {Groth16Verifier_Anon} for its lock path. In the new
+// {ILockableCapability} architecture the locked-UTXO ledger is a flat
+// mapping (no Merkle tree, no per-UTXO delegate SMT), so the proof for
+// a locked-input spend collapses to the same `[input, output]` shape as
+// the non-nullifier NF transfer. The historical
+// `Groth16Verifier_NfAnonNullifierTransferLocked` (which baked the
+// locked-SMT inclusion + delegate-binding into the proof) is no longer
+// needed and intentionally not deployed.
+const LockVerifierModule = buildModule("Groth16Verifier_NfAnon", (m) => {
+  const verifier = m.contract("Groth16Verifier_NfAnon", []);
+  return { verifier };
+});
 
 export default buildModule("Zeto_NfAnonNullifier", (m) => {
   const { smtLib, poseidon2, poseidon3 } = m.useModule(SmtLibModule);

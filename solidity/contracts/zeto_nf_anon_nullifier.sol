@@ -33,11 +33,20 @@ import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/U
 ///        - The nullifier represents an input commitment included in a Sparse Merkle Tree represented by the root hash.
 ///        - The output UTXO commitment is well-formed.
 ///
-///      The lock lifecycle from the historical {IZetoLockable} stack
-///      is not ported in this revival; see {ZetoNonFungible} for the
-///      rationale. Public-inputs layout is therefore the simpler
-///      `[nullifier, root, output]` triple — no `inputsLocked` branch
-///      and no `msg.sender` binding.
+///      Two public-inputs layouts are produced depending on whether the
+///      transition is consuming an unlocked input (a nullifier proven
+///      against the unlocked-commitments SMT) or a locked input (a raw
+///      UTXO hash whose locked status is verified by the storage layer
+///      itself):
+///        - unlocked: `[nullifier, root, output]` -> verified by
+///          {Groth16Verifier_NfAnonNullifierTransfer}.
+///        - locked:   `[input, output]`           -> verified by the
+///          simpler {Groth16Verifier_NfAnon}.
+///      This mirrors how {Zeto_AnonNullifier} reuses the non-nullifier
+///      verifier for its lock path. The locked branch does not require
+///      a Merkle inclusion proof because the contract has already
+///      validated the input via {NullifierStorage.validateInputs} (it
+///      defers to {BaseStorage.validateInputs} when `inputsLocked`).
 contract Zeto_NfAnonNullifier is ZetoNonFungibleNullifier, UUPSUpgradeable {
     /// @dev Reserved storage gap for upgrade safety.
     uint256[50] private __gap;
@@ -59,21 +68,39 @@ contract Zeto_NfAnonNullifier is ZetoNonFungibleNullifier, UUPSUpgradeable {
 
     function _authorizeUpgrade(address) internal override onlyOwner {}
 
-    /// @dev Public-inputs layout: [nullifier, root, output]. Root
-    ///      validation happens here (mirroring {Zeto_AnonNullifier}) so
-    ///      that {validateTransactionProposal} does not need to
-    ///      pre-decode the proof for that purpose.
+    /// @dev Public-inputs layout depends on `inputsLocked`:
+    ///        - !inputsLocked: `[nullifier, root, output]` paired with the
+    ///          `nf_anon_nullifier_transfer` circuit. The proof carries
+    ///          `(uint256 root, Commonlib.Proof)`; the root is decoded
+    ///          and validated here so that `validateTransactionProposal`
+    ///          does not need to pre-decode the proof.
+    ///        - inputsLocked:  `[input, output]` paired with the simpler
+    ///          `nf_anon` circuit. No root: the storage layer has
+    ///          already verified the input is in `_lockedUtxos`, so we
+    ///          do not re-prove inclusion in a locked-SMT. The proof
+    ///          payload is just `Commonlib.Proof`.
     function constructPublicInputs(
-        uint256[] memory nullifiers,
+        uint256[] memory inputs,
         uint256[] memory outputs,
         bytes memory proof,
-        bool /* inputsLocked */
+        bool inputsLocked
     )
         internal
         view
         override
         returns (uint256[] memory, Commonlib.Proof memory)
     {
+        if (inputsLocked) {
+            Commonlib.Proof memory proofStruct = abi.decode(
+                proof,
+                (Commonlib.Proof)
+            );
+            uint256[] memory publicInputs = new uint256[](2);
+            publicInputs[0] = inputs[0];
+            publicInputs[1] = outputs[0];
+            return (publicInputs, proofStruct);
+        }
+
         (uint256 root, Commonlib.Proof memory proofStruct) = abi.decode(
             proof,
             (uint256, Commonlib.Proof)
@@ -81,7 +108,7 @@ contract Zeto_NfAnonNullifier is ZetoNonFungibleNullifier, UUPSUpgradeable {
         validateRoot(root);
 
         uint256[] memory publicInputs = new uint256[](3);
-        publicInputs[0] = nullifiers[0];
+        publicInputs[0] = inputs[0];
         publicInputs[1] = root;
         publicInputs[2] = outputs[0];
         return (publicInputs, proofStruct);
