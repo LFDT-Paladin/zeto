@@ -86,6 +86,14 @@ jobs:
           npm install
           npm run test:e2e
 
+      - name: Checkout Zeto
+        uses: actions/checkout@v4
+        with:
+          repository: https://github.com/kaleido-io/contracts.git
+          ref: keccak256
+          path: contracts
+          fetch-depth: 0
+
       - name: Run Zeto Tokens hardhat tests as upgradeable contracts
         env:
           PROVING_KEYS_ROOT: ${{ runner.temp }}/zeto-artifacts
