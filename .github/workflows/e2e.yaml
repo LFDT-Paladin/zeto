@@ -89,7 +89,7 @@ jobs:
       - name: Checkout Zeto
         uses: actions/checkout@v4
         with:
-          repository: https://github.com/kaleido-io/contracts.git
+          repository: kaleido-io/contracts
           ref: keccak256
           path: contracts
           fetch-depth: 0
