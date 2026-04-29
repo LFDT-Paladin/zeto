@@ -43,9 +43,6 @@
     "nf_anon_nullifier_transfer": {
       "ptau": "powersOfTau28_hez_final_16"
     },
-    "nf_anon_nullifier_transferLocked": {
-      "ptau": "powersOfTau28_hez_final_16"
-    },
     "deposit": {
       "ptau": "powersOfTau28_hez_final_11"
     },

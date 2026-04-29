@@ -22,9 +22,6 @@ import (
 	"time"
 
 	"github.com/LFDT-Paladin/smt/pkg/crypto"
-	"github.com/LFDT-Paladin/smt/pkg/sparse-merkle-tree/node"
-	"github.com/LFDT-Paladin/smt/pkg/sparse-merkle-tree/smt"
-	"github.com/LFDT-Paladin/smt/pkg/utxo"
 	"github.com/LFDT-Paladin/zeto/go-sdk/integration-test/common"
 	"github.com/iden3/go-iden3-crypto/poseidon"
 	"github.com/iden3/go-rapidsnark/prover"
@@ -67,72 +64,12 @@ func (s *E2ETestSuite) TestZeto_anon_nullifier_SuccessfulProving() {
 	assert.Equal(s.T(), 7, len(proof.PubSignals))
 }
 
-func (s *E2ETestSuite) TestZeto_anon_nullifier_locked_SuccessfulProving() {
-	// s.T().Skip()
-	calc, provingKey, _, err := common.LoadCircuit("anon_nullifier_transferLocked")
-	assert.NoError(s.T(), err)
-	assert.NotNil(s.T(), calc)
-
-	senderEthAddress, ok := new(big.Int).SetString("5d093e9b41911be5f5c4cf91b108bac5d130fa83", 16)
-	assert.True(s.T(), ok)
-	_, db, _, _ := common.NewSqliteStorage(s.T())
-	hasher := utxo.NewPoseidonHasher()
-	ctx := s.T().Context()
-	mt, err := smt.NewMerkleTree(ctx, db, common.MAX_HEIGHT)
-	assert.NoError(s.T(), err)
-
-	for i, value := range s.regularTest.InputValues {
-		utxo := node.NewFungible(value, s.sender.PublicKey, s.regularTest.InputSalts[i], hasher)
-		n, err := node.NewLeafNode(utxo, senderEthAddress)
-		assert.NoError(s.T(), err)
-		err = mt.AddLeaf(ctx, n)
-		assert.NoError(s.T(), err)
-	}
-
-	proofs, _, err := mt.GenerateProofs(ctx, s.regularTest.InputCommitments, nil)
-	assert.NoError(s.T(), err)
-	proofSiblingsArray := make([][]*big.Int, 0, len(proofs))
-	for i, proof := range proofs {
-		input := s.regularTest.InputCommitments[i]
-		circomProof, err := proof.ToCircomVerifierProof(input, senderEthAddress, mt.Root(), common.MAX_HEIGHT)
-		assert.NoError(s.T(), err)
-		proofSiblings := make([]*big.Int, len(circomProof.Siblings)-1)
-		for j, s := range circomProof.Siblings[0 : len(circomProof.Siblings)-1] {
-			proofSiblings[j] = s.BigInt()
-		}
-		proofSiblingsArray = append(proofSiblingsArray, proofSiblings)
-	}
-
-	witnessInputs := map[string]interface{}{
-		"nullifiers":            s.regularTest.Nullifiers,
-		"inputCommitments":      s.regularTest.InputCommitments,
-		"inputValues":           s.regularTest.InputValues,
-		"inputSalts":            s.regularTest.InputSalts,
-		"inputOwnerPrivateKey":  s.sender.PrivateKeyBigInt,
-		"root":                  mt.Root().BigInt(),
-		"merkleProof":           proofSiblingsArray,
-		"enabled":               s.regularTest.Enabled,
-		"outputCommitments":     s.regularTest.OutputCommitments,
-		"outputValues":          s.regularTest.OutputValues,
-		"outputSalts":           s.regularTest.OutputSalts,
-		"outputOwnerPublicKeys": s.regularTest.OutputOwnerPublicKeys,
-		"lockDelegate":          senderEthAddress,
-	}
-
-	startTime := time.Now()
-	witnessBin, err := calc.CalculateWTNSBin(witnessInputs, true)
-	assert.NoError(s.T(), err)
-	assert.NotNil(s.T(), witnessBin)
-
-	proof, err := prover.Groth16Prover(provingKey, witnessBin)
-	elapsedTime := time.Since(startTime)
-	fmt.Printf("Proving time: %s\n", elapsedTime)
-	assert.NoError(s.T(), err)
-	assert.Equal(s.T(), 3, len(proof.Proof.A))
-	assert.Equal(s.T(), 3, len(proof.Proof.B))
-	assert.Equal(s.T(), 3, len(proof.Proof.C))
-	assert.Equal(s.T(), 8, len(proof.PubSignals))
-}
+// The locked-input transfer flow no longer has its own dedicated circuit:
+// under the new {ILockableCapability} architecture, locked UTXOs live in a
+// flat per-lock mapping (no SMT, no nullifiers), so settling a lock now
+// verifies against the simpler `anon` circuit. Proving against `anon` is
+// already covered by `e2e_anon_test.go` (TestZeto_anon_SuccessfulProving),
+// so we no longer need a dedicated `_locked` integration test here.
 
 func (s *E2ETestSuite) TestZeto_anon_nullifier_batch_SuccessfulProving() {
 	// s.T().Skip()
