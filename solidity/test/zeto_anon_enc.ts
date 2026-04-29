@@ -75,6 +75,12 @@ describe("Zeto based fungible token with anonymity and encryption", function () 
   let batchCircuit: any, batchProvingKey: any;
 
   before(async function () {
+    // skip the tests if this file is being imported from another test
+    // module solely to access its exported `prepareProof` / `encodeToBytes`
+    // helpers (mirrors the SKIP_ANON_TESTS pattern in `zeto_anon.ts`).
+    if (process.env.SKIP_ANON_ENC_TESTS === "true") {
+      this.skip();
+    }
     if (network.name !== "hardhat") {
       // accommodate for longer block times on public networks
       this.timeout(120000);
@@ -91,6 +97,12 @@ describe("Zeto based fungible token with anonymity and encryption", function () 
     ({ provingKeyFile: provingKey } = loadProvingKeys("anon_enc"));
     batchCircuit = await loadCircuit("anon_enc_batch");
     ({ provingKeyFile: batchProvingKey } = loadProvingKeys("anon_enc_batch"));
+  });
+
+  beforeEach(async function () {
+    if (process.env.SKIP_ANON_ENC_TESTS === "true") {
+      this.skip();
+    }
   });
 
   it("(batch) mint to Alice and batch transfer 10 UTXOs honestly to Bob & Charlie then withdraw should succeed", async function () {
@@ -1146,71 +1158,21 @@ describe("Zeto based fungible token with anonymity and encryption", function () 
     owners: User[],
     ephemeralPrivateKey: BigInt,
   ) {
-    const inputCommitments: BigNumberish[] = inputs.map(
-      (input) => input.hash,
-    ) as BigNumberish[];
-    const inputValues = inputs.map((input) => BigInt(input.value || 0n));
-    const inputSalts = inputs.map((input) => input.salt || 0n);
-    const outputCommitments: BigNumberish[] = outputs.map(
-      (output) => output.hash,
-    ) as BigNumberish[];
-    const outputValues = outputs.map((output) => BigInt(output.value || 0n));
-    const outputOwnerPublicKeys: BigNumberish[][] = owners.map(
-      (owner) => owner.babyJubPublicKey,
-    ) as BigNumberish[][];
-    const encryptionNonce: BigNumberish = newEncryptionNonce() as BigNumberish;
-    const encryptInputs = stringifyBigInts({
-      encryptionNonce,
-      ecdhPrivateKey: formatPrivKeyForBabyJub(ephemeralPrivateKey),
-    });
-
     let circuitToUse = circuit;
     let provingKeyToUse = provingKey;
-    let isBatch = false;
-    if (inputCommitments.length > 2 || outputCommitments.length > 2) {
-      isBatch = true;
+    if (inputs.length > 2 || outputs.length > 2) {
       circuitToUse = batchCircuit;
       provingKeyToUse = batchProvingKey;
     }
-    const startWitnessCalculation = Date.now();
-    const witness = await circuitToUse.calculateWTNSBin(
-      {
-        inputCommitments,
-        inputValues,
-        inputSalts,
-        inputOwnerPrivateKey: formatPrivKeyForBabyJub(signer.babyJubPrivateKey),
-        outputCommitments,
-        outputValues,
-        outputSalts: outputs.map((output) => output.salt || 0n),
-        outputOwnerPublicKeys,
-        ...encryptInputs,
-      },
-      true,
-    );
-    const timeWitnessCalculation = Date.now() - startWitnessCalculation;
-
-    const startProofGeneration = Date.now();
-    const { proof, publicSignals } = (await groth16.prove(
+    return prepareProofModule(
+      circuitToUse,
       provingKeyToUse,
-      witness,
-    )) as { proof: BigNumberish[]; publicSignals: BigNumberish[] };
-    const timeProofGeneration = Date.now() - startProofGeneration;
-    console.log(
-      `Witness calculation time: ${timeWitnessCalculation}ms, Proof generation time: ${timeProofGeneration}ms`,
+      signer,
+      inputs,
+      outputs,
+      owners,
+      ephemeralPrivateKey,
     );
-
-    // console.log(publicSignals);
-    const encodedProof = encodeProof(proof);
-    const encryptedValues = isBatch
-      ? publicSignals.slice(2, 42)
-      : publicSignals.slice(2, 10);
-    return {
-      inputCommitments,
-      outputCommitments,
-      encryptedValues,
-      encryptionNonce,
-      encodedProof,
-    };
   }
 
   async function sendTx(
@@ -1278,3 +1240,82 @@ function encodeToBytesForWithdraw(proof: any) {
     [proof],
   );
 }
+
+// Module-scope twin of the in-describe `prepareProof`. Lifted so that other
+// test suites (notably `zeto_anon_enc_nullifier.ts`) can reuse it for
+// locked-input proofs that need to verify against the `anon_enc` circuit
+// rather than a nullifier-aware encryption circuit. Mirrors the
+// {prepareProof,encodeToBytes} export pattern at the bottom of
+// `zeto_anon.ts`.
+async function prepareProofModule(
+  circuit: any,
+  provingKey: any,
+  signer: User,
+  inputs: UTXO[],
+  outputs: UTXO[],
+  owners: User[],
+  ephemeralPrivateKey: BigInt,
+) {
+  const inputCommitments: BigNumberish[] = inputs.map(
+    (input) => input.hash,
+  ) as BigNumberish[];
+  const inputValues = inputs.map((input) => BigInt(input.value || 0n));
+  const inputSalts = inputs.map((input) => input.salt || 0n);
+  const outputCommitments: BigNumberish[] = outputs.map(
+    (output) => output.hash,
+  ) as BigNumberish[];
+  const outputValues = outputs.map((output) => BigInt(output.value || 0n));
+  const outputOwnerPublicKeys: BigNumberish[][] = owners.map(
+    (owner) => owner.babyJubPublicKey,
+  ) as BigNumberish[][];
+  const encryptionNonce: BigNumberish = newEncryptionNonce() as BigNumberish;
+  const encryptInputs = stringifyBigInts({
+    encryptionNonce,
+    ecdhPrivateKey: formatPrivKeyForBabyJub(ephemeralPrivateKey),
+  });
+
+  const startWitnessCalculation = Date.now();
+  const witness = await circuit.calculateWTNSBin(
+    {
+      inputCommitments,
+      inputValues,
+      inputSalts,
+      inputOwnerPrivateKey: formatPrivKeyForBabyJub(signer.babyJubPrivateKey),
+      outputCommitments,
+      outputValues,
+      outputSalts: outputs.map((output) => output.salt || 0n),
+      outputOwnerPublicKeys,
+      ...encryptInputs,
+    },
+    true,
+  );
+  const timeWitnessCalculation = Date.now() - startWitnessCalculation;
+
+  const startProofGeneration = Date.now();
+  const { proof, publicSignals } = (await groth16.prove(
+    provingKey,
+    witness,
+  )) as { proof: BigNumberish[]; publicSignals: BigNumberish[] };
+  const timeProofGeneration = Date.now() - startProofGeneration;
+  console.log(
+    `Witness calculation time: ${timeWitnessCalculation}ms, Proof generation time: ${timeProofGeneration}ms`,
+  );
+
+  // The encryption circuit emits 4 encrypted-values per output commitment
+  // (poseidon-cipher chunked into 4 field elements). publicSignals[0..2]
+  // are the ECDH public key, so the encrypted blob starts at index 2.
+  const encryptedValues = publicSignals.slice(2, 2 + 4 * outputs.length);
+  const encodedProof = encodeProof(proof);
+  return {
+    inputCommitments,
+    outputCommitments,
+    encryptedValues,
+    encryptionNonce,
+    encodedProof,
+  };
+}
+
+module.exports = {
+  prepareProof: prepareProofModule,
+  encodeToBytes,
+};
