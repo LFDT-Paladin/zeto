@@ -39,8 +39,17 @@ export async function deployDependencies() {
         withdrawVerifier: withdrawVerifier.target,
         batchVerifier: batchVerifier.target,
         batchWithdrawVerifier: batchWithdrawVerifier.target,
-        lockVerifier: "0x0000000000000000000000000000000000000000",
-        batchLockVerifier: "0x0000000000000000000000000000000000000000",
+        // Same rationale as `Zeto_Anon`: the encryption-aware
+        // {Zeto_AnonEnc.constructPublicInputs} ignores `inputsLocked`
+        // and emits an identical public-input layout (ecdhPublicKey ++
+        // encryptedValues ++ inputs ++ outputs ++ encryptionNonce) for
+        // both the regular `transfer` flow and the locked-input flow
+        // driven by `spendLock`/`cancelLock`. We therefore wire the
+        // lockVerifier slots to the same Groth16 verifier as the
+        // unlocked path so {ZetoCommon.verifyProof} routes locked-input
+        // proofs to the encryption circuit's verifier.
+        lockVerifier: verifier.target,
+        batchLockVerifier: batchVerifier.target,
         burnVerifier: "0x0000000000000000000000000000000000000000",
         batchBurnVerifier: "0x0000000000000000000000000000000000000000",
       },
