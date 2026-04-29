@@ -61,27 +61,8 @@ abstract contract ZetoFungible is ZetoLockable, ReentrancyGuardUpgradeable {
     ///      from under existing UTXOs.
     error ERC20AlreadySet(address current);
 
-    // _depositVerifier library for checking UTXOs against a claimed
-    // value. this can be used in the optional deposit calls to verify
-    // that the UTXOs match the deposited value
-    IGroth16Verifier internal _depositVerifier;
-    // nullifierVerifier library for checking nullifiers against a
-    // claimed value. this can be used in the optional withdraw calls to
-    // verify that the nullifiers match the withdrawn value
-    IGroth16Verifier internal _withdrawVerifier;
-    IGroth16Verifier internal _batchWithdrawVerifier;
-
-    IERC20 internal _erc20;
-
-    /// @dev Reserved storage to allow new state variables to be added
-    ///      in future upgrades of this contract without shifting the
-    ///      storage layout of inheriting contracts (e.g.
-    ///      {ZetoFungibleNullifier} and its concrete implementations).
-    ///      Sized at 50 slots, matching the OpenZeppelin upgradeable
-    ///      convention. When a new state variable is added to
-    ///      ZetoFungible, decrement the gap by the equivalent number of
-    ///      slots so descendants' layouts remain stable.
-    uint256[50] private __gap;
+    /// @dev Deposit / withdraw verifiers and ERC20 pairing live in
+    ///      {ZetoFungibleStorage} (ERC-7201 namespace `zeto.storage.ZetoFungible`).
 
     /// @dev Initializer should only ever be called from a derived
     ///      contract's own `initializer`-guarded entrypoint, so the
@@ -96,9 +77,10 @@ abstract contract ZetoFungible is ZetoLockable, ReentrancyGuardUpgradeable {
     ) internal onlyInitializing {
         __ZetoCommon_init(name_, symbol_, initialOwner, verifiers, storage_);
         __ReentrancyGuard_init();
-        _depositVerifier = verifiers.depositVerifier;
-        _withdrawVerifier = verifiers.withdrawVerifier;
-        _batchWithdrawVerifier = verifiers.batchWithdrawVerifier;
+        ZetoFungibleStorage.Layout storage $ = ZetoFungibleStorage.layout();
+        $.depositVerifier = verifiers.depositVerifier;
+        $.withdrawVerifier = verifiers.withdrawVerifier;
+        $.batchWithdrawVerifier = verifiers.batchWithdrawVerifier;
     }
 
     /**
@@ -121,10 +103,11 @@ abstract contract ZetoFungible is ZetoLockable, ReentrancyGuardUpgradeable {
         if (address(erc20) == address(0)) {
             revert ZeroERC20Address();
         }
-        if (address(_erc20) != address(0)) {
-            revert ERC20AlreadySet(address(_erc20));
+        ZetoFungibleStorage.Layout storage $ = ZetoFungibleStorage.layout();
+        if (address($.erc20Token) != address(0)) {
+            revert ERC20AlreadySet(address($.erc20Token));
         }
-        _erc20 = erc20;
+        $.erc20Token = erc20;
         emit ERC20Set(address(erc20));
     }
 
@@ -302,7 +285,7 @@ abstract contract ZetoFungible is ZetoLockable, ReentrancyGuardUpgradeable {
             Commonlib.Proof memory proofStruct
         ) = constructPublicInputsForDeposit(amount, outputs, proof);
         if (
-            !_depositVerifier.verify(
+            !ZetoFungibleStorage.layout().depositVerifier.verify(
                 proofStruct.pA,
                 proofStruct.pB,
                 proofStruct.pC,
@@ -324,7 +307,11 @@ abstract contract ZetoFungible is ZetoLockable, ReentrancyGuardUpgradeable {
         // SafeERC20 handles non-standard tokens that return no value on
         // success and reverts cleanly when the underlying call fails or
         // returns false.
-        _erc20.safeTransferFrom(msg.sender, address(this), amount);
+        ZetoFungibleStorage.layout().erc20Token.safeTransferFrom(
+            msg.sender,
+            address(this),
+            amount
+        );
     }
 
     /**
@@ -372,9 +359,10 @@ abstract contract ZetoFungible is ZetoLockable, ReentrancyGuardUpgradeable {
                 output,
                 proof
             );
+        ZetoFungibleStorage.Layout storage $ = ZetoFungibleStorage.layout();
         IGroth16Verifier verifier = (inputs.length > 2)
-            ? _batchWithdrawVerifier
-            : _withdrawVerifier;
+            ? $.batchWithdrawVerifier
+            : $.withdrawVerifier;
         if (
             !verifier.verify(
                 proofStruct.pA,
@@ -397,7 +385,10 @@ abstract contract ZetoFungible is ZetoLockable, ReentrancyGuardUpgradeable {
         // SafeERC20 handles non-standard tokens that return no value on
         // success and reverts cleanly when the underlying call fails or
         // returns false.
-        _erc20.safeTransfer(msg.sender, amount);
+        ZetoFungibleStorage.layout().erc20Token.safeTransfer(
+            msg.sender,
+            amount
+        );
 
         // Emitted after the transfer so that the on-chain event order
         // remains ERC20.Transfer → UTXOWithdraw, matching listeners and
@@ -478,5 +469,25 @@ abstract contract ZetoFungible is ZetoLockable, ReentrancyGuardUpgradeable {
         publicInputs[piIndex++] = output;
 
         return (publicInputs, proofStruct);
+    }
+}
+
+/// @dev ERC-7201 (`erc7201:zeto.storage.ZetoFungible`): deposit/withdraw verifiers
+///      and ERC20 pairing for this abstract contract.
+library ZetoFungibleStorage {
+    struct Layout {
+        IGroth16Verifier depositVerifier;
+        IGroth16Verifier withdrawVerifier;
+        IGroth16Verifier batchWithdrawVerifier;
+        IERC20 erc20Token;
+    }
+
+    bytes32 private constant STORAGE_LOCATION =
+        0x502fd05a4212f6b786ff372127438db29bf1c676e6268e59ca1feb2fae998d00;
+
+    function layout() internal pure returns (Layout storage $) {
+        assembly {
+            $.slot := STORAGE_LOCATION
+        }
     }
 }

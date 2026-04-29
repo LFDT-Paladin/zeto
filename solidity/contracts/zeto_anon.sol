@@ -40,15 +40,8 @@ import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/U
 /// @notice Decimals: this token uses **4** decimals, inherited from
 ///         {ZetoCommon.decimals}. Indexers and UIs reading this contract
 ///         directly should treat balances accordingly.
+/// @custom:storage erc7201:zeto.storage.Zeto_Anon — extend {ZetoAnonStorage.Layout} on upgrade (library below).
 contract Zeto_Anon is ZetoFungibleBase, UUPSUpgradeable {
-    /// @dev Reserved storage to allow new state variables to be added in
-    ///      future upgrades of this contract. Even though Zeto_Anon is a
-    ///      concrete (leaf) contract today, reserving a gap keeps the door
-    ///      open for further specialization (e.g. embedding a burnable or
-    ///      encrypted variant in a derived contract) without breaking
-    ///      storage compatibility for live deployments.
-    uint256[50] private __gap;
-
     /// @dev Lock the implementation contract on construction so that
     ///      {initialize} can only ever run on a proxy. Without this,
     ///      anyone could call {initialize} directly on the deployed
@@ -121,5 +114,21 @@ contract Zeto_Anon is ZetoFungibleBase, UUPSUpgradeable {
         }
 
         return (publicInputs, proofStruct);
+    }
+}
+
+/// @dev ERC-7201 (`erc7201:zeto.storage.Zeto_Anon`): reserved for leaf-only state.
+library ZetoAnonStorage {
+    struct Layout {
+        uint256 __reserved;
+    }
+
+    bytes32 private constant STORAGE_LOCATION =
+        0x55dc1d3a15de9f45cbdb6ca703ca412b79d40234f2782d90869f053dd2e9ef00;
+
+    function layout() internal pure returns (Layout storage $) {
+        assembly {
+            $.slot := STORAGE_LOCATION
+        }
     }
 }
