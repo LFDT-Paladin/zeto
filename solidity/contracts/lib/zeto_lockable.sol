@@ -17,7 +17,7 @@ pragma solidity ^0.8.27;
 
 import {IZetoLockableCapability} from "./interfaces/IZetoLockableCapability.sol";
 import {Commonlib} from "./common/common.sol";
-import {ZetoCommon} from "./zeto_common.sol";
+import {ZetoCommon, ZetoCommonStorage} from "./zeto_common.sol";
 
 /// @title ZetoLockable
 /// @author Kaleido, Inc.
@@ -45,67 +45,18 @@ import {ZetoCommon} from "./zeto_common.sol";
 ///      virtual in this mixin lets both flavours share every other
 ///      moving piece of the lock lifecycle.
 abstract contract ZetoLockable is ZetoCommon, IZetoLockableCapability {
-    /// @dev Stored lock state, indexed by lockId.
-    struct ZetoLockInfo {
-        address owner;
-        address spender;
-        bytes32 spendCommitment;
-        bytes32 cancelCommitment;
-        // The locked content: the lockedOutputs from createLock, which
-        // become the locked inputs for spendLock/cancelLock.
-        uint256[] lockedInputs;
-    }
-
-    mapping(bytes32 => ZetoLockInfo) internal _locks;
-
-    /// @dev Replay-protection map for caller-supplied txIds, keyed by
-    ///      `(sender, txId)`. Keying by txId alone would let any
-    ///      observer of the mempool front-run a victim's lock-lifecycle
-    ///      call by submitting a tiny tx that reserves the same global
-    ///      txId, causing the victim's tx to revert with
-    ///      {DuplicateTransaction}. Per-sender keying preserves replay
-    ///      protection for the legitimate caller while making the
-    ///      reservation collision-free across senders. Combined with
-    ///      `_computeLockId = keccak256(address(this), msg.sender,
-    ///      txId)`, this also guarantees lockIds derived from
-    ///      {createLock} are globally unique per sender.
-    mapping(address => mapping(bytes32 => bool)) internal _txIds;
-
-    /// @dev Per-UTXO spender for any locked UTXO produced by this
-    ///      contract.
-    ///
-    ///      The lock-id-keyed `_locks[lockId].spender` is the source of
-    ///      truth for which lock a spender is authorized over; this map
-    ///      is a per-UTXO projection of that information so the public
-    ///      view {locked(uint256)} can answer
-    ///      "(isLocked, currentSpender)" for an arbitrary UTXO in O(1)
-    ///      without a UTXO -> lockId reverse index. Kept in sync by
-    ///      {_setLockDelegates} (on lock creation, delegation, and any
-    ///      new locked outputs produced by a spend) and
-    ///      {_clearLockDelegates} (when locked inputs are consumed).
-    ///
-    ///      Authorization decisions MUST go through {onlySpender} /
-    ///      {_locks}, never through this map.
-    mapping(uint256 => address) internal _utxoDelegates;
-
-    /// @dev Reserved storage to allow new state variables to be added
-    ///      in future upgrades without shifting the storage layout of
-    ///      inheriting contracts. Sized at 50 slots, matching the
-    ///      OpenZeppelin upgradeable convention. When a new state
-    ///      variable is added to ZetoLockable, decrement the gap by the
-    ///      equivalent number of slots so descendants' layouts stay
-    ///      stable.
-    uint256[50] private __gap;
+    /// @dev Lock state and replay protection live in {ZetoLockableStorage}
+    ///      (ERC-7201 namespace `zeto.storage.ZetoLockable`).
 
     modifier lockActive(bytes32 lockId) {
-        if (_locks[lockId].owner == address(0)) {
+        if (ZetoLockableStorage.layout().locks[lockId].owner == address(0)) {
             revert LockNotActive(lockId);
         }
         _;
     }
 
     modifier onlySpender(bytes32 lockId) {
-        address spender = _locks[lockId].spender;
+        address spender = ZetoLockableStorage.layout().locks[lockId].spender;
         if (spender != msg.sender) {
             revert LockUnauthorized(lockId, spender, msg.sender);
         }
@@ -113,10 +64,10 @@ abstract contract ZetoLockable is ZetoCommon, IZetoLockableCapability {
     }
 
     function _useTxId(bytes32 txId) internal {
-        if (_txIds[msg.sender][txId]) {
+        if (ZetoLockableStorage.layout().txIds[msg.sender][txId]) {
             revert DuplicateTransaction(txId);
         }
-        _txIds[msg.sender][txId] = true;
+        ZetoLockableStorage.layout().txIds[msg.sender][txId] = true;
     }
 
     /// @dev Project the lock-level spender onto each UTXO in `utxos`.
@@ -128,7 +79,7 @@ abstract contract ZetoLockable is ZetoCommon, IZetoLockableCapability {
     ) internal {
         for (uint256 i = 0; i < utxos.length; ++i) {
             if (utxos[i] != 0) {
-                _utxoDelegates[utxos[i]] = spender;
+                ZetoLockableStorage.layout().utxoDelegates[utxos[i]] = spender;
             }
         }
     }
@@ -141,7 +92,7 @@ abstract contract ZetoLockable is ZetoCommon, IZetoLockableCapability {
     function _clearLockDelegates(uint256[] memory utxos) internal {
         for (uint256 i = 0; i < utxos.length; ++i) {
             if (utxos[i] != 0) {
-                delete _utxoDelegates[utxos[i]];
+                delete ZetoLockableStorage.layout().utxoDelegates[utxos[i]];
             }
         }
     }
@@ -233,14 +184,16 @@ abstract contract ZetoLockable is ZetoCommon, IZetoLockableCapability {
         );
 
         bytes32 lockId = _computeLockId(args.txId);
-        if (_locks[lockId].owner != address(0)) {
+        if (ZetoLockableStorage.layout().locks[lockId].owner != address(0)) {
             revert DuplicateLock(lockId);
         }
         _useTxId(args.txId);
 
         _doLockTransition(args);
 
-        ZetoLockInfo storage lock = _locks[lockId];
+        ZetoLockableStorage.ZetoLockInfo storage lock = ZetoLockableStorage
+            .layout()
+            .locks[lockId];
         lock.owner = msg.sender;
         lock.spender = msg.sender;
         lock.spendCommitment = spendCommitment;
@@ -284,7 +237,9 @@ abstract contract ZetoLockable is ZetoCommon, IZetoLockableCapability {
         bytes32 cancelCommitment,
         bytes calldata data
     ) external override lockActive(lockId) {
-        ZetoLockInfo storage lock = _locks[lockId];
+        ZetoLockableStorage.ZetoLockInfo storage lock = ZetoLockableStorage
+            .layout()
+            .locks[lockId];
         // Authorization first, mutability second, so that an
         // unauthorized caller never learns about the lock's mutability
         // state via the revert reason.
@@ -334,7 +289,9 @@ abstract contract ZetoLockable is ZetoCommon, IZetoLockableCapability {
         );
         _useTxId(args.txId);
 
-        ZetoLockInfo storage lock = _locks[lockId];
+        ZetoLockableStorage.ZetoLockInfo storage lock = ZetoLockableStorage
+            .layout()
+            .locks[lockId];
         address previousSpender = lock.spender;
         lock.spender = newSpender;
 
@@ -370,8 +327,14 @@ abstract contract ZetoLockable is ZetoCommon, IZetoLockableCapability {
         // Snapshot the locked content from storage. The caller is
         // intentionally not allowed to substitute a different set of
         // locked inputs.
-        uint256[] memory lockedInputs = _locks[lockId].lockedInputs;
-        bytes32 expectedHash = _locks[lockId].spendCommitment;
+        uint256[] memory lockedInputs = ZetoLockableStorage
+            .layout()
+            .locks[lockId]
+            .lockedInputs;
+        bytes32 expectedHash = ZetoLockableStorage
+            .layout()
+            .locks[lockId]
+            .spendCommitment;
         _consumeLock(
             lockId,
             lockedInputs,
@@ -410,8 +373,14 @@ abstract contract ZetoLockable is ZetoCommon, IZetoLockableCapability {
             (ZetoSpendLockArgs)
         );
 
-        uint256[] memory lockedInputs = _locks[lockId].lockedInputs;
-        bytes32 expectedHash = _locks[lockId].cancelCommitment;
+        uint256[] memory lockedInputs = ZetoLockableStorage
+            .layout()
+            .locks[lockId]
+            .lockedInputs;
+        bytes32 expectedHash = ZetoLockableStorage
+            .layout()
+            .locks[lockId]
+            .cancelCommitment;
         _consumeLock(
             lockId,
             lockedInputs,
@@ -440,7 +409,9 @@ abstract contract ZetoLockable is ZetoCommon, IZetoLockableCapability {
     function getLock(
         bytes32 lockId
     ) external view override lockActive(lockId) returns (LockInfo memory) {
-        ZetoLockInfo storage lock = _locks[lockId];
+        ZetoLockableStorage.ZetoLockInfo storage lock = ZetoLockableStorage
+            .layout()
+            .locks[lockId];
         return
             LockInfo({
                 owner: lock.owner,
@@ -453,13 +424,14 @@ abstract contract ZetoLockable is ZetoCommon, IZetoLockableCapability {
     function isLockActive(
         bytes32 lockId
     ) external view override returns (bool) {
-        return _locks[lockId].owner != address(0);
+        return ZetoLockableStorage.layout().locks[lockId].owner != address(0);
     }
 
     function getLockContent(
         bytes32 lockId
     ) external view override lockActive(lockId) returns (bytes memory content) {
-        return abi.encode(_locks[lockId].lockedInputs);
+        return
+            abi.encode(ZetoLockableStorage.layout().locks[lockId].lockedInputs);
     }
 
     /// @inheritdoc IZetoLockableCapability
@@ -472,7 +444,7 @@ abstract contract ZetoLockable is ZetoCommon, IZetoLockableCapability {
         lockActive(lockId)
         returns (uint256[] memory lockedInputs)
     {
-        return _locks[lockId].lockedInputs;
+        return ZetoLockableStorage.layout().locks[lockId].lockedInputs;
     }
 
     /**
@@ -488,10 +460,10 @@ abstract contract ZetoLockable is ZetoCommon, IZetoLockableCapability {
      *      the consume path).
      */
     function locked(uint256 utxo) public view override returns (bool, address) {
-        if (!_storage.locked(utxo)) {
+        if (!ZetoCommonStorage.layout().utxoStorage.locked(utxo)) {
             return (false, address(0));
         }
-        return (true, _utxoDelegates[utxo]);
+        return (true, ZetoLockableStorage.layout().utxoDelegates[utxo]);
     }
 
     // ------------------------------------------------------------------
@@ -567,7 +539,7 @@ abstract contract ZetoLockable is ZetoCommon, IZetoLockableCapability {
         // `_locks[lockId]` and the per-UTXO `_utxoDelegates` projection
         // as cleared.
         _clearLockDelegates(lockedInputs);
-        delete _locks[lockId];
+        delete ZetoLockableStorage.layout().locks[lockId];
 
         _transferLocked(
             lockId,
@@ -608,5 +580,32 @@ abstract contract ZetoLockable is ZetoCommon, IZetoLockableCapability {
                     keccak256(data)
                 )
             );
+    }
+}
+
+/// @dev ERC-7201 (`erc7201:zeto.storage.ZetoLockable`): lock lifecycle state for
+///      this abstract contract.
+library ZetoLockableStorage {
+    struct ZetoLockInfo {
+        address owner;
+        address spender;
+        bytes32 spendCommitment;
+        bytes32 cancelCommitment;
+        uint256[] lockedInputs;
+    }
+
+    struct Layout {
+        mapping(bytes32 => ZetoLockInfo) locks;
+        mapping(address => mapping(bytes32 => bool)) txIds;
+        mapping(uint256 => address) utxoDelegates;
+    }
+
+    bytes32 private constant STORAGE_LOCATION =
+        0x6f84b5947db308f6274c3bdf3450b8e85913b258c3b2e7abbddf0986236a4900;
+
+    function layout() internal pure returns (Layout storage $) {
+        assembly {
+            $.slot := STORAGE_LOCATION
+        }
     }
 }

@@ -36,16 +36,10 @@ import {BaseStorage} from "./storage/base.sol";
 ///      that differs between the two siblings is the leaf token (e.g.
 ///      Zeto_Anon vs Zeto_AnonNullifier), which supplies the
 ///      circuit-specific `constructPublicInputs` implementation.
+///
+///      Future non-nullifier-only state belongs in {ZetoFungibleBaseStorage}
+///      below — append fields there on upgrade instead of `__gap`.
 abstract contract ZetoFungibleBase is ZetoFungible {
-    /// @dev Reserved storage to allow new state variables to be added in
-    ///      future upgrades of this contract without shifting the storage
-    ///      layout of inheriting contracts (e.g. Zeto_Anon and any other
-    ///      concrete non-nullifier token). Sized at 50 slots, matching the
-    ///      OpenZeppelin upgradeable convention. When a new state variable
-    ///      is added here, decrement the gap by the equivalent number of
-    ///      slots so descendants' layouts stay stable.
-    uint256[50] private __gap;
-
     function __ZetoFungibleBase_init(
         string calldata name_,
         string calldata symbol_,
@@ -54,5 +48,22 @@ abstract contract ZetoFungibleBase is ZetoFungible {
     ) internal onlyInitializing {
         IZetoStorage storage_ = new BaseStorage();
         __ZetoFungible_init(name_, symbol_, initialOwner, verifiers, storage_);
+    }
+}
+
+/// @dev ERC-7201 (`erc7201:zeto.storage.ZetoFungibleBase`): reserved for
+///      non-nullifier fungible leaf extensions.
+library ZetoFungibleBaseStorage {
+    struct Layout {
+        uint256 __reserved;
+    }
+
+    bytes32 private constant STORAGE_LOCATION =
+        0x06a87037c58e5288ef9ee2ed0d7efb7c68b30748ac0ed4d5eb8700eb60966f00;
+
+    function layout() internal pure returns (Layout storage $) {
+        assembly {
+            $.slot := STORAGE_LOCATION
+        }
     }
 }

@@ -45,24 +45,6 @@ abstract contract ZetoCommon is IZeto, Ownable2StepUpgradeable {
     ///      so callers can match a typed error in their error decoders.
     error InvalidProof();
 
-    string private _name;
-    string private _symbol;
-
-    IZetoStorage internal _storage;
-
-    IGroth16Verifier internal _verifier;
-    IGroth16Verifier internal _batchVerifier;
-    IGroth16Verifier internal _lockVerifier;
-    IGroth16Verifier internal _batchLockVerifier;
-
-    /// @dev Reserved storage to allow new state variables to be added in
-    ///      future upgrades of this contract without shifting the storage
-    ///      layout of inheriting contracts. Sized at 50 slots, matching the
-    ///      OpenZeppelin upgradeable convention. When a new state variable
-    ///      is added to ZetoCommon, decrement the gap by the equivalent
-    ///      number of slots so that descendants' layouts remain stable.
-    uint256[50] private __gap;
-
     function __ZetoCommon_init(
         string calldata name_,
         string calldata symbol_,
@@ -71,20 +53,21 @@ abstract contract ZetoCommon is IZeto, Ownable2StepUpgradeable {
         IZetoStorage storage_
     ) internal onlyInitializing {
         __Ownable_init(initialOwner);
-        _name = name_;
-        _symbol = symbol_;
-        _verifier = verifiers.verifier;
-        _lockVerifier = verifiers.lockVerifier;
-        _batchVerifier = verifiers.batchVerifier;
-        _batchLockVerifier = verifiers.batchLockVerifier;
-        _storage = storage_;
+        ZetoCommonStorage.Layout storage $ = ZetoCommonStorage.layout();
+        $.tokenName = name_;
+        $.tokenSymbol = symbol_;
+        $.verifier = verifiers.verifier;
+        $.lockVerifier = verifiers.lockVerifier;
+        $.batchVerifier = verifiers.batchVerifier;
+        $.batchLockVerifier = verifiers.batchLockVerifier;
+        $.utxoStorage = storage_;
     }
 
     /**
      * @dev Returns the name of the token.
      */
     function name() public view virtual returns (string memory) {
-        return _name;
+        return ZetoCommonStorage.layout().tokenName;
     }
 
     /**
@@ -92,7 +75,7 @@ abstract contract ZetoCommon is IZeto, Ownable2StepUpgradeable {
      * name.
      */
     function symbol() public view virtual returns (string memory) {
-        return _symbol;
+        return ZetoCommonStorage.layout().tokenSymbol;
     }
 
     /**
@@ -236,19 +219,22 @@ abstract contract ZetoCommon is IZeto, Ownable2StepUpgradeable {
         uint256[] memory inputs,
         bool inputsLocked
     ) internal view virtual {
-        _storage.validateInputs(inputs, inputsLocked);
+        ZetoCommonStorage.layout().utxoStorage.validateInputs(
+            inputs,
+            inputsLocked
+        );
     }
 
     function validateOutputs(uint256[] memory outputs) internal view virtual {
-        _storage.validateOutputs(outputs);
+        ZetoCommonStorage.layout().utxoStorage.validateOutputs(outputs);
     }
 
     function validateRoot(uint256 root) internal view virtual {
-        _storage.validateRoot(root);
+        ZetoCommonStorage.layout().utxoStorage.validateRoot(root);
     }
 
     function getRoot() public view virtual returns (uint256) {
-        return _storage.getRoot();
+        return ZetoCommonStorage.layout().utxoStorage.getRoot();
     }
 
     function processInputsAndOutputs(
@@ -264,11 +250,14 @@ abstract contract ZetoCommon is IZeto, Ownable2StepUpgradeable {
         uint256[] memory inputs,
         bool inputsLocked
     ) internal virtual {
-        _storage.processInputs(inputs, inputsLocked);
+        ZetoCommonStorage.layout().utxoStorage.processInputs(
+            inputs,
+            inputsLocked
+        );
     }
 
     function processOutputs(uint256[] memory outputs) internal virtual {
-        _storage.processOutputs(outputs);
+        ZetoCommonStorage.layout().utxoStorage.processOutputs(outputs);
     }
 
     /**
@@ -291,7 +280,9 @@ abstract contract ZetoCommon is IZeto, Ownable2StepUpgradeable {
     function processLockedOutputs(
         uint256[] memory lockedOutputs
     ) internal virtual {
-        _storage.processLockedOutputs(lockedOutputs);
+        ZetoCommonStorage.layout().utxoStorage.processLockedOutputs(
+            lockedOutputs
+        );
     }
 
     /**
@@ -309,9 +300,10 @@ abstract contract ZetoCommon is IZeto, Ownable2StepUpgradeable {
         bool isBatch,
         bool inputsLocked
     ) public view returns (bool) {
+        ZetoCommonStorage.Layout storage $ = ZetoCommonStorage.layout();
         IGroth16Verifier verifier = inputsLocked
-            ? (isBatch ? _batchLockVerifier : _lockVerifier)
-            : (isBatch ? _batchVerifier : _verifier);
+            ? (isBatch ? $.batchLockVerifier : $.lockVerifier)
+            : (isBatch ? $.batchVerifier : $.verifier);
         if (!verifier.verify(proof.pA, proof.pB, proof.pC, publicInputs)) {
             revert InvalidProof();
         }
@@ -319,7 +311,7 @@ abstract contract ZetoCommon is IZeto, Ownable2StepUpgradeable {
     }
 
     function spent(uint256 utxo) public view returns (IZetoStorage.UTXOStatus) {
-        return _storage.spent(utxo);
+        return ZetoCommonStorage.layout().utxoStorage.spent(utxo);
     }
 
     /**
@@ -333,6 +325,33 @@ abstract contract ZetoCommon is IZeto, Ownable2StepUpgradeable {
      *      spender for the lock that owns `utxo`.
      */
     function locked(uint256 utxo) public view virtual returns (bool, address) {
-        return (_storage.locked(utxo), address(0));
+        return (
+            ZetoCommonStorage.layout().utxoStorage.locked(utxo),
+            address(0)
+        );
+    }
+}
+
+/// @dev ERC-7201 (`erc7201:zeto.storage.ZetoCommon`): namespaced state for this
+///      abstract contract. Slot =
+///      `keccak256(abi.encode(uint256(keccak256(bytes("zeto.storage.ZetoCommon"))) - 1)) & ~bytes32(uint256(0xff))`.
+library ZetoCommonStorage {
+    struct Layout {
+        string tokenName;
+        string tokenSymbol;
+        IZetoStorage utxoStorage;
+        IGroth16Verifier verifier;
+        IGroth16Verifier batchVerifier;
+        IGroth16Verifier lockVerifier;
+        IGroth16Verifier batchLockVerifier;
+    }
+
+    bytes32 private constant STORAGE_LOCATION =
+        0xa8e6638051295a10c620add524cf3f88cb1c178af3b129e4469afe38b68b5500;
+
+    function layout() internal pure returns (Layout storage $) {
+        assembly {
+            $.slot := STORAGE_LOCATION
+        }
     }
 }
