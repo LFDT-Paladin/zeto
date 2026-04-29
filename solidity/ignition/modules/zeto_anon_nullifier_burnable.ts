@@ -30,11 +30,31 @@ const VerifierModule = buildModule(
   },
 );
 
+// Locked-input transfers reuse the plain {Groth16Verifier_Anon} verifier
+// (the same one the non-nullifier {Zeto_Anon} token uses for its regular
+// transfers), NOT a nullifier-aware verifier.
+//
+// Rationale: under the new ILockableCapability storage, locked UTXOs are
+// kept in a flat per-lock mapping keyed by lockId. Previously they were
+// shadowed in a dedicated locked-state Sparse Merkle Tree (separate from
+// the unlocked-UTXO SMT) so that the locked-input proof could assert
+// SMT membership against a locked-state root; that secondary tree has
+// been removed. As a result, settling a lock now consumes the locked
+// UTXOs by their raw commitment hashes (the on-chain mapping enforces
+// single-spend semantics — a lock can only be cleared once), so the
+// proof has no nullifiers and no SMT membership to bind against. That
+// matches exactly what the simpler `anon` circuit asserts: hash + sum +
+// owner-key derivation over input/output commitments.
+//
+// The corresponding contract code path is
+// {Zeto_AnonNullifier.constructPublicInputs(..., inputsLocked = true)},
+// which emits public inputs as `[inputCommitments, outputCommitments]`
+// — exactly the layout `Groth16Verifier_Anon` expects.
 const LockVerifierModule = buildModule(
-  "Groth16Verifier_AnonNullifierTransferLocked",
+  "Groth16Verifier_Anon",
   (m) => {
     const verifier = m.contract(
-      "Groth16Verifier_AnonNullifierTransferLocked",
+      "Groth16Verifier_Anon",
       [],
     );
     return { verifier };
@@ -52,11 +72,15 @@ const BatchVerifierModule = buildModule(
   },
 );
 
+// Batched (10-in / 10-out) twin of {LockVerifierModule}. Same rationale:
+// locked-input settlements consume raw UTXO commitments — not nullifiers
+// — so the lock-side verifier is the plain `anon_batch` one, not the
+// nullifier-aware `anon_nullifier_transfer_batch`.
 const BatchLockVerifierModule = buildModule(
-  "Groth16Verifier_AnonNullifierTransferLockedBatch",
+  "Groth16Verifier_AnonBatch",
   (m) => {
     const verifier = m.contract(
-      "Groth16Verifier_AnonNullifierTransferLockedBatch",
+      "Groth16Verifier_AnonBatch",
       [],
     );
     return { verifier };
