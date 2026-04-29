@@ -33,14 +33,6 @@ import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/U
 ///        - the sender possesses the private BabyJubjub key, whose public key is part of the pre-image of the input commitment hashes, which match the corresponding nullifiers
 ///        - the nullifiers represent input commitments that are included in a Sparse Merkle Tree represented by the root hash
 contract Zeto_AnonNullifier is ZetoFungibleNullifier, UUPSUpgradeable {
-    /// @dev Reserved storage to allow new state variables to be added in
-    ///      future upgrades of this contract. Even though Zeto_AnonNullifier
-    ///      is a concrete (leaf) contract today, reserving a gap keeps the
-    ///      door open for further specialization (e.g. embedding KYC,
-    ///      registry, or non-repudiation extensions in a derived contract)
-    ///      without breaking storage compatibility for live deployments.
-    uint256[50] private __gap;
-
     /// @dev Lock the implementation contract on construction so that
     ///      {initialize} can only ever run on a proxy. Without this,
     ///      anyone could call {initialize} directly on the deployed
@@ -234,5 +226,21 @@ contract Zeto_AnonNullifier is ZetoFungibleNullifier, UUPSUpgradeable {
     function extraInputs() internal view virtual returns (uint256[] memory) {
         // no extra inputs for this contract
         return new uint256[](0);
+    }
+}
+
+/// @dev ERC-7201 (`erc7201:zeto.storage.Zeto_AnonNullifier`).
+library Zeto_AnonNullifierStorage {
+    struct Layout {
+        uint256 __reserved;
+    }
+
+    bytes32 private constant STORAGE_LOCATION =
+        0xe49aec919d5bc8263575d088c75c14f60ed5ec12d5e1b7a7a34166fca4de8b00;
+
+    function layout() internal pure returns (Layout storage $) {
+        assembly {
+            $.slot := STORAGE_LOCATION
+        }
     }
 }

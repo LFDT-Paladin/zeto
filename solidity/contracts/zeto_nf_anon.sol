@@ -34,9 +34,6 @@ import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/U
 ///      Single-input/single-output transfer. The lock lifecycle is
 ///      intentionally omitted in this revival; see {ZetoNonFungible}.
 contract Zeto_NfAnon is ZetoNonFungibleBase, UUPSUpgradeable {
-    /// @dev Reserved storage gap for upgrade safety.
-    uint256[50] private __gap;
-
     /// @dev Lock the implementation contract on construction.
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
@@ -77,5 +74,21 @@ contract Zeto_NfAnon is ZetoNonFungibleBase, UUPSUpgradeable {
         publicInputs[1] = outputs[0];
 
         return (publicInputs, proofStruct);
+    }
+}
+
+/// @dev ERC-7201 (`erc7201:zeto.storage.Zeto_NfAnon`).
+library Zeto_NfAnonStorage {
+    struct Layout {
+        uint256 __reserved;
+    }
+
+    bytes32 private constant STORAGE_LOCATION =
+        0xafcd749646d899cf78964151db8f542448d05467330245e10728559327401500;
+
+    function layout() internal pure returns (Layout storage $) {
+        assembly {
+            $.slot := STORAGE_LOCATION
+        }
     }
 }

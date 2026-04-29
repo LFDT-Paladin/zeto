@@ -51,11 +51,12 @@ import {
   calculateCancelHash,
 } from "./utils";
 process.env.SKIP_ANON_TESTS = "true";
-import { prepareProof as prepareProofForLocked, encodeToBytes as encodeToBytesForLocked } from "./zeto_anon";
-import { deployZeto } from "./lib/deploy";
 import {
-  Zeto_AnonNullifier,
-} from "../typechain-types";
+  prepareProof as prepareProofForLocked,
+  encodeToBytes as encodeToBytesForLocked,
+} from "./lib/anon_zeto_helpers";
+import { deployZeto } from "./lib/deploy";
+import { Zeto_AnonNullifier } from "../typechain-types";
 import smt from "../ignition/modules/test/smt";
 
 describe("Zeto based fungible token with anonymity using nullifiers without encryption", function () {
@@ -109,9 +110,7 @@ describe("Zeto based fungible token with anonymity using nullifiers without encr
     // where the unlocked UTXOs are tracked in SMTs, processing unlocked UTXOs require the
     // circuits based on SMT proofs, while the locked UTXOs are processed using the "base" circuit.
     circuitForLocked = await loadCircuit("anon");
-    ({ provingKeyFile: provingKeyForLocked } = loadProvingKeys(
-      "anon",
-    ));
+    ({ provingKeyFile: provingKeyForLocked } = loadProvingKeys("anon"));
   });
 
   beforeEach(async function () {
@@ -393,7 +392,10 @@ describe("Zeto based fungible token with anonymity using nullifiers without encr
 
         // Alice generates inclusion proofs for the UTXOs to be spent
         const root = await smtAlice.root();
-        const proof1 = await smtAlice.generateCircomVerifierProof(aliceUtxo30.hash, root);
+        const proof1 = await smtAlice.generateCircomVerifierProof(
+          aliceUtxo30.hash,
+          root,
+        );
         const proof2 = await smtAlice.generateCircomVerifierProof(0n, root);
         const merkleProofs = [
           proof1.siblings.map((s) => s.bigInt()),
@@ -443,7 +445,10 @@ describe("Zeto based fungible token with anonymity using nullifiers without encr
 
           // Bob generates inclusion proofs for the UTXOs to be spent, as private input to the proof generation
           const root = await smtBob.root();
-          const proof1 = await smtBob.generateCircomVerifierProof(bobUtxo25.hash, root);
+          const proof1 = await smtBob.generateCircomVerifierProof(
+            bobUtxo25.hash,
+            root,
+          );
           const proof2 = await smtBob.generateCircomVerifierProof(0n, root);
           const merkleProofs = [
             proof1.siblings.map((s) => s.bigInt()),
@@ -474,8 +479,14 @@ describe("Zeto based fungible token with anonymity using nullifiers without encr
         });
 
         it("Alice gets the new UTXOs from the onchain event and keeps the local SMT in sync", async function () {
-          await smtAlice.add(transferEventToCharlie.outputs[0], transferEventToCharlie.outputs[0]);
-          await smtAlice.add(transferEventToCharlie.outputs[1], transferEventToCharlie.outputs[1]);
+          await smtAlice.add(
+            transferEventToCharlie.outputs[0],
+            transferEventToCharlie.outputs[0],
+          );
+          await smtAlice.add(
+            transferEventToCharlie.outputs[1],
+            transferEventToCharlie.outputs[1],
+          );
         });
       });
     });
@@ -526,7 +537,9 @@ describe("Zeto based fungible token with anonymity using nullifiers without encr
             "0x",
           );
         const result = await tx.wait();
-        logger.debug(`Method withdraw() complete. Gas used: ${result?.gasUsed}`);
+        logger.debug(
+          `Method withdraw() complete. Gas used: ${result?.gasUsed}`,
+        );
 
         // Alice tracks the UTXO inside the SMT
         await smtAlice.add(withdrawChangesUTXO.hash, withdrawChangesUTXO.hash);
@@ -615,7 +628,10 @@ describe("Zeto based fungible token with anonymity using nullifiers without encr
         const nullifier1 = newNullifier(bobUtxo1, Bob);
         lockedUtxo1 = newUTXO(bobUtxo1.value!, Bob);
         const root = await smtBob.root();
-        const p1 = await smtBob.generateCircomVerifierProof(bobUtxo1.hash, root);
+        const p1 = await smtBob.generateCircomVerifierProof(
+          bobUtxo1.hash,
+          root,
+        );
         const p2 = await smtBob.generateCircomVerifierProof(0n, root);
         const merkleProofs = [
           p1.siblings.map((s) => s.bigInt()),
@@ -817,7 +833,10 @@ describe("Zeto based fungible token with anonymity using nullifiers without encr
         const nullifier1 = newNullifier(bobUtxo1, Bob);
         lockedUtxo1 = newUTXO(bobUtxo1.value!, Bob);
         const root = await smtBob.root();
-        const p1 = await smtBob.generateCircomVerifierProof(bobUtxo1.hash, root);
+        const p1 = await smtBob.generateCircomVerifierProof(
+          bobUtxo1.hash,
+          root,
+        );
         const p2 = await smtBob.generateCircomVerifierProof(0n, root);
         const merkleProofs = [
           p1.siblings.map((s) => s.bigInt()),
@@ -896,8 +915,11 @@ describe("Zeto based fungible token with anonymity using nullifiers without encr
           args: any;
         }>;
         const cancelled = parsed.find((p) => p.name === "LockCancelled");
-        const zetoCancelled = parsed.find((p) => p.name === "ZetoLockCancelled");
-        expect(cancelled, "LockCancelled event not emitted").to.not.be.undefined;
+        const zetoCancelled = parsed.find(
+          (p) => p.name === "ZetoLockCancelled",
+        );
+        expect(cancelled, "LockCancelled event not emitted").to.not.be
+          .undefined;
         expect(zetoCancelled, "ZetoLockCancelled event not emitted").to.not.be
           .undefined;
 
@@ -936,7 +958,10 @@ describe("Zeto based fungible token with anonymity using nullifiers without encr
         const nullifier1 = newNullifier(bobUtxo1, Bob);
         lockedUtxo1 = newUTXO(bobUtxo1.value!, Bob);
         const root = await smtBob.root();
-        const p1 = await smtBob.generateCircomVerifierProof(bobUtxo1.hash, root);
+        const p1 = await smtBob.generateCircomVerifierProof(
+          bobUtxo1.hash,
+          root,
+        );
         const p2 = await smtBob.generateCircomVerifierProof(0n, root);
         const merkleProofs = [
           p1.siblings.map((s) => s.bigInt()),
@@ -1324,21 +1349,26 @@ describe("Zeto based fungible token with anonymity using nullifiers without encr
       const _utxo2 = newUTXO(5, Alice);
       const nullifier1 = newNullifier(aliceUtxoSpent, Alice);
       const root = await smtAlice.root();
-      const proof1 = await smtAlice.generateCircomVerifierProof(aliceUtxoSpent.hash, root);
+      const proof1 = await smtAlice.generateCircomVerifierProof(
+        aliceUtxoSpent.hash,
+        root,
+      );
       const proof2 = await smtAlice.generateCircomVerifierProof(0n, root);
       const merkleProofs = [
         proof1.siblings.map((s) => s.bigInt()),
         proof2.siblings.map((s) => s.bigInt()),
       ];
-      await expect(doTransfer(
-        Alice,
-        [aliceUtxoSpent, ZERO_UTXO],
-        [nullifier1, ZERO_UTXO],
-        [_utxo1, _utxo2],
-        root.bigInt(),
-        merkleProofs,
-        [Bob, Alice],
-      )).to.be.fulfilled;
+      await expect(
+        doTransfer(
+          Alice,
+          [aliceUtxoSpent, ZERO_UTXO],
+          [nullifier1, ZERO_UTXO],
+          [_utxo1, _utxo2],
+          root.bigInt(),
+          merkleProofs,
+          [Bob, Alice],
+        ),
+      ).to.be.fulfilled;
 
       // Alice locally tracks the UTXOs inside the Sparse Merkle Tree
       await smtAlice.add(_utxo1.hash, _utxo1.hash);
@@ -1416,10 +1446,7 @@ describe("Zeto based fungible token with anonymity using nullifiers without encr
         aliceUtxoSpent.hash,
         root,
       );
-      const proof2 = await smtAlice.generateCircomVerifierProof(
-        0n,
-        root,
-      );
+      const proof2 = await smtAlice.generateCircomVerifierProof(0n, root);
       const merkleProofs = [
         proof1.siblings.map((s) => s.bigInt()),
         proof2.siblings.map((s) => s.bigInt()),

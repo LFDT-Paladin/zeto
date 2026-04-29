@@ -35,14 +35,6 @@ import {IZetoStorage} from "./interfaces/IZetoStorage.sol";
 ///      to match the NF circuit's fixed 1-in/1-out shape — there is no
 ///      input/output padding and no batch verifier path.
 abstract contract ZetoNonFungible is ZetoLockable {
-    /// @dev Reserved storage to allow new state variables to be added
-    ///      in future upgrades of this contract. Sized at 50 slots,
-    ///      matching the OpenZeppelin upgradeable convention. When a
-    ///      new state variable is added here, decrement the gap by the
-    ///      equivalent number of slots so descendants' layouts stay
-    ///      stable.
-    uint256[50] private __gap;
-
     function __ZetoNonFungible_init(
         string calldata name_,
         string calldata symbol_,
@@ -224,5 +216,21 @@ abstract contract ZetoNonFungible is ZetoLockable {
         // the current spender as its delegate. (When `lockedOutputs` is
         // empty -- the common case -- this is a no-op.)
         _setLockDelegates(lockedOutputs, msg.sender);
+    }
+}
+
+/// @dev ERC-7201 (`erc7201:zeto.storage.ZetoNonFungible`).
+library ZetoNonFungibleStorage {
+    struct Layout {
+        uint256 __reserved;
+    }
+
+    bytes32 private constant STORAGE_LOCATION =
+        0x70f918cef12f78aa293f0474363ccfa2a5e8bbdc86def1d4dd7d861fb8e6f600;
+
+    function layout() internal pure returns (Layout storage $) {
+        assembly {
+            $.slot := STORAGE_LOCATION
+        }
     }
 }

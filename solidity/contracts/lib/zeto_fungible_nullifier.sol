@@ -26,15 +26,6 @@ import {NullifierStorage} from "./storage/nullifier.sol";
 /// @author Kaleido, Inc.
 /// @dev Implements common functionalities of Zeto based tokens using nullifiers
 abstract contract ZetoFungibleNullifier is ZetoFungible {
-    /// @dev Reserved storage to allow new state variables to be added in
-    ///      future upgrades of this contract without shifting the storage
-    ///      layout of inheriting contracts (e.g. Zeto_AnonNullifier and any
-    ///      other concrete nullifier-based token). Sized at 50 slots,
-    ///      matching the OpenZeppelin upgradeable convention. When a new
-    ///      state variable is added here, decrement the gap by the
-    ///      equivalent number of slots so descendants' layouts stay stable.
-    uint256[50] private __gap;
-
     function __ZetoFungibleNullifier_init(
         string calldata name_,
         string calldata symbol_,
@@ -156,5 +147,21 @@ abstract contract ZetoFungibleNullifier is ZetoFungible {
         uint256 startIndex
     ) internal pure {
         publicInputs[startIndex] = output;
+    }
+}
+
+/// @dev ERC-7201 (`erc7201:zeto.storage.ZetoFungibleNullifier`).
+library ZetoFungibleNullifierStorage {
+    struct Layout {
+        uint256 __reserved;
+    }
+
+    bytes32 private constant STORAGE_LOCATION =
+        0xa9ddb64cb7b603a6a83651e5155a95c052516a16afcb7569681d49e92a59ab00;
+
+    function layout() internal pure returns (Layout storage $) {
+        assembly {
+            $.slot := STORAGE_LOCATION
+        }
     }
 }

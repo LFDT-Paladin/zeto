@@ -30,9 +30,9 @@ import zetoAnonNullifierTests from "../zeto_anon_nullifier";
 // `anon` circuit (the lockVerifier in the ignition module is wired to
 // {Groth16Verifier_Anon}, mirroring what the production ZK proof path
 // expects from {ZetoFungible._transferLocked}). So the spend proof for
-// the escrow flow is built with `prepareProof` from the
-// non-nullifier `zeto_anon` test helper, not from the nullifier one.
-import zetoAnonTests from "../zeto_anon";
+// the escrow flow is built with `prepareProof` from {anon_zeto_helpers}
+// (same circuit helper as in `zeto_anon.ts`), not from the nullifier suite.
+import { prepareProof as prepareProofAnonCircuit } from "../lib/anon_zeto_helpers";
 import {
   UTXO,
   User,
@@ -237,7 +237,7 @@ describe("Escrow flow for payment with Zeto_AnonNullifier", function () {
     // operates on the raw UTXO hash (lockedPayment1.hash), not on a
     // nullifier. The Zeto storage layer has already validated the
     // input is in the locked-UTXO ledger.
-    const encodedZkProof = await zetoAnonTests.prepareProof(
+    const encodedZkProof = await prepareProofAnonCircuit(
       circuitLocked,
       provingKeyLocked,
       Alice,

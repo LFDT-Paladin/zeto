@@ -44,28 +44,8 @@ import {Zeto_AnonNullifier} from "./zeto_anon_nullifier.sol";
 ///      circuit-level binding to the spender can override
 ///      {constructPublicInputs} and append it.
 contract Zeto_AnonNullifierQurrency is Zeto_AnonNullifier {
-    /// @dev Decoded proof payload, kept in storage during a single
-    ///      `constructPublicInputs` call so the helper functions used to
-    ///      assemble the public-inputs vector don't blow the EVM's
-    ///      16-local-variable stack budget.
-    struct _DecodedProof_Qurrency {
-        uint256 root;
-        uint256 encryptionNonce;
-        uint256[] encryptedValues;
-        uint256[25] encapsulatedSharedSecret;
-    }
-
-    _DecodedProof_Qurrency private _dpq;
-    uint256[] private _publicInputs;
-    uint256 private _piIndex;
-
-    /// @dev Reserved storage to allow new state variables to be added in
-    ///      future upgrades of this contract. `_dpq` occupies 28 slots
-    ///      (root, encryptionNonce, dynamic-array head pointer for
-    ///      encryptedValues, plus 25 for the fixed-size
-    ///      encapsulatedSharedSecret). `_publicInputs` and `_piIndex`
-    ///      add 2 more, for 30 total state slots.
-    uint256[20] private __gap;
+    /// @dev Proof decode + public-input assembly scratch lives in
+    ///      {ZetoAnonNullifierQurrencyStorage} (ERC-7201).
 
     /// @dev Lock the implementation contract on construction. Restated at
     ///      every leaf in the inheritance graph for H-2 robustness.
@@ -89,7 +69,8 @@ contract Zeto_AnonNullifierQurrency is Zeto_AnonNullifier {
         bytes memory proof,
         bytes memory data
     ) internal override {
-        (_DecodedProof_Qurrency memory dp, ) = decodeProof_Qurrency(proof);
+        ZetoAnonNullifierQurrencyStorage.DecodedProofQurrency memory dp;
+        (dp, ) = decodeProof_Qurrency(proof);
         emit UTXOTransferWithMlkemEncryptedValues(
             nullifiers,
             outputs,
@@ -137,7 +118,7 @@ contract Zeto_AnonNullifierQurrency is Zeto_AnonNullifier {
         returns (uint256[] memory, Commonlib.Proof memory)
     {
         (
-            _DecodedProof_Qurrency memory dp,
+            ZetoAnonNullifierQurrencyStorage.DecodedProofQurrency memory dp,
             Commonlib.Proof memory proofStruct
         ) = decodeProof_Qurrency(proof);
 
@@ -145,11 +126,18 @@ contract Zeto_AnonNullifierQurrency is Zeto_AnonNullifier {
             validateRoot(dp.root);
         }
 
-        _dpq = dp;
+        ZetoAnonNullifierQurrencyStorage.layout().dpq = dp;
 
         uint256 size = _calcSize_Qurrency(nullifiers, outputs, inputsLocked);
         _fillPublicInputs_Qurrency(size, nullifiers, outputs, inputsLocked);
-        return (_publicInputs, proofStruct);
+
+        ZetoAnonNullifierQurrencyStorage.Layout storage $ = ZetoAnonNullifierQurrencyStorage
+            .layout();
+        uint256[] memory out = new uint256[]($.publicInputsBuf.length);
+        for (uint256 i = 0; i < out.length; ++i) {
+            out[i] = $.publicInputsBuf[i];
+        }
+        return (out, proofStruct);
     }
 
     function decodeProof_Qurrency(
@@ -158,7 +146,7 @@ contract Zeto_AnonNullifierQurrency is Zeto_AnonNullifier {
         internal
         pure
         returns (
-            _DecodedProof_Qurrency memory dp,
+            ZetoAnonNullifierQurrencyStorage.DecodedProofQurrency memory dp,
             Commonlib.Proof memory proofStruct
         )
     {
@@ -180,16 +168,19 @@ contract Zeto_AnonNullifierQurrency is Zeto_AnonNullifier {
         uint256[] memory outputs,
         bool inputsLocked
     ) internal view returns (uint256) {
+        ZetoAnonNullifierQurrencyStorage.DecodedProofQurrency storage dq = ZetoAnonNullifierQurrencyStorage
+            .layout()
+            .dpq;
         if (inputsLocked) {
             return
-                _dpq.encapsulatedSharedSecret.length +
-                _dpq.encryptedValues.length +
+                dq.encapsulatedSharedSecret.length +
+                dq.encryptedValues.length +
                 nullifiers.length +
                 outputs.length;
         }
         return
-            _dpq.encapsulatedSharedSecret.length +
-            _dpq.encryptedValues.length +
+            dq.encapsulatedSharedSecret.length +
+            dq.encryptedValues.length +
             (nullifiers.length * 2) + // nullifiers + enabled flags
             1 + // root
             outputs.length;
@@ -201,8 +192,10 @@ contract Zeto_AnonNullifierQurrency is Zeto_AnonNullifier {
         uint256[] memory outputs,
         bool inputsLocked
     ) internal {
-        _publicInputs = new uint256[](size);
-        _piIndex = 0;
+        ZetoAnonNullifierQurrencyStorage.Layout storage $ = ZetoAnonNullifierQurrencyStorage
+            .layout();
+        $.publicInputsBuf = new uint256[](size);
+        $.piIndex = 0;
 
         _fillEncapsulatedSharedSecret_Q();
         _fillEncryptedValues_Q();
@@ -214,33 +207,72 @@ contract Zeto_AnonNullifierQurrency is Zeto_AnonNullifier {
     }
 
     function _fillEncapsulatedSharedSecret_Q() internal {
-        for (uint256 i = 0; i < _dpq.encapsulatedSharedSecret.length; ++i) {
-            _publicInputs[_piIndex++] = _dpq.encapsulatedSharedSecret[i];
+        ZetoAnonNullifierQurrencyStorage.Layout storage $ = ZetoAnonNullifierQurrencyStorage
+            .layout();
+        for (
+            uint256 i = 0;
+            i < $.dpq.encapsulatedSharedSecret.length;
+            ++i
+        ) {
+            $.publicInputsBuf[$.piIndex++] = $.dpq.encapsulatedSharedSecret[i];
         }
     }
 
     function _fillEncryptedValues_Q() internal {
-        for (uint256 i = 0; i < _dpq.encryptedValues.length; ++i) {
-            _publicInputs[_piIndex++] = _dpq.encryptedValues[i];
+        ZetoAnonNullifierQurrencyStorage.Layout storage $ = ZetoAnonNullifierQurrencyStorage
+            .layout();
+        for (uint256 i = 0; i < $.dpq.encryptedValues.length; ++i) {
+            $.publicInputsBuf[$.piIndex++] = $.dpq.encryptedValues[i];
         }
     }
 
     function _fillInputs_Q(uint256[] memory nullifiers) internal {
+        ZetoAnonNullifierQurrencyStorage.Layout storage $ = ZetoAnonNullifierQurrencyStorage
+            .layout();
         for (uint256 i = 0; i < nullifiers.length; i++) {
-            _publicInputs[_piIndex++] = nullifiers[i];
+            $.publicInputsBuf[$.piIndex++] = nullifiers[i];
         }
     }
 
     function _fillRootAndEnables_Q(uint256[] memory nullifiers) internal {
-        _publicInputs[_piIndex++] = _dpq.root;
+        ZetoAnonNullifierQurrencyStorage.Layout storage $ = ZetoAnonNullifierQurrencyStorage
+            .layout();
+        $.publicInputsBuf[$.piIndex++] = $.dpq.root;
         for (uint256 i = 0; i < nullifiers.length; i++) {
-            _publicInputs[_piIndex++] = (nullifiers[i] == 0) ? 0 : 1;
+            $.publicInputsBuf[$.piIndex++] = (nullifiers[i] == 0) ? 0 : 1;
         }
     }
 
     function _fillOutputs_Q(uint256[] memory outputs) internal {
+        ZetoAnonNullifierQurrencyStorage.Layout storage $ = ZetoAnonNullifierQurrencyStorage
+            .layout();
         for (uint256 i = 0; i < outputs.length; i++) {
-            _publicInputs[_piIndex++] = outputs[i];
+            $.publicInputsBuf[$.piIndex++] = outputs[i];
+        }
+    }
+}
+
+/// @dev ERC-7201 (`erc7201:zeto.storage.Zeto_AnonNullifierQurrency`).
+library ZetoAnonNullifierQurrencyStorage {
+    struct DecodedProofQurrency {
+        uint256 root;
+        uint256 encryptionNonce;
+        uint256[] encryptedValues;
+        uint256[25] encapsulatedSharedSecret;
+    }
+
+    struct Layout {
+        DecodedProofQurrency dpq;
+        uint256[] publicInputsBuf;
+        uint256 piIndex;
+    }
+
+    bytes32 private constant STORAGE_LOCATION =
+        0x61ea13f87e8d672de1c36df013aa52a47bae99190f6e222ce275d312c118d800;
+
+    function layout() internal pure returns (Layout storage $) {
+        assembly {
+            $.slot := STORAGE_LOCATION
         }
     }
 }
