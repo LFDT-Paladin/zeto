@@ -27,10 +27,6 @@ import {NullifierStorage} from "./storage/nullifier.sol";
 ///      flavours of Zeto NF tokens. See {ZetoNonFungible} for the
 ///      rationale behind the omitted lock lifecycle.
 abstract contract ZetoNonFungibleNullifier is ZetoNonFungible {
-    /// @dev Reserved storage gap for upgrade safety. See
-    ///      {ZetoNonFungible.__gap} for sizing rationale.
-    uint256[50] private __gap;
-
     function __ZetoNonFungibleNullifier_init(
         string calldata name_,
         string calldata symbol_,
@@ -45,5 +41,21 @@ abstract contract ZetoNonFungibleNullifier is ZetoNonFungible {
             verifiers,
             storage_
         );
+    }
+}
+
+/// @dev ERC-7201 (`erc7201:zeto.storage.ZetoNonFungibleNullifier`).
+library ZetoNonFungibleNullifierStorage {
+    struct Layout {
+        uint256 __reserved;
+    }
+
+    bytes32 private constant STORAGE_LOCATION =
+        0x02976bb09873e8949dece591ee756708ea74c24901fa2000868b92802a9a5200;
+
+    function layout() internal pure returns (Layout storage $) {
+        assembly {
+            $.slot := STORAGE_LOCATION
+        }
     }
 }

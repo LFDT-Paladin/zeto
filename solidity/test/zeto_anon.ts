@@ -24,9 +24,7 @@ import {
   ContractTransactionReceipt,
 } from "ethers";
 import { expect } from "chai";
-import { loadCircuit, encodeProof, Poseidon } from "zeto-js";
-import { groth16 } from "snarkjs";
-import { formatPrivKeyForBabyJub, stringifyBigInts } from "maci-crypto";
+import { loadCircuit, Poseidon } from "zeto-js";
 import {
   User,
   UTXO,
@@ -49,6 +47,7 @@ import {
 } from "./utils";
 import { Zeto_Anon, Zeto_AnonBurnable } from "../typechain-types";
 import { deployZeto } from "./lib/deploy";
+import { prepareProof, encodeToBytes } from "./lib/anon_zeto_helpers";
 
 const ZERO_PUBKEY = [0n, 0n];
 const poseidonHash = Poseidon.poseidon4;
@@ -166,8 +165,9 @@ describe("Zeto based fungible token with anonymity without encryption or nullifi
       // Use the burnable proxy as a stand-in: it has not had its ERC20
       // bound during deployZeto (only the non-burnable Zeto_Anon does),
       // so we are exercising the not-yet-set branch.
-      await expect(zetoBurnable.connect(deployer).setERC20(ZeroAddress))
-        .to.be.revertedWithCustomError(zetoBurnable, "ZeroERC20Address");
+      await expect(
+        zetoBurnable.connect(deployer).setERC20(ZeroAddress),
+      ).to.be.revertedWithCustomError(zetoBurnable, "ZeroERC20Address");
     });
 
     it("setERC20() is one-shot: a second call reverts with ERC20AlreadySet", async function () {
@@ -199,7 +199,9 @@ describe("Zeto based fungible token with anonymity without encryption or nullifi
       expect(await zeto.owner()).to.equal(aliceAddr);
 
       // Restore the original owner so subsequent tests are unaffected.
-      await (await zeto.connect(Alice.signer).transferOwnership(deployerAddr)).wait();
+      await (
+        await zeto.connect(Alice.signer).transferOwnership(deployerAddr)
+      ).wait();
       await (await zeto.connect(deployer).acceptOwnership()).wait();
       expect(await zeto.owner()).to.equal(deployerAddr);
     });
@@ -214,8 +216,18 @@ describe("Zeto based fungible token with anonymity without encryption or nullifi
       const lockedOutputs: bigint[] = [];
       const outputs = [out.hash];
       const data = "0x";
-      const spend = await zeto.computeSpendHash(lockedInputs, lockedOutputs, outputs, data);
-      const cancel = await zeto.computeCancelHash(lockedInputs, lockedOutputs, outputs, data);
+      const spend = await zeto.computeSpendHash(
+        lockedInputs,
+        lockedOutputs,
+        outputs,
+        data,
+      );
+      const cancel = await zeto.computeCancelHash(
+        lockedInputs,
+        lockedOutputs,
+        outputs,
+        data,
+      );
       expect(spend).to.not.equal(cancel);
       // Mirror of off-chain helpers used by other tests.
       expect(spend).to.equal(calculateSpendHash([utxo], [], [out], data));
@@ -820,8 +832,11 @@ describe("Zeto based fungible token with anonymity without encryption or nullifi
           args: any;
         }>;
         const cancelled = parsed.find((p) => p.name === "LockCancelled");
-        const zetoCancelled = parsed.find((p) => p.name === "ZetoLockCancelled");
-        expect(cancelled, "LockCancelled event not emitted").to.not.be.undefined;
+        const zetoCancelled = parsed.find(
+          (p) => p.name === "ZetoLockCancelled",
+        );
+        expect(cancelled, "LockCancelled event not emitted").to.not.be
+          .undefined;
         expect(zetoCancelled, "ZetoLockCancelled event not emitted").to.not.be
           .undefined;
 
@@ -1314,67 +1329,6 @@ describe("Zeto based fungible token with anonymity without encryption or nullifi
     });
   });
 });
-
-async function prepareProof(
-  circuit: any,
-  provingKey: any,
-  signer: User,
-  inputs: UTXO[],
-  outputs: UTXO[],
-  owners: User[],
-) {
-  const inputCommitments: BigNumberish[] = inputs.map(
-    (input) => input.hash,
-  ) as BigNumberish[];
-  const inputValues = inputs.map((input) => BigInt(input.value || 0n));
-  const inputSalts = inputs.map((input) => input.salt || 0n);
-  const outputCommitments: BigNumberish[] = outputs.map(
-    (output) => output.hash,
-  ) as BigNumberish[];
-  const outputValues = outputs.map((output) => BigInt(output.value || 0n));
-  const outputSalts = outputs.map((o) => o.salt || 0n);
-  const outputOwnerPublicKeys: BigNumberish[][] = owners.map(
-    (owner) => owner.babyJubPublicKey || ZERO_PUBKEY,
-  ) as BigNumberish[][];
-  const otherInputs = stringifyBigInts({
-    inputOwnerPrivateKey: formatPrivKeyForBabyJub(signer.babyJubPrivateKey),
-  });
-
-  const startWitnessCalculation = Date.now();
-  const witness = await circuit.calculateWTNSBin(
-    {
-      inputCommitments,
-      inputValues,
-      inputSalts,
-      outputCommitments,
-      outputValues,
-      outputSalts,
-      outputOwnerPublicKeys,
-      ...otherInputs,
-    },
-    true,
-  );
-  const timeWitnessCalculation = Date.now() - startWitnessCalculation;
-
-  const startProofGeneration = Date.now();
-  const { proof, publicSignals } = (await groth16.prove(
-    provingKey,
-    witness,
-  )) as { proof: BigNumberish[]; publicSignals: BigNumberish[] };
-  const timeProofGeneration = Date.now() - startProofGeneration;
-  logger.debug(
-    `Witness calculation time: ${timeWitnessCalculation}ms, Proof generation time: ${timeProofGeneration}ms`,
-  );
-  const encodedProof = encodeProof(proof);
-  return encodedProof;
-}
-
-function encodeToBytes(proof: any) {
-  return new AbiCoder().encode(
-    ["tuple(uint256[2] pA, uint256[2][2] pB, uint256[2] pC)"],
-    [proof],
-  );
-}
 
 module.exports = {
   prepareProof,

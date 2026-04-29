@@ -33,30 +33,8 @@ import {IZetoInitializable} from "./lib/interfaces/IZetoInitializable.sol";
 ///        - the encrypted value in the output is derived from the receiver's UTXO value and encrypted with a shared secret using the ECDH protocol between the sender and receiver
 ///        - the nullifiers represent input commitments that are included in a Sparse Merkle Tree represented by the root hash
 contract Zeto_AnonEncNullifier is Zeto_AnonNullifier {
-    /// @dev Decoded proof payload, kept in storage during a single
-    ///      `constructPublicInputs` call so the helper functions used to
-    ///      assemble the public-inputs vector don't blow the EVM's
-    ///      16-local-variable stack budget. Reset implicitly on each
-    ///      transition because `_dpe` is overwritten by the next
-    ///      transaction's decode step before any read.
-    struct _DecodedProof_EncNullifier {
-        uint256 root;
-        uint256 encryptionNonce;
-        uint256[2] ecdhPublicKey;
-        uint256[] encryptedValues;
-    }
-
-    _DecodedProof_EncNullifier private _dpe;
-
-    /// @dev Reserved storage to allow new state variables to be added in
-    ///      future upgrades of this contract without shifting the storage
-    ///      layout of inheriting contracts (e.g. KYC / non-repudiation
-    ///      derivatives). Sized so that `<state slots> + __gap.length == 50`,
-    ///      matching the OpenZeppelin upgradeable convention. `_dpe`
-    ///      occupies 4 slots (uint256 root, uint256 encryptionNonce,
-    ///      uint256[2] ecdhPublicKey -> 2 slots, uint256[] encryptedValues
-    ///      head pointer -> 1 slot), so the gap is sized at 46.
-    uint256[46] private __gap;
+    /// @dev Decoded proof payload for one `constructPublicInputs` call lives in
+    ///      {ZetoAnonEncNullifierStorage} (ERC-7201).
 
     /// @dev Lock the implementation contract on construction. The parent
     ///      {Zeto_AnonNullifier} already does this via its own constructor
@@ -92,9 +70,8 @@ contract Zeto_AnonEncNullifier is Zeto_AnonNullifier {
         bytes memory proof,
         bytes memory data
     ) internal virtual override {
-        (_DecodedProof_EncNullifier memory dp, ) = decodeProof_EncNullifier(
-            proof
-        );
+        ZetoAnonEncNullifierStorage.DecodedProofEncNullifier memory dp;
+        (dp, ) = decodeProof_EncNullifier(proof);
         emit UTXOTransferWithEncryptedValues(
             nullifiers,
             outputs,
@@ -130,7 +107,7 @@ contract Zeto_AnonEncNullifier is Zeto_AnonNullifier {
         returns (uint256[] memory, Commonlib.Proof memory)
     {
         (
-            _DecodedProof_EncNullifier memory dp,
+            ZetoAnonEncNullifierStorage.DecodedProofEncNullifier memory dp,
             Commonlib.Proof memory proofStruct
         ) = decodeProof_EncNullifier(proof);
 
@@ -138,7 +115,7 @@ contract Zeto_AnonEncNullifier is Zeto_AnonNullifier {
             validateRoot(dp.root);
         }
 
-        _dpe = dp;
+        ZetoAnonEncNullifierStorage.layout().dpe = dp;
 
         uint256[] memory extra = extraInputs();
         uint256 size = _calcSize_EncNullifier(
@@ -164,7 +141,10 @@ contract Zeto_AnonEncNullifier is Zeto_AnonNullifier {
     )
         private
         pure
-        returns (_DecodedProof_EncNullifier memory, Commonlib.Proof memory)
+        returns (
+            ZetoAnonEncNullifierStorage.DecodedProofEncNullifier memory,
+            Commonlib.Proof memory
+        )
     {
         (
             uint256 root,
@@ -177,7 +157,7 @@ contract Zeto_AnonEncNullifier is Zeto_AnonNullifier {
                 (uint256, uint256, uint256[2], uint256[], Commonlib.Proof)
             );
         return (
-            _DecodedProof_EncNullifier(
+            ZetoAnonEncNullifierStorage.DecodedProofEncNullifier(
                 root,
                 encryptionNonce,
                 ecdhPublicKey,
@@ -202,16 +182,16 @@ contract Zeto_AnonEncNullifier is Zeto_AnonNullifier {
     ) internal view returns (uint256) {
         if (inputsLocked) {
             return
-                _dpe.ecdhPublicKey.length +
-                _dpe.encryptedValues.length +
+                ZetoAnonEncNullifierStorage.layout().dpe.ecdhPublicKey.length +
+                ZetoAnonEncNullifierStorage.layout().dpe.encryptedValues.length +
                 nullifiers.length +
                 extra.length +
                 outputs.length +
                 1; // encryptionNonce
         }
         return
-            _dpe.ecdhPublicKey.length +
-            _dpe.encryptedValues.length +
+            ZetoAnonEncNullifierStorage.layout().dpe.ecdhPublicKey.length +
+            ZetoAnonEncNullifierStorage.layout().dpe.encryptedValues.length +
             (nullifiers.length * 2) + // nullifiers + enabled flags
             1 + // root
             extra.length +
@@ -251,11 +231,11 @@ contract Zeto_AnonEncNullifier is Zeto_AnonNullifier {
         uint256[] memory publicInputs,
         uint256 piIndex
     ) internal view returns (uint256) {
-        for (uint256 i = 0; i < _dpe.ecdhPublicKey.length; ++i) {
-            publicInputs[piIndex++] = _dpe.ecdhPublicKey[i];
+        for (uint256 i = 0; i < ZetoAnonEncNullifierStorage.layout().dpe.ecdhPublicKey.length; ++i) {
+            publicInputs[piIndex++] = ZetoAnonEncNullifierStorage.layout().dpe.ecdhPublicKey[i];
         }
-        for (uint256 i = 0; i < _dpe.encryptedValues.length; ++i) {
-            publicInputs[piIndex++] = _dpe.encryptedValues[i];
+        for (uint256 i = 0; i < ZetoAnonEncNullifierStorage.layout().dpe.encryptedValues.length; ++i) {
+            publicInputs[piIndex++] = ZetoAnonEncNullifierStorage.layout().dpe.encryptedValues[i];
         }
         return piIndex;
     }
@@ -268,7 +248,7 @@ contract Zeto_AnonEncNullifier is Zeto_AnonNullifier {
         for (uint256 i = 0; i < nullifiers.length; i++) {
             publicInputs[piIndex++] = nullifiers[i];
         }
-        publicInputs[piIndex++] = _dpe.root;
+        publicInputs[piIndex++] = ZetoAnonEncNullifierStorage.layout().dpe.root;
         return piIndex;
     }
 
@@ -295,7 +275,7 @@ contract Zeto_AnonEncNullifier is Zeto_AnonNullifier {
         for (uint256 i = 0; i < outputs.length; i++) {
             publicInputs[piIndex++] = outputs[i];
         }
-        publicInputs[piIndex++] = _dpe.encryptionNonce;
+        publicInputs[piIndex++] = ZetoAnonEncNullifierStorage.layout().dpe.encryptionNonce;
     }
 
     function extraInputs()
@@ -306,5 +286,28 @@ contract Zeto_AnonEncNullifier is Zeto_AnonNullifier {
         returns (uint256[] memory)
     {
         return new uint256[](0);
+    }
+}
+
+/// @dev ERC-7201 (`erc7201:zeto.storage.Zeto_AnonEncNullifier`).
+library ZetoAnonEncNullifierStorage {
+    struct DecodedProofEncNullifier {
+        uint256 root;
+        uint256 encryptionNonce;
+        uint256[2] ecdhPublicKey;
+        uint256[] encryptedValues;
+    }
+
+    struct Layout {
+        DecodedProofEncNullifier dpe;
+    }
+
+    bytes32 private constant STORAGE_LOCATION =
+        0x36fc6ea34fa875375a7d6586407c2399b00c74acd3ef1f71bd14e60259234b00;
+
+    function layout() internal pure returns (Layout storage $) {
+        assembly {
+            $.slot := STORAGE_LOCATION
+        }
     }
 }

@@ -45,17 +45,7 @@ import {IZetoKyc} from "./interfaces/IZetoKyc.sol";
 ///   is performed once by the token's `__ZetoCommon_init`; the Registry
 ///   initializer only needs to set up the SMT.
 abstract contract Registry is Ownable2StepUpgradeable, IZetoKyc {
-    SmtLib.Data internal _publicKeysTree;
     using SmtLib for SmtLib.Data;
-
-    /// @dev Reserved storage to allow new state variables to be added in
-    ///      future upgrades of this mixin without shifting the storage
-    ///      layout of inheriting contracts. The {SmtLib.Data} struct
-    ///      itself is upgrade-stable, but additional bookkeeping (e.g.
-    ///      issuer attestations, revocation lists) may need to be added
-    ///      later. Sized at 50 slots, matching the OpenZeppelin
-    ///      upgradeable convention.
-    uint256[50] private __gap;
 
     /// @dev Thrown by {register} when the supplied public key is already
     ///      a member of the identities tree.
@@ -64,8 +54,9 @@ abstract contract Registry is Ownable2StepUpgradeable, IZetoKyc {
     /// @dev Internal-only so it can only be called from a derived
     ///      contract's own `initializer`-guarded entrypoint.
     function __Registry_init() internal onlyInitializing {
-        _publicKeysTree.initialize(MAX_SMT_DEPTH);
-        _publicKeysTree.setHasher(new PoseidonHasher());
+        RegistryStorage.Layout storage $ = RegistryStorage.layout();
+        $.publicKeysTree.initialize(MAX_SMT_DEPTH);
+        $.publicKeysTree.setHasher(new PoseidonHasher());
     }
 
     /**
@@ -91,7 +82,9 @@ abstract contract Registry is Ownable2StepUpgradeable, IZetoKyc {
         uint256[2] calldata publicKey
     ) public view returns (bool) {
         uint256 nodeKey = _getIdentitiesLeafNodeKey(publicKey);
-        SmtLib.Node memory node = _publicKeysTree.getNode(nodeKey);
+        SmtLib.Node memory node = RegistryStorage.layout().publicKeysTree.getNode(
+            nodeKey
+        );
         return node.nodeType != SmtLib.NodeType.EMPTY;
     }
 
@@ -101,7 +94,7 @@ abstract contract Registry is Ownable2StepUpgradeable, IZetoKyc {
      *      KYC-aware token contracts via {extraInputs}.
      */
     function getIdentitiesRoot() public view returns (uint256) {
-        return _publicKeysTree.getRoot();
+        return RegistryStorage.layout().publicKeysTree.getRoot();
     }
 
     function _register(
@@ -109,11 +102,12 @@ abstract contract Registry is Ownable2StepUpgradeable, IZetoKyc {
         bytes calldata data
     ) internal {
         uint256 nodeHash = _getIdentitiesLeafNodeHash(publicKey);
-        SmtLib.Node memory node = _publicKeysTree.getNode(nodeHash);
+        RegistryStorage.Layout storage $ = RegistryStorage.layout();
+        SmtLib.Node memory node = $.publicKeysTree.getNode(nodeHash);
         if (node.nodeType != SmtLib.NodeType.EMPTY) {
             revert AlreadyRegistered(publicKey);
         }
-        _publicKeysTree.addLeaf(nodeHash, nodeHash);
+        $.publicKeysTree.addLeaf(nodeHash, nodeHash);
         emit IdentityRegistered(publicKey, data);
     }
 
@@ -129,5 +123,21 @@ abstract contract Registry is Ownable2StepUpgradeable, IZetoKyc {
         uint256 nodeHash = PoseidonUnit2L.poseidon(publicKey);
         uint256[3] memory params = [nodeHash, nodeHash, uint256(1)];
         return PoseidonUnit3L.poseidon(params);
+    }
+}
+
+/// @dev ERC-7201 (`erc7201:zeto.storage.Registry`).
+library RegistryStorage {
+    struct Layout {
+        SmtLib.Data publicKeysTree;
+    }
+
+    bytes32 private constant STORAGE_LOCATION =
+        0xf79d6fea6eabe5c80b325fcf2331fe08f18a473c50e27c55890676ff6746fd00;
+
+    function layout() internal pure returns (Layout storage $) {
+        assembly {
+            $.slot := STORAGE_LOCATION
+        }
     }
 }

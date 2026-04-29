@@ -48,9 +48,6 @@ import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/U
 ///      validated the input via {NullifierStorage.validateInputs} (it
 ///      defers to {BaseStorage.validateInputs} when `inputsLocked`).
 contract Zeto_NfAnonNullifier is ZetoNonFungibleNullifier, UUPSUpgradeable {
-    /// @dev Reserved storage gap for upgrade safety.
-    uint256[50] private __gap;
-
     /// @dev Lock the implementation contract on construction.
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
@@ -112,5 +109,21 @@ contract Zeto_NfAnonNullifier is ZetoNonFungibleNullifier, UUPSUpgradeable {
         publicInputs[1] = root;
         publicInputs[2] = outputs[0];
         return (publicInputs, proofStruct);
+    }
+}
+
+/// @dev ERC-7201 (`erc7201:zeto.storage.Zeto_NfAnonNullifier`).
+library Zeto_NfAnonNullifierStorage {
+    struct Layout {
+        uint256 __reserved;
+    }
+
+    bytes32 private constant STORAGE_LOCATION =
+        0xb42e743e63c75bf1f2c05ab181e1371afad8f4114706ec6cfc12171a24893700;
+
+    function layout() internal pure returns (Layout storage $) {
+        assembly {
+            $.slot := STORAGE_LOCATION
+        }
     }
 }

@@ -27,10 +27,6 @@ import {BaseStorage} from "./storage/base.sol";
 ///      flavours of Zeto NF tokens. See {ZetoNonFungible} for the
 ///      rationale behind the omitted lock lifecycle.
 abstract contract ZetoNonFungibleBase is ZetoNonFungible {
-    /// @dev Reserved storage gap for upgrade safety. See
-    ///      {ZetoNonFungible.__gap} for sizing rationale.
-    uint256[50] private __gap;
-
     function __ZetoNonFungibleBase_init(
         string calldata name_,
         string calldata symbol_,
@@ -45,5 +41,21 @@ abstract contract ZetoNonFungibleBase is ZetoNonFungible {
             verifiers,
             storage_
         );
+    }
+}
+
+/// @dev ERC-7201 (`erc7201:zeto.storage.ZetoNonFungibleBase`).
+library ZetoNonFungibleBaseStorage {
+    struct Layout {
+        uint256 __reserved;
+    }
+
+    bytes32 private constant STORAGE_LOCATION =
+        0x3b5aad0db95258b4583c7272ce26730b4879c3622cde60d71e7f2a14bdd3ae00;
+
+    function layout() internal pure returns (Layout storage $) {
+        assembly {
+            $.slot := STORAGE_LOCATION
+        }
     }
 }

@@ -32,24 +32,16 @@ import {Commonlib} from "./common/common.sol";
 ///      be supplied as inputs because {validateInputs} (called from {_burn})
 ///      rejects locked entries via the underlying {BaseStorage} ledger.
 abstract contract ZetoFungibleBurnable is ZetoFungibleBase {
-    IGroth16Verifier internal _burnVerifier;
-    IGroth16Verifier internal _batchBurnVerifier;
-
-    /// @dev Reserved storage to allow new state variables to be added in
-    ///      future upgrades of this mixin without shifting the storage
-    ///      layout of inheriting contracts (e.g. Zeto_AnonBurnable). Sized
-    ///      so that `<state slots> + __gap.length == 50`, matching the
-    ///      OpenZeppelin upgradeable convention.
-    uint256[50] private __gap;
-
     /// @dev Internal-only so it can only be called from a derived
     ///      contract's own `initializer`-guarded entrypoint.
     function __ZetoFungibleBurnable_init(
         IGroth16Verifier burnVerifier,
         IGroth16Verifier batchBurnVerifier
     ) internal onlyInitializing {
-        _burnVerifier = burnVerifier;
-        _batchBurnVerifier = batchBurnVerifier;
+        ZetoFungibleBurnableStorage.Layout storage $ = ZetoFungibleBurnableStorage
+            .layout();
+        $.burnVerifier = burnVerifier;
+        $.batchBurnVerifier = batchBurnVerifier;
     }
 
     /**
@@ -76,9 +68,11 @@ abstract contract ZetoFungibleBurnable is ZetoFungibleBase {
         }
         publicInputs[inputs.length] = output;
 
+        ZetoFungibleBurnableStorage.Layout storage $ = ZetoFungibleBurnableStorage
+            .layout();
         IGroth16Verifier verifier = (inputs.length > 2)
-            ? _batchBurnVerifier
-            : _burnVerifier;
+            ? $.batchBurnVerifier
+            : $.burnVerifier;
         if (!verifier.verify(proof.pA, proof.pB, proof.pC, publicInputs)) {
             revert InvalidProof();
         }
@@ -101,5 +95,22 @@ abstract contract ZetoFungibleBurnable is ZetoFungibleBase {
         processInputs(inputs, false);
         processOutputs(outputStates);
         emit UTXOBurn(inputs, output, msg.sender, data);
+    }
+}
+
+/// @dev ERC-7201 (`erc7201:zeto.storage.ZetoFungibleBurnable`).
+library ZetoFungibleBurnableStorage {
+    struct Layout {
+        IGroth16Verifier burnVerifier;
+        IGroth16Verifier batchBurnVerifier;
+    }
+
+    bytes32 private constant STORAGE_LOCATION =
+        0x99d1a11894f655177598fbad145350332923053ddb779beb1721e5203b8acf00;
+
+    function layout() internal pure returns (Layout storage $) {
+        assembly {
+            $.slot := STORAGE_LOCATION
+        }
     }
 }

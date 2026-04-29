@@ -38,24 +38,16 @@ import {Commonlib} from "./common/common.sol";
 ///          accepts unspent nullifiers, and locked UTXOs live in a disjoint
 ///          part of the ledger.
 abstract contract ZetoFungibleBurnableNullifier is ZetoFungibleNullifier {
-    IGroth16Verifier internal _burnVerifier;
-    IGroth16Verifier internal _batchBurnVerifier;
-
-    /// @dev Reserved storage to allow new state variables to be added in
-    ///      future upgrades of this mixin without shifting the storage
-    ///      layout of inheriting contracts (e.g. Zeto_AnonNullifierBurnable).
-    ///      Sized so that `<state slots> + __gap.length == 50`, matching
-    ///      the OpenZeppelin upgradeable convention.
-    uint256[48] private __gap;
-
     /// @dev Internal-only so it can only be called from a derived
     ///      contract's own `initializer`-guarded entrypoint.
     function __ZetoFungibleBurnableNullifier_init(
         IGroth16Verifier burnVerifier,
         IGroth16Verifier batchBurnVerifier
     ) internal onlyInitializing {
-        _burnVerifier = burnVerifier;
-        _batchBurnVerifier = batchBurnVerifier;
+        ZetoFungibleBurnableNullifierStorage.Layout
+            storage $ = ZetoFungibleBurnableNullifierStorage.layout();
+        $.burnVerifier = burnVerifier;
+        $.batchBurnVerifier = batchBurnVerifier;
     }
 
     /**
@@ -114,9 +106,11 @@ abstract contract ZetoFungibleBurnableNullifier is ZetoFungibleNullifier {
             root
         );
 
+        ZetoFungibleBurnableNullifierStorage.Layout
+            storage $ = ZetoFungibleBurnableNullifierStorage.layout();
         IGroth16Verifier verifier = (nullifiers.length > 2)
-            ? _batchBurnVerifier
-            : _burnVerifier;
+            ? $.batchBurnVerifier
+            : $.burnVerifier;
         if (!verifier.verify(proof.pA, proof.pB, proof.pC, publicInputs)) {
             revert InvalidProof();
         }
@@ -151,5 +145,22 @@ abstract contract ZetoFungibleBurnableNullifier is ZetoFungibleNullifier {
         processOutputs(outputStates);
 
         emit UTXOBurn(nullifiers, output, msg.sender, data);
+    }
+}
+
+/// @dev ERC-7201 (`erc7201:zeto.storage.ZetoFungibleBurnableNullifier`).
+library ZetoFungibleBurnableNullifierStorage {
+    struct Layout {
+        IGroth16Verifier burnVerifier;
+        IGroth16Verifier batchBurnVerifier;
+    }
+
+    bytes32 private constant STORAGE_LOCATION =
+        0x3ec1ff2ff5e1c50bcb38c7183cc1e67f5f6626ff8f32ea7dbc84147e4b393500;
+
+    function layout() internal pure returns (Layout storage $) {
+        assembly {
+            $.slot := STORAGE_LOCATION
+        }
     }
 }

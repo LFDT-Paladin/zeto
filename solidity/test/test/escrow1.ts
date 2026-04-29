@@ -15,11 +15,16 @@
 // limitations under the License.
 
 import { ethers, ignition, network } from "hardhat";
-import { Signer, AbiCoder, BigNumberish, ContractTransactionReceipt } from "ethers";
+import {
+  Signer,
+  AbiCoder,
+  BigNumberish,
+  ContractTransactionReceipt,
+} from "ethers";
 import { expect } from "chai";
 import { loadCircuit } from "zeto-js";
 import zkEscrowModule from "../../ignition/modules/test/escrow1";
-import zetoAnonTests from "../zeto_anon";
+import { prepareProof } from "../lib/anon_zeto_helpers";
 import {
   UTXO,
   User,
@@ -128,7 +133,7 @@ describe("Escrow flow for payment with Zeto_Anon", function () {
     // (new salt). The createLock proof attests to the standard transfer
     // payment1 -> lockedPayment1.
     lockedPayment1 = newUTXO(payment1.value!, Alice);
-    const encodedZkProof = await zetoAnonTests.prepareProof(
+    const encodedZkProof = await prepareProof(
       circuit,
       provingKey,
       Alice,
@@ -209,7 +214,7 @@ describe("Escrow flow for payment with Zeto_Anon", function () {
   it("Alice approves the payment by submitting a valid locked-input proof", async function () {
     // The spend proof transfers lockedPayment1 -> paymentToBob (now
     // owned by Bob). Same `anon` circuit as the createLock step.
-    const encodedZkProof = await zetoAnonTests.prepareProof(
+    const encodedZkProof = await prepareProof(
       circuit,
       provingKey,
       Alice,
