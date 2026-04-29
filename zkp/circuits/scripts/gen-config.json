@@ -14,7 +14,7 @@
       "batchPtau": "powersOfTau28_hez_final_19"
     },
     "anon_nullifier_qurrency_transfer": {
-      "ptau": "powersOfTau28_hez_final_22",
+      "ptau": "powersOfTau28_hez_final_21",
       "batchPtau": "powersOfTau28_hez_final_22"
     },
     "anon_nullifier_kyc_transfer": {
@@ -22,7 +22,7 @@
       "batchPtau": "powersOfTau28_hez_final_19"
     },
     "anon_nullifier_kyc_transferLocked": {
-      "ptau": "powersOfTau28_hez_final_16",
+      "ptau": "powersOfTau28_hez_final_15",
       "batchPtau": "powersOfTau28_hez_final_17"
     },
     "anon_enc_nullifier_non_repudiation": {
