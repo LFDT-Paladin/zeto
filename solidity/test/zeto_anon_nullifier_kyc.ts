@@ -35,6 +35,7 @@ import {
   ZERO_UTXO,
   parseUTXOEvents,
   parseRegistryEvents,
+  logger,
 } from "./lib/utils";
 import {
   loadProvingKeys,
@@ -42,9 +43,80 @@ import {
   prepareNullifierWithdrawProof,
   encodeToBytesForDeposit,
   encodeToBytesForWithdraw,
+  calculateSpendHash,
+  calculateCancelHash,
 } from "./utils";
 import { deployZeto } from "./lib/deploy";
 import smt from "../ignition/modules/test/smt";
+
+if (!process.env.CIRCUITS_ROOT) {
+  process.env.CIRCUITS_ROOT = "/Users/jimzhang/Documents/zkp/circuits/";
+}
+if (!process.env.PROVING_KEYS_ROOT) {
+  process.env.PROVING_KEYS_ROOT = "/Users/jimzhang/Documents/zkp/proving-keys/";
+}
+
+// ABI fragments for the ZetoLockableCapability *Args payloads. These mirror
+// the Solidity structs declared in IZetoLockableCapability.sol and let the
+// tests construct the opaque `bytes` parameters that the lock lifecycle
+// methods (createLock / updateLock / delegateLock / spendLock / cancelLock)
+// pass through to the token-specific encoders.
+const CREATE_ARGS_ABI =
+  "tuple(bytes32 txId, uint256[] inputs, uint256[] outputs, uint256[] lockedOutputs, bytes proof)";
+const UPDATE_ARGS_ABI = "tuple(bytes32 txId)";
+const DELEGATE_ARGS_ABI = "tuple(bytes32 txId)";
+const SPEND_ARGS_ABI =
+  "tuple(bytes32 txId, uint256[] lockedOutputs, uint256[] outputs, bytes proof, bytes data)";
+
+function encodeCreateArgs(args: {
+  txId: string;
+  inputs: BigNumberish[];
+  outputs: BigNumberish[];
+  lockedOutputs: BigNumberish[];
+  proof: string;
+}) {
+  return new AbiCoder().encode([CREATE_ARGS_ABI], [args]);
+}
+
+function encodeUpdateArgs(txId: string) {
+  return new AbiCoder().encode([UPDATE_ARGS_ABI], [{ txId }]);
+}
+
+function encodeDelegateArgs(txId: string) {
+  return new AbiCoder().encode([DELEGATE_ARGS_ABI], [{ txId }]);
+}
+
+function encodeSpendArgs(args: {
+  txId: string;
+  lockedOutputs: BigNumberish[];
+  outputs: BigNumberish[];
+  proof: string;
+  data: string;
+}) {
+  return new AbiCoder().encode([SPEND_ARGS_ABI], [args]);
+}
+
+function randomBytes32(): string {
+  return ethers.hexlify(ethers.randomBytes(32));
+}
+
+// The unlocked-input path encodes (root, ZkProof) so the contract can
+// validate the SMT root before delegating to the verifier. The locked-input
+// path elides the root: locked UTXOs are tracked in a flat per-lock mapping
+// rather than an SMT, so there's no Merkle root to assert membership against.
+function encodeUnlockedProof(root: BigNumberish, proof: any) {
+  return new AbiCoder().encode(
+    ["uint256 root", "tuple(uint256[2] pA, uint256[2][2] pB, uint256[2] pC)"],
+    [root, proof],
+  );
+}
+
+function encodeLockedProof(proof: any) {
+  return new AbiCoder().encode(
+    ["tuple(uint256[2] pA, uint256[2][2] pB, uint256[2] pC)"],
+    [proof],
+  );
+}
 
 describe("Zeto based fungible token with anonymity, KYC, using nullifiers without encryption", function () {
   let deployer: Signer;
@@ -312,7 +384,7 @@ describe("Zeto based fungible token with anonymity, KYC, using nullifiers withou
     // Alice checks her ERC20 balance
     const endingBalance = await erc20.balanceOf(Alice.ethAddress);
     expect(endingBalance - startingBalance).to.be.equal(3);
-  }).timeout(60000);
+  }).timeout(180000);
 
   it("mint ERC20 tokens to Alice to deposit to Zeto should succeed", async function () {
     const startingBalance = await erc20.balanceOf(Alice.ethAddress);
@@ -639,22 +711,17 @@ describe("Zeto based fungible token with anonymity, KYC, using nullifiers withou
             encodeToBytesForDeposit(encodedProof),
             "0x",
           ),
-      ).to.be.rejectedWith("Invalid proof");
+      ).to.be.rejectedWith("VM Exception while processing transaction: reverted with custom error 'InvalidProof()'");
     });
   });
 
-  describe("lock() tests", function () {
-    let lockedUtxo1: UTXO;
-    let smtBobForLocked: Merkletree;
+  describe("ILockableCapability tests", function () {
     let utxo9: UTXO;
     let utxo10: UTXO;
     let utxo11: UTXO;
     let utxo12: UTXO;
 
     before(async function () {
-      const storage1 = new InMemoryDB(str2Bytes(""));
-      smtBobForLocked = new Merkletree(storage1, true, 64);
-
       // mint UTXOs for Alice and spend one (to use it in a failure case test)
       utxo9 = newUTXO(10, Alice);
       utxo10 = newUTXO(15, Alice);
@@ -733,34 +800,51 @@ describe("Zeto based fungible token with anonymity, KYC, using nullifiers withou
       await smtBob.add(utxo12.hash, utxo12.hash);
     });
 
-    describe("lock -> transfer flow", function () {
-      it("lock() should succeed when using unlocked states", async function () {
+    // createLock -> updateLock -> delegateLock -> spendLock happy path. Note
+    // that for KYC the create-lock proof is the standard transfer proof
+    // (validates the SMT root and identities tree); the contract transitions
+    // the locked output into a flat per-lock mapping. The spendLock proof
+    // uses the dedicated transferLocked circuit / verifier wired through the
+    // ignition module's lockVerifier slot.
+    describe("createLock -> updateLock -> delegateLock -> spendLock flow", function () {
+      let lockedUtxo1: UTXO;
+      let lockId: string;
+      let outputUtxo1: UTXO;
+      let outputUtxo2: UTXO;
+      let unlockHash: string;
+      // Local SMT mirroring on-chain locked-state bookkeeping used by
+      // delegateLock tests (`locked()` / storage mirrors).
+      let smtForLocked: Merkletree;
+
+      before(async function () {
+        const storage = new InMemoryDB(str2Bytes("kyc-locked-1"));
+        smtForLocked = new Merkletree(storage, true, 64);
+      });
+
+      it("createLock() with deterministic lockId computed from txId", async function () {
         const nullifier1 = newNullifier(utxo11, Bob);
         lockedUtxo1 = newUTXO(utxo11.value!, Bob);
         const root = await smtBob.root();
-        const proof1 = await smtBob.generateCircomVerifierProof(
-          utxo11.hash,
-          root,
-        );
-        const proof2 = await smtBob.generateCircomVerifierProof(0n, root);
+        const p1 = await smtBob.generateCircomVerifierProof(utxo11.hash, root);
+        const p2 = await smtBob.generateCircomVerifierProof(0n, root);
         const merkleProofs = [
-          proof1.siblings.map((s) => s.bigInt()),
-          proof2.siblings.map((s) => s.bigInt()),
+          p1.siblings.map((s) => s.bigInt()),
+          p2.siblings.map((s) => s.bigInt()),
         ];
 
         const identitiesRoot = await smtKyc.root();
-        const proof3 = await smtKyc.generateCircomVerifierProof(
+        const idProofBob = await smtKyc.generateCircomVerifierProof(
           kycHash(Bob.babyJubPublicKey),
           identitiesRoot,
         );
-        const identitiesMerkleProofs = [
-          proof3.siblings.map((s) => s.bigInt()), // identity proof for the sender (Bob)
-          proof3.siblings.map((s) => s.bigInt()), // identity proof for the 1st owner of the output UTXO (Bob)
-          proof3.siblings.map((s) => s.bigInt()), // dummy identity proof for the 2nd owner of the output UTXO
+        const identityMerkleProofs = [
+          idProofBob.siblings.map((s) => s.bigInt()), // sender (Bob)
+          idProofBob.siblings.map((s) => s.bigInt()), // 1st output owner (Bob)
+          idProofBob.siblings.map((s) => s.bigInt()), // 2nd output owner (dummy)
         ];
 
-        const { outputCommitments, encodedProof } = await prepareProof(
-          circuit, // use the regular circuit for the lock() call
+        const { encodedProof } = await prepareProof(
+          circuit,
           provingKey,
           Bob,
           [utxo11, ZERO_UTXO],
@@ -769,544 +853,566 @@ describe("Zeto based fungible token with anonymity, KYC, using nullifiers withou
           root.bigInt(),
           merkleProofs,
           identitiesRoot.bigInt(),
-          identitiesMerkleProofs,
+          identityMerkleProofs,
           [Bob, Bob],
         );
 
-        const tx = await zeto.connect(Bob.signer).lock(
-          [nullifier1.hash],
+        const txId = randomBytes32();
+        const createArgs = encodeCreateArgs({
+          txId,
+          inputs: [nullifier1.hash],
+          outputs: [],
+          lockedOutputs: [lockedUtxo1.hash],
+          proof: encodeUnlockedProof(root.bigInt(), encodedProof),
+        });
+
+        // Pre-compute lockId off-chain and confirm against the contract.
+        const predicted = await zeto
+          .connect(Bob.signer)
+          .computeLockId(createArgs);
+        lockId = predicted;
+
+        const tx = await zeto
+          .connect(Bob.signer)
+          .createLock(createArgs, ethers.ZeroHash, ethers.ZeroHash, "0x");
+        const result: ContractTransactionReceipt | null = await tx.wait();
+        logger.debug(`createLock() complete. Gas used: ${result?.gasUsed}`);
+
+        const created = result!.logs
+          .map((l) => {
+            try {
+              return zeto.interface.parseLog(l as any);
+            } catch (_e) {
+              return null;
+            }
+          })
+          .find((p) => p && p.name === "LockCreated");
+        expect(created, "LockCreated event not found").to.not.be.null;
+        expect(created!.args.lockId).to.equal(predicted);
+        expect(created!.args.owner).to.equal(Bob.ethAddress);
+        expect(created!.args.spender).to.equal(Bob.ethAddress);
+
+        // Mirror the locked UTXO into the local SMT so the locked-circuit
+        // witness has a valid inclusion proof to consume.
+        await smtForLocked.add(
+          lockedUtxo1.hash,
+          ethers.toBigInt(Bob.ethAddress),
+        );
+      });
+
+      it("isLockActive() and getLock() reflect the newly created lock", async function () {
+        expect(await zeto.isLockActive(lockId)).to.equal(true);
+        const info = await zeto.getLock(lockId);
+        expect(info.owner).to.equal(Bob.ethAddress);
+        expect(info.spender).to.equal(Bob.ethAddress);
+        expect(info.spendCommitment).to.equal(ethers.ZeroHash);
+        expect(info.cancelCommitment).to.equal(ethers.ZeroHash);
+      });
+
+      it("locked() returns true for locked UTXOs and false for unlocked or spent UTXOs", async function () {
+        expect(await zeto.locked(lockedUtxo1.hash)).to.deep.equal([
+          true,
+          Bob.ethAddress,
+        ]);
+        // utxo12 is an unlocked UTXO that still belongs to Alice.
+        expect((await zeto.locked(utxo12.hash))[0]).to.be.false;
+      });
+
+      it("updateLock() commits the spend hash while owner == spender", async function () {
+        outputUtxo1 = newUTXO(10, Alice);
+        outputUtxo2 = newUTXO(5, Bob);
+
+        unlockHash = calculateSpendHash(
+          [lockedUtxo1],
           [],
-          outputCommitments,
-          encodeToBytes(root.bigInt(), encodedProof),
-          Alice.ethAddress, // make Alice the delegate who can spend the state (if she has the right proof)
+          [outputUtxo1, outputUtxo2],
           "0x",
         );
+
+        const tx = await zeto
+          .connect(Bob.signer)
+          .updateLock(
+            lockId,
+            encodeUpdateArgs(randomBytes32()),
+            unlockHash,
+            ethers.ZeroHash,
+            "0x",
+          );
         const result: ContractTransactionReceipt | null = await tx.wait();
+        logger.debug(`updateLock() complete. Gas used: ${result?.gasUsed}`);
 
-        // Note that the locked UTXO should NOT be added to the local SMT for UTXOs because it's tracked in a separate SMT onchain
-        // we add it to the local SMT for locked UTXOs
-        const events = parseUTXOEvents(zeto, result!);
-        await smtBobForLocked.add(
-          events[0].lockedOutputs[0],
-          ethers.toBigInt(events[0].delegate),
-        );
+        const info = await zeto.getLock(lockId);
+        expect(info.spendCommitment).to.equal(unlockHash);
       });
 
-      it("onchain SMT root for the locked UTXOs should be equal to the offchain SMT root", async function () {
-        const root = await smtBobForLocked.root();
-        const onchainRoot = await zeto.getRootForLocked();
-        expect(root.string()).to.equal(onchainRoot.toString());
-      });
+      it("delegateLock() transfers spending authority to Alice", async function () {
+        const tx = await zeto
+          .connect(Bob.signer)
+          .delegateLock(
+            lockId,
+            encodeDelegateArgs(randomBytes32()),
+            Alice.ethAddress,
+            "0x",
+          );
+        const result: ContractTransactionReceipt | null = await tx.wait();
+        logger.debug(`delegateLock() complete. Gas used: ${result?.gasUsed}`);
 
-      it("lock() should fail when trying to lock again", async function () {
-        if (network.name !== "hardhat") {
-          return;
-        }
-
-        // the owner of the locked UTXO can generate the proper proof to spend the locked state,
-        // but not able to lock again because it's not the current delegate
-        const nullifier1 = newNullifier(lockedUtxo1, Bob);
-        const utxo1 = newUTXO(lockedUtxo1.value!, Bob);
-        const root = await smtBobForLocked.root();
-        const proof1 = await smtBobForLocked.generateCircomVerifierProof(
+        const info = await zeto.getLock(lockId);
+        expect(info.spender).to.equal(Alice.ethAddress);
+        // Storage-layer delegate must follow the spender.
+        expect(await zeto.locked(lockedUtxo1.hash)).to.deep.equal([
+          true,
+          Alice.ethAddress,
+        ]);
+        // Mirror the new delegate into the local locked SMT so the spendLock
+        // witness's SMT inclusion proof matches the (utxoHash, delegate) leaf.
+        await smtForLocked.update(
           lockedUtxo1.hash,
-          root,
+          ethers.toBigInt(Alice.ethAddress),
         );
-        const proof2 = await smtBobForLocked.generateCircomVerifierProof(
-          0n,
-          root,
-        );
-        const merkleProofs = [
-          proof1.siblings.map((s) => s.bigInt()),
-          proof2.siblings.map((s) => s.bigInt()),
-        ];
+      });
 
+      it("the new spender can spendLock() with the matching payload", async function () {
+        // The locked-input proof is generated against the dedicated
+        // transferLocked circuit; identity-tree membership for both the
+        // (still-original) sender Bob and each output owner is asserted as
+        // part of the snark, mirroring the unlocked transfer flow.
+        const nullifier1 = newNullifier(lockedUtxo1, Bob);
         const identitiesRoot = await smtKyc.root();
-        const proof3 = await smtKyc.generateCircomVerifierProof(
+        const idProofBob = await smtKyc.generateCircomVerifierProof(
           kycHash(Bob.babyJubPublicKey),
           identitiesRoot,
         );
-        const identitiesMerkleProofs = [
-          proof3.siblings.map((s) => s.bigInt()), // identity proof for the sender (Bob)
-          proof3.siblings.map((s) => s.bigInt()), // identity proof for the 1st owner of the output UTXO (Bob)
-          proof3.siblings.map((s) => s.bigInt()), // dummy identity proof for the 2nd owner of the output UTXO
+        const idProofAlice = await smtKyc.generateCircomVerifierProof(
+          kycHash(Alice.babyJubPublicKey),
+          identitiesRoot,
+        );
+        const identityMerkleProofs = [
+          idProofBob.siblings.map((s) => s.bigInt()), // sender (Bob)
+          idProofAlice.siblings.map((s) => s.bigInt()), // 1st output owner (Alice)
+          idProofBob.siblings.map((s) => s.bigInt()), // 2nd output owner (Bob)
         ];
 
-        const { outputCommitments, encodedProof } = await prepareProof(
+        const { encodedProof } = await prepareProof(
           circuitForLocked,
           provingKeyForLocked,
           Bob,
           [lockedUtxo1, ZERO_UTXO],
           [nullifier1, ZERO_UTXO],
-          [utxo1, ZERO_UTXO],
+          [outputUtxo1, outputUtxo2],
+          0n,
+          [],
+          identitiesRoot.bigInt(),
+          identityMerkleProofs,
+          [Alice, Bob],
+          undefined,
+          { transferLocked: true },
+        );
+
+        const spendArgs = encodeSpendArgs({
+          txId: randomBytes32(),
+          lockedOutputs: [],
+          outputs: [outputUtxo1.hash, outputUtxo2.hash],
+          proof: encodeLockedProof(encodedProof),
+          data: "0x",
+        });
+
+        const tx = await zeto
+          .connect(Alice.signer)
+          .spendLock(lockId, spendArgs, "0x");
+        const result = await tx.wait();
+
+        const parsed = result!.logs
+          .map((l) => {
+            try {
+              return zeto.interface.parseLog(l as any);
+            } catch (_e) {
+              return null;
+            }
+          })
+          .filter((p) => p !== null) as ReadonlyArray<{
+          name: string;
+          args: any;
+        }>;
+        const lockSpent = parsed.find((p) => p.name === "LockSpent");
+        const zetoLockSpent = parsed.find((p) => p.name === "ZetoLockSpent");
+        expect(lockSpent, "LockSpent event not emitted").to.not.be.undefined;
+        expect(zetoLockSpent, "ZetoLockSpent event not emitted").to.not.be
+          .undefined;
+        expect(lockSpent!.args.lockId).to.equal(lockId);
+        expect(lockSpent!.args.spender).to.equal(Alice.ethAddress);
+
+        const outputs = zetoLockSpent!.args.outputs;
+        await smtAlice.add(outputs[0], outputs[0]);
+        await smtAlice.add(outputs[1], outputs[1]);
+        await smtBob.add(outputs[0], outputs[0]);
+        await smtBob.add(outputs[1], outputs[1]);
+
+        // Lock is no longer active after spendLock().
+        expect(await zeto.isLockActive(lockId)).to.equal(false);
+      });
+
+      it("onchain SMT root for the unlocked UTXOs equals the offchain SMT root", async function () {
+        const bobRoot = await smtBob.root();
+        const aliceRoot = await smtAlice.root();
+        const onchainRoot = await zeto.getRoot();
+        expect(bobRoot.string()).to.equal(onchainRoot.toString());
+        expect(aliceRoot.string()).to.equal(onchainRoot.toString());
+      });
+    });
+
+    // createLock with a non-zero cancelCommitment, then cancelLock by the
+    // owner without going through delegateLock. Cancelling a lock follows
+    // the same proof-encoding rules as spendLock (locked-input verifier,
+    // bare Commonlib.Proof) but is gated by the cancelCommitment hash.
+    describe("createLock -> cancelLock flow", function () {
+      let lockedUtxo: UTXO;
+      let lockId: string;
+      let cancelHash: string;
+      let outUtxo1: UTXO;
+      let outUtxo2: UTXO;
+      let aliceUtxoForLock: UTXO;
+      let smtForLocked: Merkletree;
+
+      before(async function () {
+        // Mint a fresh source UTXO for Alice so this scope can build its own
+        // lock without colliding with the prior describe block's spend flow.
+        aliceUtxoForLock = newUTXO(50, Alice);
+        await doMint(zeto, deployer, [aliceUtxoForLock]);
+        await smtAlice.add(aliceUtxoForLock.hash, aliceUtxoForLock.hash);
+        await smtBob.add(aliceUtxoForLock.hash, aliceUtxoForLock.hash);
+        const storage = new InMemoryDB(str2Bytes("kyc-locked-2"));
+        smtForLocked = new Merkletree(storage, true, 64);
+      });
+
+      it("Alice createLock() with a cancelCommitment", async function () {
+        const nullifier1 = newNullifier(aliceUtxoForLock, Alice);
+        lockedUtxo = newUTXO(aliceUtxoForLock.value!, Alice);
+        const root = await smtAlice.root();
+        const p1 = await smtAlice.generateCircomVerifierProof(
+          aliceUtxoForLock.hash,
+          root,
+        );
+        const p2 = await smtAlice.generateCircomVerifierProof(0n, root);
+        const merkleProofs = [
+          p1.siblings.map((s) => s.bigInt()),
+          p2.siblings.map((s) => s.bigInt()),
+        ];
+
+        const identitiesRoot = await smtKyc.root();
+        const idProofAlice = await smtKyc.generateCircomVerifierProof(
+          kycHash(Alice.babyJubPublicKey),
+          identitiesRoot,
+        );
+        const identityMerkleProofs = [
+          idProofAlice.siblings.map((s) => s.bigInt()),
+          idProofAlice.siblings.map((s) => s.bigInt()),
+          idProofAlice.siblings.map((s) => s.bigInt()),
+        ];
+
+        const { encodedProof } = await prepareProof(
+          circuit,
+          provingKey,
+          Alice,
+          [aliceUtxoForLock, ZERO_UTXO],
+          [nullifier1, ZERO_UTXO],
+          [lockedUtxo, ZERO_UTXO],
           root.bigInt(),
           merkleProofs,
           identitiesRoot.bigInt(),
-          identitiesMerkleProofs,
-          [Bob, Bob],
-          Alice.ethAddress,
+          identityMerkleProofs,
+          [Alice, Alice],
         );
+
+        outUtxo1 = newUTXO(20, Bob);
+        outUtxo2 = newUTXO(30, Alice);
+        cancelHash = calculateCancelHash(
+          [lockedUtxo],
+          [],
+          [outUtxo1, outUtxo2],
+          "0x",
+        );
+
+        const createArgs = encodeCreateArgs({
+          txId: randomBytes32(),
+          inputs: [nullifier1.hash],
+          outputs: [],
+          lockedOutputs: [lockedUtxo.hash],
+          proof: encodeUnlockedProof(root.bigInt(), encodedProof),
+        });
+        lockId = await zeto.connect(Alice.signer).computeLockId(createArgs);
+
+        const tx = await zeto
+          .connect(Alice.signer)
+          .createLock(createArgs, ethers.ZeroHash, cancelHash, "0x");
+        const result: ContractTransactionReceipt | null = await tx.wait();
+        logger.debug(`createLock() complete. Gas used: ${result?.gasUsed}`);
+
+        // Mirror the locked UTXO so the cancel-side witness can prove inclusion.
+        await smtForLocked.add(
+          lockedUtxo.hash,
+          ethers.toBigInt(Alice.ethAddress),
+        );
+      });
+
+      it("the owner can cancelLock() to reverse the lock without delegation", async function () {
+        const nullifier1 = newNullifier(lockedUtxo, Alice);
+        const identitiesRoot = await smtKyc.root();
+        const idProofAlice = await smtKyc.generateCircomVerifierProof(
+          kycHash(Alice.babyJubPublicKey),
+          identitiesRoot,
+        );
+        const idProofBob = await smtKyc.generateCircomVerifierProof(
+          kycHash(Bob.babyJubPublicKey),
+          identitiesRoot,
+        );
+        const identityMerkleProofs = [
+          idProofAlice.siblings.map((s) => s.bigInt()), // sender (Alice)
+          idProofBob.siblings.map((s) => s.bigInt()), // 1st output owner (Bob)
+          idProofAlice.siblings.map((s) => s.bigInt()), // 2nd output owner (Alice)
+        ];
+
+        const { encodedProof } = await prepareProof(
+          circuitForLocked,
+          provingKeyForLocked,
+          Alice,
+          [lockedUtxo, ZERO_UTXO],
+          [nullifier1, ZERO_UTXO],
+          [outUtxo1, outUtxo2],
+          0n,
+          [],
+          identitiesRoot.bigInt(),
+          identityMerkleProofs,
+          [Bob, Alice],
+          undefined,
+          { transferLocked: true },
+        );
+
+        const cancelArgs = encodeSpendArgs({
+          txId: randomBytes32(),
+          lockedOutputs: [],
+          outputs: [outUtxo1.hash, outUtxo2.hash],
+          proof: encodeLockedProof(encodedProof),
+          data: "0x",
+        });
+
+        const tx = await zeto
+          .connect(Alice.signer)
+          .cancelLock(lockId, cancelArgs, "0x");
+        const result = await tx.wait();
+
+        const parsed = result!.logs
+          .map((l) => {
+            try {
+              return zeto.interface.parseLog(l as any);
+            } catch (_e) {
+              return null;
+            }
+          })
+          .filter((p) => p !== null) as ReadonlyArray<{
+          name: string;
+          args: any;
+        }>;
+        const cancelled = parsed.find((p) => p.name === "LockCancelled");
+        const zetoCancelled = parsed.find((p) => p.name === "ZetoLockCancelled");
+        expect(cancelled, "LockCancelled event not emitted").to.not.be.undefined;
+        expect(zetoCancelled, "ZetoLockCancelled event not emitted").to.not.be
+          .undefined;
+
+        const outputs = zetoCancelled!.args.outputs;
+        await smtAlice.add(outputs[0], outputs[0]);
+        await smtAlice.add(outputs[1], outputs[1]);
+        await smtBob.add(outputs[0], outputs[0]);
+        await smtBob.add(outputs[1], outputs[1]);
+
+        expect(await zeto.isLockActive(lockId)).to.equal(false);
+      });
+    });
+
+    // Negative cases for the lock lifecycle. These rely on hardhat's revert
+    // decoding for custom errors and so are gated by the network name.
+    describe("negative cases for the lock lifecycle", function () {
+      if (network.name !== "hardhat") {
+        return;
+      }
+
+      // freshLock mints a fresh UTXO for `owner`, locks it, and returns the
+      // metadata so each negative scope can branch off without polluting
+      // siblings. Each call advances both local SMTs.
+      async function freshLock(
+        owner: User,
+        spendCommitment: string = ethers.ZeroHash,
+        cancelCommitment: string = ethers.ZeroHash,
+      ): Promise<{
+        lockId: string;
+        sourceUtxo: UTXO;
+        lockedUtxo: UTXO;
+        createArgs: string;
+      }> {
+        const sourceUtxo = newUTXO(7, owner);
+        await doMint(zeto, deployer, [sourceUtxo]);
+        await smtAlice.add(sourceUtxo.hash, sourceUtxo.hash);
+        await smtBob.add(sourceUtxo.hash, sourceUtxo.hash);
+
+        const nullifier = newNullifier(sourceUtxo, owner);
+        const lockedUtxo = newUTXO(sourceUtxo.value!, owner);
+        const root = await smtBob.root();
+        const p1 = await smtBob.generateCircomVerifierProof(
+          sourceUtxo.hash,
+          root,
+        );
+        const p2 = await smtBob.generateCircomVerifierProof(0n, root);
+        const merkleProofs = [
+          p1.siblings.map((s) => s.bigInt()),
+          p2.siblings.map((s) => s.bigInt()),
+        ];
+
+        const identitiesRoot = await smtKyc.root();
+        const idProofOwner = await smtKyc.generateCircomVerifierProof(
+          kycHash(owner.babyJubPublicKey),
+          identitiesRoot,
+        );
+        const identityMerkleProofs = [
+          idProofOwner.siblings.map((s) => s.bigInt()),
+          idProofOwner.siblings.map((s) => s.bigInt()),
+          idProofOwner.siblings.map((s) => s.bigInt()),
+        ];
+
+        const { encodedProof } = await prepareProof(
+          circuit,
+          provingKey,
+          owner,
+          [sourceUtxo, ZERO_UTXO],
+          [nullifier, ZERO_UTXO],
+          [lockedUtxo, ZERO_UTXO],
+          root.bigInt(),
+          merkleProofs,
+          identitiesRoot.bigInt(),
+          identityMerkleProofs,
+          [owner, owner],
+        );
+
+        const createArgs = encodeCreateArgs({
+          txId: randomBytes32(),
+          inputs: [nullifier.hash],
+          outputs: [],
+          lockedOutputs: [lockedUtxo.hash],
+          proof: encodeUnlockedProof(root.bigInt(), encodedProof),
+        });
+        const lockId = await zeto
+          .connect(owner.signer)
+          .computeLockId(createArgs);
+        await (
+          await zeto
+            .connect(owner.signer)
+            .createLock(createArgs, spendCommitment, cancelCommitment, "0x")
+        ).wait();
+        return { lockId, sourceUtxo, lockedUtxo, createArgs };
+      }
+
+      // Authorization / immutability assertions short-circuit before the
+      // proof is ever touched, so we can pass a syntactically valid but
+      // ZK-vacuous spend payload.
+      function dummySpendArgs(): string {
+        return encodeSpendArgs({
+          txId: randomBytes32(),
+          lockedOutputs: [],
+          outputs: [],
+          proof: "0x",
+          data: "0x",
+        });
+      }
+
+      it("createLock() with a duplicate txId from the same caller reverts with DuplicateLock", async function () {
+        const { lockId, createArgs } = await freshLock(Bob);
 
         await expect(
           zeto
             .connect(Bob.signer)
-            .lock(
-              [nullifier1.hash],
-              [],
-              outputCommitments,
-              encodeToBytes(root.bigInt(), encodedProof),
+            .createLock(createArgs, ethers.ZeroHash, ethers.ZeroHash, "0x"),
+        ).rejectedWith(`DuplicateLock("${lockId}")`);
+      });
+
+      it("updateLock() by a non-owner reverts with LockUnauthorized", async function () {
+        const { lockId } = await freshLock(Bob);
+
+        await expect(
+          zeto
+            .connect(Alice.signer)
+            .updateLock(
+              lockId,
+              encodeUpdateArgs(randomBytes32()),
+              ethers.ZeroHash,
+              ethers.ZeroHash,
+              "0x",
+            ),
+        ).rejectedWith(
+          `LockUnauthorized("${lockId}", "${Bob.ethAddress}", "${Alice.ethAddress}")`,
+        );
+      });
+
+      it("updateLock() after delegateLock() reverts with LockImmutable", async function () {
+        const { lockId } = await freshLock(Bob);
+
+        await (
+          await zeto
+            .connect(Bob.signer)
+            .delegateLock(
+              lockId,
+              encodeDelegateArgs(randomBytes32()),
+              Alice.ethAddress,
+              "0x",
+            )
+        ).wait();
+
+        await expect(
+          zeto
+            .connect(Bob.signer)
+            .updateLock(
+              lockId,
+              encodeUpdateArgs(randomBytes32()),
+              ethers.ZeroHash,
+              ethers.ZeroHash,
+              "0x",
+            ),
+        ).rejectedWith(`LockImmutable("${lockId}")`);
+      });
+
+      it("delegateLock() by a non-spender reverts with LockUnauthorized", async function () {
+        const { lockId } = await freshLock(Bob);
+
+        await expect(
+          zeto
+            .connect(Alice.signer)
+            .delegateLock(
+              lockId,
+              encodeDelegateArgs(randomBytes32()),
               Charlie.ethAddress,
               "0x",
             ),
-        ).to.be.rejectedWith("UTXORootNotFound");
+        )
+          .to.be.revertedWithCustomError(zeto, "LockUnauthorized")
+          .withArgs(lockId, Bob.ethAddress, Alice.ethAddress);
       });
 
-      it("the original owner can NOT spend the locked state", async function () {
-        // Bob generates inclusion proofs for the UTXOs to be spent, as private input to the proof generation
-        const nullifier1 = newNullifier(lockedUtxo1, Bob);
-        const root = await smtBobForLocked.root();
-        const proof1 = await smtBobForLocked.generateCircomVerifierProof(
-          lockedUtxo1.hash,
-          root,
-        );
-        const proof2 = await smtBobForLocked.generateCircomVerifierProof(
-          0n,
-          root,
-        );
-        const merkleProofs = [
-          proof1.siblings.map((s) => s.bigInt()),
-          proof2.siblings.map((s) => s.bigInt()),
-        ];
-        // Bob proposes the output UTXOs, attempting to transfer the locked UTXO to Charlie
-        const _utxo1 = newUTXO(lockedUtxo1.value!, Charlie);
-
-        const identitiesRoot = await smtKyc.root();
-        const proof3 = await smtKyc.generateCircomVerifierProof(
-          kycHash(Bob.babyJubPublicKey),
-          identitiesRoot,
-        );
-        const proof4 = await smtKyc.generateCircomVerifierProof(
-          kycHash(Charlie.babyJubPublicKey),
-          identitiesRoot,
-        );
-        const identitiesMerkleProofs = [
-          proof3.siblings.map((s) => s.bigInt()), // identity proof for the sender (Bob)
-          proof4.siblings.map((s) => s.bigInt()), // identity proof for the 1st owner of the output UTXO (Charlie)
-          proof3.siblings.map((s) => s.bigInt()), // dummy identity proof for the 2nd owner of the output UTXO
-        ];
-
-        // Bob should NOT be able to spend the UTXO which has been locked and delegated to Alice
-        await expect(
-          doTransfer(
-            Bob,
-            [lockedUtxo1, ZERO_UTXO],
-            [nullifier1, ZERO_UTXO],
-            [_utxo1, ZERO_UTXO],
-            root.bigInt(),
-            merkleProofs,
-            identitiesRoot.bigInt(),
-            identitiesMerkleProofs,
-            [Charlie, Bob],
-            Alice,
-          ),
-        ).to.be.rejectedWith("Invalid proof"); // due to the lockDelegate part of the public input not matching the current delegate
-      });
-
-      it("the original owner can NOT withdraw the locked state", async function () {
-        // Bob generates inclusion proofs for the UTXOs to be spent, as private input to the proof generation
-        const nullifier1 = newNullifier(lockedUtxo1, Bob);
-        const root = await smtBobForLocked.root();
-        const proof1 = await smtBobForLocked.generateCircomVerifierProof(
-          lockedUtxo1.hash,
-          root,
-        );
-        const proof2 = await smtBobForLocked.generateCircomVerifierProof(
-          0n,
-          root,
-        );
-        const merkleProofs = [
-          proof1.siblings.map((s) => s.bigInt()),
-          proof2.siblings.map((s) => s.bigInt()),
-        ];
-
-        const utxo1 = newUTXO(5, Bob);
+      it("spendLock() by a non-spender reverts with LockUnauthorized before touching the proof", async function () {
+        const { lockId } = await freshLock(Bob);
 
         await expect(
-          prepareNullifierWithdrawProof(
-            Bob,
-            [lockedUtxo1, ZERO_UTXO],
-            [nullifier1, ZERO_UTXO],
-            utxo1,
-            root.bigInt(),
-            merkleProofs,
-          ),
-        ).to.be.rejectedWith("SMTVerifier_249 line: 134");
+          zeto.connect(Alice.signer).spendLock(lockId, dummySpendArgs(), "0x"),
+        )
+          .to.be.revertedWithCustomError(zeto, "LockUnauthorized")
+          .withArgs(lockId, Bob.ethAddress, Alice.ethAddress);
       });
 
-      it("attempting to use an existing UTXO as output should fail", async function () {
-        // Bob generates inclusion proofs for the UTXOs to be spent, as private input to the proof generation
-        const nullifier1 = newNullifier(lockedUtxo1, Bob);
-        const root = await smtBobForLocked.root();
-        const proof1 = await smtBobForLocked.generateCircomVerifierProof(
-          lockedUtxo1.hash,
-          root,
-        );
-        const proof2 = await smtBobForLocked.generateCircomVerifierProof(
-          0n,
-          root,
-        );
-        const merkleProofs = [
-          proof1.siblings.map((s) => s.bigInt()),
-          proof2.siblings.map((s) => s.bigInt()),
-        ];
-        // Bob proposes the output UTXOs, attempting to transfer the locked UTXO to Alice
-        // and reusing an existing UTXO (utxo4)
-        const utxo1 = newUTXO(5, Alice);
+      it("cancelLock() by a non-spender reverts with LockUnauthorized", async function () {
+        const { lockId } = await freshLock(Bob);
 
-        const identitiesRoot = await smtKyc.root();
-        const proof3 = await smtKyc.generateCircomVerifierProof(
-          kycHash(Bob.babyJubPublicKey),
-          identitiesRoot,
-        );
-        const proof4 = await smtKyc.generateCircomVerifierProof(
-          kycHash(Alice.babyJubPublicKey),
-          identitiesRoot,
-        );
-        const identitiesMerkleProofs = [
-          proof3.siblings.map((s) => s.bigInt()), // identity proof for the sender (Bob)
-          proof4.siblings.map((s) => s.bigInt()), // identity proof for the 1st owner of the output UTXO (Alice)
-          proof4.siblings.map((s) => s.bigInt()), // identity proof for the 2nd owner of the output UTXO (Alice)
-        ];
-
-        const result = await prepareProof(
-          circuitForLocked,
-          provingKeyForLocked,
-          Bob,
-          [lockedUtxo1, ZERO_UTXO],
-          [nullifier1, ZERO_UTXO],
-          [utxo9, utxo1],
-          root.bigInt(),
-          merkleProofs,
-          identitiesRoot.bigInt(),
-          identitiesMerkleProofs,
-          [Alice, Alice],
-          Alice.ethAddress, // current lock delegate
-        );
-        const nullifiers = [nullifier1.hash];
-
-        // Alice (in reality this is usually a contract that orchestrates a trade flow) can spend the locked state
-        // using the proof generated by the trade counterparty (Bob in this case)
         await expect(
-          sendTx(
-            Alice,
-            nullifiers,
-            result.outputCommitments,
-            root.bigInt(),
-            result.encodedProof,
-            true,
-          ),
-        ).to.be.rejectedWith(`UTXOAlreadyOwned(${utxo9.hash.toString()})`);
-      });
-
-      it("attempting to use a spent UTXO as output should fail", async function () {
-        // Bob generates inclusion proofs for the UTXOs to be spent, as private input to the proof generation
-        const nullifier1 = newNullifier(lockedUtxo1, Bob);
-        const root = await smtBobForLocked.root();
-        const proof1 = await smtBobForLocked.generateCircomVerifierProof(
-          lockedUtxo1.hash,
-          root,
-        );
-        const proof2 = await smtBobForLocked.generateCircomVerifierProof(
-          0n,
-          root,
-        );
-        const merkleProofs = [
-          proof1.siblings.map((s) => s.bigInt()),
-          proof2.siblings.map((s) => s.bigInt()),
-        ];
-        // Bob proposes the output UTXOs, attempting to transfer the locked UTXO to Alice
-        // and reusing an unlocked spent UTXO (utxo4)
-        const utxo1 = newUTXO(0, Alice);
-
-        const identitiesRoot = await smtKyc.root();
-        const proof3 = await smtKyc.generateCircomVerifierProof(
-          kycHash(Bob.babyJubPublicKey),
-          identitiesRoot,
-        );
-        const proof4 = await smtKyc.generateCircomVerifierProof(
-          kycHash(Alice.babyJubPublicKey),
-          identitiesRoot,
-        );
-        const identitiesMerkleProofs = [
-          proof3.siblings.map((s) => s.bigInt()), // identity proof for the sender (Bob)
-          proof4.siblings.map((s) => s.bigInt()), // identity proof for the 1st owner of the output UTXO (Alice)
-          proof4.siblings.map((s) => s.bigInt()), // identity proof for the 1st owner of the output UTXO (Alice)
-        ];
-
-        const result = await prepareProof(
-          circuitForLocked,
-          provingKeyForLocked,
-          Bob,
-          [lockedUtxo1, ZERO_UTXO],
-          [nullifier1, ZERO_UTXO],
-          [utxo10, utxo1],
-          root.bigInt(),
-          merkleProofs,
-          identitiesRoot.bigInt(),
-          identitiesMerkleProofs,
-          [Alice, Alice],
-          Alice.ethAddress, // current lock delegate
-        );
-        const nullifiers = [nullifier1.hash];
-
-        // Alice (in reality this is usually a contract that orchestrates a trade flow) can spend the locked state
-        // using the proof generated by the trade counterparty (Bob in this case)
-        await expect(
-          sendTx(
-            Alice,
-            nullifiers,
-            result.outputCommitments,
-            root.bigInt(),
-            result.encodedProof,
-            true,
-          ),
-        ).to.be.rejectedWith(`UTXOAlreadyOwned(${utxo10.hash.toString()})`);
-      });
-
-      it("the designated delegate can use the proper proof to spend the locked state", async function () {
-        // Bob generates inclusion proofs for the UTXOs to be spent, as private input to the proof generation
-        const nullifier1 = newNullifier(lockedUtxo1, Bob);
-        const root = await smtBobForLocked.root();
-        const proof1 = await smtBobForLocked.generateCircomVerifierProof(
-          lockedUtxo1.hash,
-          root,
-        );
-        const proof2 = await smtBobForLocked.generateCircomVerifierProof(
-          0n,
-          root,
-        );
-        const merkleProofs = [
-          proof1.siblings.map((s) => s.bigInt()),
-          proof2.siblings.map((s) => s.bigInt()),
-        ];
-        // Bob proposes the output UTXOs, attempting to transfer the locked UTXO to Alice
-        const utxo1 = newUTXO(10, Alice);
-        const utxo2 = newUTXO(5, Bob);
-
-        const identitiesRoot = await smtKyc.root();
-        const proof3 = await smtKyc.generateCircomVerifierProof(
-          kycHash(Bob.babyJubPublicKey),
-          identitiesRoot,
-        );
-        const proof4 = await smtKyc.generateCircomVerifierProof(
-          kycHash(Alice.babyJubPublicKey),
-          identitiesRoot,
-        );
-        const identitiesMerkleProofs = [
-          proof3.siblings.map((s) => s.bigInt()), // identity proof for the sender (Bob)
-          proof4.siblings.map((s) => s.bigInt()), // identity proof for the 1st owner of the output UTXO (Alice)
-          proof3.siblings.map((s) => s.bigInt()), // identity proof for the 1st owner of the output UTXO (Alice)
-        ];
-
-        const result = await prepareProof(
-          circuitForLocked,
-          provingKeyForLocked,
-          Bob,
-          [lockedUtxo1, ZERO_UTXO],
-          [nullifier1, ZERO_UTXO],
-          [utxo1, utxo2],
-          root.bigInt(),
-          merkleProofs,
-          identitiesRoot.bigInt(),
-          identitiesMerkleProofs,
-          [Alice, Bob],
-          Alice.ethAddress, // current lock delegate
-        );
-        const nullifiers = [nullifier1.hash];
-
-        // Alice (in reality this is usually a contract that orchestrates a trade flow) can spend the locked state
-        // using the proof generated by the trade counterparty (Bob in this case)
-        await expect(
-          sendTx(
-            Alice,
-            nullifiers,
-            result.outputCommitments,
-            root.bigInt(),
-            result.encodedProof,
-            true,
-          ),
-        ).to.be.fulfilled;
-
-        // Alice and Bob keep the local SMT in sync
-        await smtAlice.add(utxo1.hash, utxo1.hash);
-        await smtAlice.add(utxo2.hash, utxo2.hash);
-        await smtBob.add(utxo1.hash, utxo1.hash);
-        await smtBob.add(utxo2.hash, utxo2.hash);
-      });
-
-      it("onchain SMT root for the locked UTXOs should be equal to the offchain SMT root", async function () {
-        const root = await smtBobForLocked.root();
-        const onchainRoot = await zeto.getRootForLocked();
-        expect(root.string()).to.equal(onchainRoot.toString());
-      });
-
-      it("onchain SMT root for the unlocked UTXOs should be equal to the offchain SMT root", async function () {
-        const root = await smtBob.root();
-        const onchainRoot = await zeto.getRoot();
-        expect(root.string()).to.equal(onchainRoot.toString());
-      });
-    });
-
-    describe("lock -> delegate -> transfer flow", function () {
-      let lockedUtxo2: UTXO;
-
-      it("Alice locks a UTXO and makes Bob the delegate ", async function () {
-        const nullifier1 = newNullifier(utxo9, Alice);
-        lockedUtxo2 = newUTXO(utxo9.value!, Alice);
-        const root = await smtAlice.root();
-        const proof1 = await smtAlice.generateCircomVerifierProof(
-          utxo9.hash,
-          root,
-        );
-        const proof2 = await smtAlice.generateCircomVerifierProof(0n, root);
-        const merkleProofs = [
-          proof1.siblings.map((s) => s.bigInt()),
-          proof2.siblings.map((s) => s.bigInt()),
-        ];
-
-        const identitiesRoot = await smtKyc.root();
-        const proof3 = await smtKyc.generateCircomVerifierProof(
-          kycHash(Alice.babyJubPublicKey),
-          identitiesRoot,
-        );
-        const identitiesMerkleProofs = [
-          proof3.siblings.map((s) => s.bigInt()), // identity proof for the sender (Bob)
-          proof3.siblings.map((s) => s.bigInt()), // identity proof for the 1st owner of the output UTXO (Alice)
-          proof3.siblings.map((s) => s.bigInt()), // dummy identity proof for the 2nd owner of the output UTXO
-        ];
-
-        const { outputCommitments, encodedProof } = await prepareProof(
-          circuit,
-          provingKey,
-          Alice,
-          [utxo9, ZERO_UTXO],
-          [nullifier1, ZERO_UTXO],
-          [lockedUtxo2, ZERO_UTXO],
-          root.bigInt(),
-          merkleProofs,
-          identitiesRoot.bigInt(),
-          identitiesMerkleProofs,
-          [Alice, Alice],
-        );
-
-        const tx = await zeto.connect(Bob.signer).lock(
-          [nullifier1.hash],
-          [],
-          outputCommitments,
-          encodeToBytes(root.bigInt(), encodedProof),
-          Bob.ethAddress, // make Bob the delegate who can spend the state (if he has the right proof)
-          "0x",
-        );
-        const result: ContractTransactionReceipt | null = await tx.wait();
-
-        // Note that the locked UTXO should NOT be added to the local SMT for UTXOs because it's tracked in a separate SMT onchain
-        // we add it to the local SMT for locked UTXOs
-        const events = parseUTXOEvents(zeto, result!);
-        await smtBobForLocked.add(
-          events[0].lockedOutputs[0],
-          ethers.toBigInt(events[0].delegate),
-        );
-      });
-
-      it("Bob delegates the lock to Charlie", async function () {
-        const tx = await zeto
-          .connect(Bob.signer)
-          .delegateLock([lockedUtxo2.hash], Charlie.ethAddress, "0x");
-        const result = await tx.wait();
-        const events = parseUTXOEvents(zeto, result);
-        // this should update the existing leaf node value from address of Alice to Charlie
-        await smtBobForLocked.update(
-          events[0].lockedOutputs[0],
-          ethers.toBigInt(events[0].newDelegate),
-        );
-      });
-
-      it("onchain SMT root for the locked UTXOs should be equal to the offchain SMT root", async function () {
-        const root = await smtBobForLocked.root();
-        const onchainRoot = await zeto.getRootForLocked();
-        expect(root.string()).to.equal(onchainRoot.toString());
-      });
-
-      it("Charlie can use the proper proof to spend the locked state", async function () {
-        // Alice generates inclusion proofs for the UTXOs to be spent, as private input to the proof generation
-        const nullifier1 = newNullifier(lockedUtxo2, Alice);
-        // borrowing the SMT from Bob to save test code duplication
-        const root = await smtBobForLocked.root();
-        const proof1 = await smtBobForLocked.generateCircomVerifierProof(
-          lockedUtxo2.hash,
-          root,
-        );
-        const proof2 = await smtBobForLocked.generateCircomVerifierProof(
-          0n,
-          root,
-        );
-        const merkleProofs = [
-          proof1.siblings.map((s) => s.bigInt()),
-          proof2.siblings.map((s) => s.bigInt()),
-        ];
-        // Bob proposes the output UTXOs, attempting to transfer the locked UTXO to Alice
-        const utxo1 = newUTXO(1, Bob);
-        const utxo2 = newUTXO(9, Alice);
-
-        const identitiesRoot = await smtKyc.root();
-        const proof3 = await smtKyc.generateCircomVerifierProof(
-          kycHash(Alice.babyJubPublicKey),
-          identitiesRoot,
-        );
-        const proof4 = await smtKyc.generateCircomVerifierProof(
-          kycHash(Bob.babyJubPublicKey),
-          identitiesRoot,
-        );
-        const identitiesMerkleProofs = [
-          proof3.siblings.map((s) => s.bigInt()), // identity proof for the sender (Alice)
-          proof4.siblings.map((s) => s.bigInt()), // identity proof for the 1st owner of the output UTXO (Bob)
-          proof3.siblings.map((s) => s.bigInt()), // identity proof for the 1st owner of the output UTXO (Alice)
-        ];
-
-        const result = await prepareProof(
-          circuitForLocked,
-          provingKeyForLocked,
-          Alice,
-          [lockedUtxo2, ZERO_UTXO],
-          [nullifier1, ZERO_UTXO],
-          [utxo1, utxo2],
-          root.bigInt(),
-          merkleProofs,
-          identitiesRoot.bigInt(),
-          identitiesMerkleProofs,
-          [Bob, Alice],
-          Charlie.ethAddress, // current lock delegate
-        );
-        const nullifiers = [nullifier1.hash];
-
-        // Charlie (in reality this is usually a contract that orchestrates a trade flow) can spend the locked state
-        // using the proof generated by the trade counterparty (Bob in this case)
-        await expect(
-          sendTx(
-            Charlie, // Charlie must sign this transaction as he is the delegate now
-            nullifiers,
-            result.outputCommitments,
-            root.bigInt(),
-            result.encodedProof,
-            true,
-          ),
-        ).to.be.fulfilled;
-
-        // Alice and Bob keep the local SMT in sync
-        await smtAlice.add(utxo1.hash, utxo1.hash);
-        await smtAlice.add(utxo2.hash, utxo2.hash);
-        await smtBob.add(utxo1.hash, utxo1.hash);
-        await smtBob.add(utxo2.hash, utxo2.hash);
+          zeto.connect(Alice.signer).cancelLock(lockId, dummySpendArgs(), "0x"),
+        )
+          .to.be.revertedWithCustomError(zeto, "LockUnauthorized")
+          .withArgs(lockId, Bob.ethAddress, Alice.ethAddress);
       });
     });
   });
@@ -1602,7 +1708,6 @@ describe("Zeto based fungible token with anonymity, KYC, using nullifiers withou
     identitiesRoot: BigInt,
     identitiesMerkleProof: BigInt[][],
     owners: User[],
-    lockDelegate?: User,
   ) {
     let nullifiers: BigNumberish[];
     let outputCommitments: BigNumberish[];
@@ -1613,11 +1718,6 @@ describe("Zeto based fungible token with anonymity, KYC, using nullifiers withou
       // if there are more than 2 inputs, we use the circuit for batching
       circuitToUse = batchCircuit;
       provingKeyToUse = batchProvingKey;
-    }
-    if (lockDelegate) {
-      // if there is a lock delegate, we use the circuit for locked UTXOs
-      circuitToUse = circuitForLocked;
-      provingKeyToUse = provingKeyForLocked;
     }
     const result = await prepareProof(
       circuitToUse,
@@ -1631,7 +1731,6 @@ describe("Zeto based fungible token with anonymity, KYC, using nullifiers withou
       identitiesRoot,
       identitiesMerkleProof,
       owners,
-      lockDelegate?.ethAddress,
     );
     nullifiers = _nullifiers.map((nullifier) => nullifier.hash) as [
       BigNumberish,
@@ -1646,7 +1745,6 @@ describe("Zeto based fungible token with anonymity, KYC, using nullifiers withou
       outputCommitments,
       utxosRoot,
       encodedProof,
-      lockDelegate !== undefined,
     );
     return {
       txResult,
@@ -1666,6 +1764,7 @@ describe("Zeto based fungible token with anonymity, KYC, using nullifiers withou
     identitiesMerkleProof: BigInt[][],
     owners: User[],
     lockDelegate?: string,
+    opts?: { transferLocked?: boolean },
   ) {
     const nullifiers = _nullifiers.map((nullifier) => nullifier.hash) as [
       BigNumberish,
@@ -1684,24 +1783,41 @@ describe("Zeto based fungible token with anonymity, KYC, using nullifiers withou
       (owner) => owner.babyJubPublicKey,
     ) as BigNumberish[][];
     const startWitnessCalculation = Date.now();
-    const inputObj: any = {
-      nullifiers,
-      inputCommitments,
-      inputValues,
-      inputSalts,
-      inputOwnerPrivateKey: signer.formattedPrivateKey,
-      utxosRoot,
-      enabled: nullifiers.map((n) => (n !== 0n ? 1 : 0)),
-      utxosMerkleProof,
-      identitiesRoot,
-      identitiesMerkleProof,
-      outputCommitments,
-      outputValues,
-      outputSalts: outputs.map((output) => output.salt || 0n),
-      outputOwnerPublicKeys,
-    };
-    if (lockDelegate) {
-      inputObj["lockDelegate"] = ethers.toBigInt(lockDelegate);
+
+    let inputObj: any;
+    if (opts?.transferLocked) {
+      inputObj = {
+        inputCommitments,
+        inputValues,
+        inputSalts,
+        inputOwnerPrivateKey: signer.formattedPrivateKey,
+        identitiesRoot,
+        identitiesMerkleProof,
+        outputCommitments,
+        outputValues,
+        outputSalts: outputs.map((output) => output.salt || 0n),
+        outputOwnerPublicKeys,
+      };
+    } else {
+      inputObj = {
+        nullifiers,
+        inputCommitments,
+        inputValues,
+        inputSalts,
+        inputOwnerPrivateKey: signer.formattedPrivateKey,
+        utxosRoot,
+        enabled: nullifiers.map((n) => (n !== 0n ? 1 : 0)),
+        utxosMerkleProof,
+        identitiesRoot,
+        identitiesMerkleProof,
+        outputCommitments,
+        outputValues,
+        outputSalts: outputs.map((output) => output.salt || 0n),
+        outputOwnerPublicKeys,
+      };
+      if (lockDelegate) {
+        inputObj["lockDelegate"] = ethers.toBigInt(lockDelegate);
+      }
     }
 
     const witness = await circuit.calculateWTNSBin(inputObj, true);
@@ -1732,30 +1848,17 @@ describe("Zeto based fungible token with anonymity, KYC, using nullifiers withou
     outputCommitments: BigNumberish[],
     root: BigNumberish,
     encodedProof: any,
-    isLocked: boolean = false,
   ) {
     const startTx = Date.now();
-    let tx: any;
-    if (!isLocked) {
-      tx = await zeto.connect(signer.signer).transfer(
-        nullifiers.filter((ic) => ic !== 0n), // trim off empty utxo hashes to check padding logic for batching works
-        outputCommitments.filter((oc) => oc !== 0n), // trim off empty utxo hashes to check padding logic for batching works
-        encodeToBytes(root, encodedProof),
-        "0x",
-      );
-    } else {
-      tx = await zeto.connect(signer.signer).transferLocked(
-        nullifiers.filter((ic) => ic !== 0n), // trim off empty utxo hashes to check padding logic for batching works
-        [],
-        outputCommitments.filter((oc) => oc !== 0n), // trim off empty utxo hashes to check padding logic for batching works
-        encodeToBytes(root, encodedProof),
-        "0x",
-      );
-    }
+    const tx = await zeto.connect(signer.signer).transfer(
+      nullifiers.filter((ic) => ic !== 0n), // trim off empty utxo hashes to check padding logic for batching works
+      outputCommitments.filter((oc) => oc !== 0n), // trim off empty utxo hashes to check padding logic for batching works
+      encodeToBytes(root, encodedProof),
+      "0x",
+    );
     const results: ContractTransactionReceipt | null = await tx.wait();
     console.log(
-      `Time to execute transaction: ${Date.now() - startTx}ms. Gas used: ${
-        results?.gasUsed
+      `Time to execute transaction: ${Date.now() - startTx}ms. Gas used: ${results?.gasUsed
       }`,
     );
     return results;

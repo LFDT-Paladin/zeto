@@ -17,4 +17,10 @@ pragma circom 2.2.2;
 
 include "./basetokens/anon_nullifier_kyc__transferLocked_base.circom";
 
-component main { public [ nullifiers, lockDelegate, outputCommitments, utxosRoot, identitiesRoot, enabled ] } = transferLocked(2, 2, 64, 10);
+// Locked-input transfer for the KYC nullifier-based token. The new
+// ILockableCapability storage tracks locked UTXOs in a flat per-lock
+// mapping rather than an SMT, so the proof drops the locked-state
+// merkle inputs and the nullifiers. The public-input order matches
+// {Zeto_AnonNullifier.constructPublicInputs} for inputsLocked == true:
+// [inputCommitments, identitiesRoot, outputCommitments].
+component main { public [ inputCommitments, identitiesRoot, outputCommitments ] } = transferLocked(2, 2, 10);

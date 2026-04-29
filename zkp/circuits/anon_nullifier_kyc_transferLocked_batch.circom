@@ -17,4 +17,7 @@ pragma circom 2.2.2;
 
 include "./basetokens/anon_nullifier_kyc__transferLocked_base.circom";
 
-component main { public [ nullifiers, lockDelegate, outputCommitments, utxosRoot, identitiesRoot, enabled ] } = transferLocked(10, 10, 64, 10);
+// Batched (10-in / 10-out) variant of {anon_nullifier_kyc_transferLocked}.
+// See that file's header for the rationale behind the new public-input
+// layout.
+component main { public [ inputCommitments, identitiesRoot, outputCommitments ] } = transferLocked(10, 10, 10);
