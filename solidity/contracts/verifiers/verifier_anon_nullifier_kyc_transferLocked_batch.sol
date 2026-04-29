@@ -27,7 +27,7 @@ contract Groth16Verifier_AnonNullifierKycTransferLockedBatch is
         uint[2] calldata _pC,
         uint[] calldata _pubSignals
     ) public view returns (bool) {
-        uint256[33] memory fixedSizeInputs;
+        uint256[21] memory fixedSizeInputs;
         for (uint256 i = 0; i < fixedSizeInputs.length; i++) {
             fixedSizeInputs[i] = _pubSignals[i];
         }
