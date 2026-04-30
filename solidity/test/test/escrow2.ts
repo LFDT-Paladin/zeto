@@ -25,7 +25,7 @@ import { expect } from "chai";
 import { loadCircuit } from "zeto-js";
 import { Merkletree, InMemoryDB, str2Bytes } from "@iden3/js-merkletree";
 import zkEscrowModule from "../../ignition/modules/test/escrow2";
-import zetoAnonNullifierTests from "../zeto_anon_nullifier";
+import { prepareProof as prepareNullifierUnlockedProof } from "../lib/anon_nullifier_helpers";
 // The locked-input transition for Zeto_AnonNullifier reuses the simple
 // `anon` circuit (the lockVerifier in the ignition module is wired to
 // {Groth16Verifier_Anon}, mirroring what the production ZK proof path
@@ -160,7 +160,7 @@ describe("Escrow flow for payment with Zeto_AnonNullifier", function () {
     ];
 
     lockedPayment1 = newUTXO(payment1.value!, Alice);
-    const encodedZkProof = await zetoAnonNullifierTests.prepareProof(
+    const encodedZkProof = await prepareNullifierUnlockedProof(
       circuit,
       provingKey,
       Alice,
