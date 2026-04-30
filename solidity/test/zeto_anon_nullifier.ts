@@ -25,8 +25,7 @@ import {
 import { expect } from "chai";
 import * as chai from "chai";
 chai.config.truncateThreshold = 0; // disable truncating
-import { loadCircuit, Poseidon, encodeProof } from "zeto-js";
-import { groth16 } from "snarkjs";
+import { loadCircuit, Poseidon } from "zeto-js";
 import { Merkletree, InMemoryDB, str2Bytes } from "@iden3/js-merkletree";
 import {
   UTXO,
@@ -50,11 +49,14 @@ import {
   calculateSpendHash,
   calculateCancelHash,
 } from "./utils";
-process.env.SKIP_ANON_TESTS = "true";
 import {
   prepareProof as prepareProofForLocked,
   encodeToBytes as encodeToBytesForLocked,
 } from "./lib/anon_zeto_helpers";
+import {
+  prepareProof,
+  encodeToBytes,
+} from "./lib/anon_nullifier_helpers";
 import { deployZeto } from "./lib/deploy";
 import { Zeto_AnonNullifier } from "../typechain-types";
 import smt from "../ignition/modules/test/smt";
@@ -784,9 +786,9 @@ describe("Zeto based fungible token with anonymity using nullifiers without encr
             }
           })
           .filter((p) => p !== null) as ReadonlyArray<{
-          name: string;
-          args: any;
-        }>;
+            name: string;
+            args: any;
+          }>;
         const lockSpent = parsed.find((p) => p.name === "LockSpent");
         const zetoLockSpent = parsed.find((p) => p.name === "ZetoLockSpent");
         expect(lockSpent, "LockSpent event not emitted").to.not.be.undefined;
@@ -911,9 +913,9 @@ describe("Zeto based fungible token with anonymity using nullifiers without encr
             }
           })
           .filter((p) => p !== null) as ReadonlyArray<{
-          name: string;
-          args: any;
-        }>;
+            name: string;
+            args: any;
+          }>;
         const cancelled = parsed.find((p) => p.name === "LockCancelled");
         const zetoCancelled = parsed.find(
           (p) => p.name === "ZetoLockCancelled",
@@ -1643,79 +1645,6 @@ describe("Zeto based fungible token with anonymity using nullifiers without encr
     return results;
   }
 });
-
-async function prepareProof(
-  circuit: any,
-  provingKey: any,
-  signer: User,
-  inputs: UTXO[],
-  _nullifiers: UTXO[],
-  outputs: UTXO[],
-  root: BigInt,
-  merkleProof: BigInt[][],
-  owners: User[],
-  lockDelegate?: string,
-) {
-  const nullifiers = _nullifiers.map((nullifier) => nullifier.hash) as [
-    BigNumberish,
-    BigNumberish,
-  ];
-  const inputCommitments: BigNumberish[] = inputs.map(
-    (input) => input.hash,
-  ) as BigNumberish[];
-  const inputValues = inputs.map((input) => BigInt(input.value || 0n));
-  const inputSalts = inputs.map((input) => input.salt || 0n);
-  const outputCommitments: BigNumberish[] = outputs.map(
-    (output) => output.hash,
-  ) as BigNumberish[];
-  const outputValues = outputs.map((output) => BigInt(output.value || 0n));
-  const outputOwnerPublicKeys: BigNumberish[][] = owners.map(
-    (owner) => owner.babyJubPublicKey,
-  ) as BigNumberish[][];
-
-  const startWitnessCalculation = Date.now();
-  const inputObj: any = {
-    nullifiers,
-    inputCommitments,
-    inputValues,
-    inputSalts,
-    inputOwnerPrivateKey: signer.formattedPrivateKey,
-    root,
-    enabled: nullifiers.map((n) => (n !== 0n ? 1 : 0)),
-    merkleProof,
-    outputCommitments,
-    outputValues,
-    outputSalts: outputs.map((output) => output.salt || 0n),
-    outputOwnerPublicKeys,
-  };
-  if (lockDelegate) {
-    inputObj["lockDelegate"] = ethers.toBigInt(lockDelegate);
-  }
-
-  const witness = await circuit.calculateWTNSBin(inputObj, true);
-  const timeWithnessCalculation = Date.now() - startWitnessCalculation;
-
-  const startProofGeneration = Date.now();
-  const { proof, publicSignals } = (await groth16.prove(
-    provingKey,
-    witness,
-  )) as { proof: BigNumberish[]; publicSignals: BigNumberish[] };
-  const timeProofGeneration = Date.now() - startProofGeneration;
-
-  logger.debug(
-    `Witness calculation time: ${timeWithnessCalculation}ms. Proof generation time: ${timeProofGeneration}ms.`,
-  );
-
-  const encodedProof = encodeProof(proof);
-  return encodedProof;
-}
-
-function encodeToBytes(root: any, proof: any) {
-  return new AbiCoder().encode(
-    ["uint256 root", "tuple(uint256[2] pA, uint256[2][2] pB, uint256[2] pC)"],
-    [root, proof],
-  );
-}
 
 module.exports = {
   prepareProof,
