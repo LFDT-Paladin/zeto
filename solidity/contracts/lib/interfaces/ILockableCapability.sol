@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-pragma solidity ^0.8.20;
+pragma solidity ^0.8.27;
 
 /**
  * @title ILockableCapability
@@ -53,24 +53,21 @@ interface ILockableCapability {
          *      Immutable for the lifetime of the lock.
          */
         address owner;
-
         /**
          * @dev The address currently authorized to spend, cancel, or delegate the lock.
          *      Mutable by the current spender while the lock remains active.
          */
         address spender;
-
         /**
          * @dev An implementation-defined commitment to the spend operation permitted for this lock.
-         *      Zero if unrestricted.
+         *      Zero must be supported by the spending logic and treated as "unrestricted".
          *      Mutable if and only if the lock is active and owner-controlled
          *      (`spender == owner`).
          */
         bytes32 spendCommitment;
-
         /**
          * @dev An implementation-defined commitment to the cancellation operation permitted for this lock.
-         *      Zero if unrestricted.
+         *      Zero must be supported by the cancellation logic and treated as "unrestricted".
          *      Mutable if and only if the lock is active and owner-controlled
          *      (`spender == owner`).
          */
