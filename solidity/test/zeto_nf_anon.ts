@@ -411,9 +411,9 @@ describe("Zeto based non-fungible token with anonymity without encryption or nul
             }
           })
           .filter((p: any) => p !== null) as ReadonlyArray<{
-          name: string;
-          args: any;
-        }>;
+            name: string;
+            args: any;
+          }>;
         const lockSpent = parsed.find((p) => p.name === "LockSpent");
         const zetoLockSpent = parsed.find((p) => p.name === "ZetoLockSpent");
         expect(lockSpent, "LockSpent event not emitted").to.not.be.undefined;
@@ -509,9 +509,9 @@ describe("Zeto based non-fungible token with anonymity without encryption or nul
             }
           })
           .filter((p: any) => p !== null) as ReadonlyArray<{
-          name: string;
-          args: any;
-        }>;
+            name: string;
+            args: any;
+          }>;
         const cancelled = parsed.find((p) => p.name === "LockCancelled");
         const zetoCancelled = parsed.find((p) => p.name === "ZetoLockCancelled");
         expect(cancelled, "LockCancelled event not emitted").to.not.be
@@ -722,7 +722,7 @@ describe("Zeto based non-fungible token with anonymity without encryption or nul
         )
           .to.be.revertedWithCustomError(zeto, "LockUnauthorized")
           // spender at this point is Alice (the new delegate).
-          .withArgs(lockId, Alice.ethAddress, Charlie.ethAddress);
+          .withArgs(lockId, Bob.ethAddress, Charlie.ethAddress);
       });
 
       it("updateLock() after delegateLock() reverts with LockImmutable", async function () {

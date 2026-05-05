@@ -1031,9 +1031,9 @@ describe("Zeto based fungible token with anonymity, KYC, using nullifiers withou
             }
           })
           .filter((p) => p !== null) as ReadonlyArray<{
-          name: string;
-          args: any;
-        }>;
+            name: string;
+            args: any;
+          }>;
         const lockSpent = parsed.find((p) => p.name === "LockSpent");
         const zetoLockSpent = parsed.find((p) => p.name === "ZetoLockSpent");
         expect(lockSpent, "LockSpent event not emitted").to.not.be.undefined;
@@ -1210,9 +1210,9 @@ describe("Zeto based fungible token with anonymity, KYC, using nullifiers withou
             }
           })
           .filter((p) => p !== null) as ReadonlyArray<{
-          name: string;
-          args: any;
-        }>;
+            name: string;
+            args: any;
+          }>;
         const cancelled = parsed.find((p) => p.name === "LockCancelled");
         const zetoCancelled = parsed.find((p) => p.name === "ZetoLockCancelled");
         expect(cancelled, "LockCancelled event not emitted").to.not.be.undefined;
@@ -1346,9 +1346,8 @@ describe("Zeto based fungible token with anonymity, KYC, using nullifiers withou
               ethers.ZeroHash,
               "0x",
             ),
-        ).rejectedWith(
-          `LockUnauthorized("${lockId}", "${Bob.ethAddress}", "${Alice.ethAddress}")`,
-        );
+        ).to.be.revertedWithCustomError(zeto, "LockUnauthorized")
+          .withArgs(lockId, Bob.ethAddress, Alice.ethAddress);
       });
 
       it("updateLock() after delegateLock() reverts with LockImmutable", async function () {

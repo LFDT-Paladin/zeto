@@ -1159,9 +1159,8 @@ describe("Zeto based fungible token with anonymity using nullifiers without encr
               ethers.ZeroHash,
               "0x",
             ),
-        ).rejectedWith(
-          `LockUnauthorized("${lockId}", "${Bob.ethAddress}", "${Alice.ethAddress}")`,
-        );
+        ).to.be.revertedWithCustomError(zeto, "LockUnauthorized")
+          .withArgs(lockId, Bob.ethAddress, Alice.ethAddress);
       });
 
       it("updateLock() after delegateLock() reverts with LockImmutable", async function () {
