@@ -19,8 +19,10 @@ import {IZetoConstants, MAX_SMT_DEPTH} from "../interfaces/IZeto.sol";
 import {IZetoStorage} from "../interfaces/IZetoStorage.sol";
 import {Commonlib} from "../common/common.sol";
 import {Util} from "../common/util.sol";
-import {SmtLib} from "@iden3/contracts/lib/SmtLib.sol";
-import {PoseidonUnit3L} from "@iden3/contracts/lib/Poseidon.sol";
+import {SmtLib} from "@iden3/contracts/contracts/lib/SmtLib.sol";
+import {IHasher} from "@iden3/contracts/contracts/interfaces/IHasher.sol";
+import {PoseidonUnit3L} from "@iden3/contracts/contracts/lib/Poseidon.sol";
+import {PoseidonHasher} from "@iden3/contracts/contracts/lib/hash/PoseidonHasher.sol";
 import {BaseStorage} from "./base.sol";
 
 contract NullifierStorage is BaseStorage {
