@@ -37,18 +37,18 @@ export interface UTXO {
   value?: number;
   tokenId?: number;
   uri?: string;
-  hash: BigInt;
-  salt?: BigInt;
+  hash: bigint;
+  salt?: bigint;
 }
 
-export const ZERO_UTXO: UTXO = { hash: BigInt(0) };
+export const ZERO_UTXO: UTXO = { hash: 0n };
 
 export interface User {
   signer: Signer;
   ethAddress: string;
-  babyJubPrivateKey: BigInt;
-  babyJubPublicKey: BigInt[];
-  formattedPrivateKey: BigInt;
+  babyJubPrivateKey: bigint;
+  babyJubPublicKey: bigint[];
+  formattedPrivateKey: bigint;
 }
 
 export async function newUser(signer: Signer) {
@@ -64,7 +64,7 @@ export async function newUser(signer: Signer) {
   };
 }
 
-export function newUTXO(value: number, owner: User, salt?: BigInt): UTXO {
+export function newUTXO(value: number, owner: User, salt?: bigint): UTXO {
   if (!salt) salt = newSalt();
   const hash = poseidonHash4([
     BigInt(value),
@@ -79,7 +79,7 @@ export function newAssetUTXO(
   tokenId: number,
   uri: string,
   owner: User,
-  salt?: BigInt,
+  salt?: bigint,
 ): UTXO {
   if (!salt) salt = newSalt();
   const hash = poseidonHash5([
@@ -128,6 +128,9 @@ export async function doMint(
   if (result?.gasUsed && Array.isArray(gasHistories)) {
     gasHistories.push(result?.gasUsed);
   }
+  if (!result) {
+    throw new Error("doMint: transaction receipt is null");
+  }
   return result;
 }
 
@@ -146,6 +149,9 @@ export async function doDeposit(
   logger.debug(`Method deposit() complete. Gas used: ${result?.gasUsed}`);
   if (result?.gasUsed && Array.isArray(gasHistories)) {
     gasHistories.push(result?.gasUsed);
+  }
+  if (!result) {
+    throw new Error("doDeposit: transaction receipt is null");
   }
   return result;
 }
@@ -168,13 +174,19 @@ export async function doWithdraw(
   if (result?.gasUsed && Array.isArray(gasHistories)) {
     gasHistories.push(result?.gasUsed);
   }
+  if (!result) {
+    throw new Error("doWithdraw: transaction receipt is null");
+  }
   return result;
 }
 
 export function parseUTXOEvents(
   zetoTokenContract: any,
-  result: ContractTransactionReceipt,
+  result: ContractTransactionReceipt | null,
 ) {
+  if (!result) {
+    throw new Error("parseUTXOEvents: transaction receipt is null");
+  }
   let returnValues: any[] = [];
   for (const log of result.logs || []) {
     const event = zetoTokenContract.interface.parseLog(log as any);
