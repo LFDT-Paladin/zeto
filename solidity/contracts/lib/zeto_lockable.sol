@@ -244,7 +244,7 @@ abstract contract ZetoLockable is ZetoCommon, IZetoLockableCapability {
         // unauthorized caller never learns about the lock's mutability
         // state via the revert reason.
         if (msg.sender != lock.owner) {
-            revert LockUnauthorized(lockId, lock.spender, msg.sender);
+            revert LockUnauthorized(lockId, lock.owner, msg.sender);
         }
         if (lock.spender != lock.owner) {
             revert LockImmutable(lockId);
