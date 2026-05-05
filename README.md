@@ -18,7 +18,7 @@ There are 4 subprojects. Navigate to each subproject to run the tests and learn 
 
 - [Javascript library for proof generation](./zkp/js/): For getting started, **build this first.** This library pre-compiles all included circuits, and initializes ZK proof secrets _for testing purposes only._
 - [ZKP circuits](./zkp/circuits/): Core zero-knowledge proofs for enforcing the required security goals.
-- [Samples of Zeto token implementations in Solidity](./solidity/): Sample Solidity contracts for all ZKP-based Zeto privacy patterns, including examples of deployment in a test environment.
+- [Zeto token implementations in Solidity](./solidity/): Solidity contracts for all ZKP-based Zeto privacy patterns, including examples of deployment in a test environment.
 - [Golang SDK](./go-sdk/): An interface to interact with Zeto tokens in golang. This includes a Sparse Merkle Tree implementation, Babyjubjub key manipulations, and proof generation via compiled circom circuits in WASM format.
 
 # How to use
