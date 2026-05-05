@@ -1,6 +1,6 @@
 # Zeto Solidity contracts
 
-Sample privacy-preserving token implementations for fungible and non-fungible assets, built with the Zeto ZK toolkit (Groth16 circuits, UTXO model, optional nullifiers and encryption).
+Privacy-preserving token implementations for fungible and non-fungible assets, built with the Zeto ZK toolkit (Groth16 circuits, UTXO model, optional nullifiers and encryption).
 
 ## Prerequisites
 
