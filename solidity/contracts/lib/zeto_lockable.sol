@@ -55,7 +55,15 @@ abstract contract ZetoLockable is ZetoCommon, IZetoLockableCapability {
         _;
     }
 
-    modifier onlySpender(bytes32 lockId) {
+    modifier onlyLockOwner(bytes32 lockId) {
+        address owner = ZetoLockableStorage.layout().locks[lockId].owner;
+        if (owner != msg.sender) {
+            revert LockUnauthorized(lockId, owner, msg.sender);
+        }
+        _;
+    }
+
+    modifier onlyLockSpender(bytes32 lockId) {
         address spender = ZetoLockableStorage.layout().locks[lockId].spender;
         if (spender != msg.sender) {
             revert LockUnauthorized(lockId, spender, msg.sender);
@@ -236,16 +244,10 @@ abstract contract ZetoLockable is ZetoCommon, IZetoLockableCapability {
         bytes32 spendCommitment,
         bytes32 cancelCommitment,
         bytes calldata data
-    ) external override lockActive(lockId) {
+    ) external override lockActive(lockId) onlyLockOwner(lockId) {
         ZetoLockableStorage.ZetoLockInfo storage lock = ZetoLockableStorage
             .layout()
             .locks[lockId];
-        // Authorization first, mutability second, so that an
-        // unauthorized caller never learns about the lock's mutability
-        // state via the revert reason.
-        if (msg.sender != lock.owner) {
-            revert LockUnauthorized(lockId, lock.owner, msg.sender);
-        }
         if (lock.spender != lock.owner) {
             revert LockImmutable(lockId);
         }
@@ -282,7 +284,7 @@ abstract contract ZetoLockable is ZetoCommon, IZetoLockableCapability {
         bytes calldata delegateArgs,
         address newSpender,
         bytes calldata data
-    ) external override lockActive(lockId) onlySpender(lockId) {
+    ) external override lockActive(lockId) onlyLockSpender(lockId) {
         ZetoDelegateLockArgs memory args = abi.decode(
             delegateArgs,
             (ZetoDelegateLockArgs)
@@ -318,7 +320,7 @@ abstract contract ZetoLockable is ZetoCommon, IZetoLockableCapability {
         bytes32 lockId,
         bytes calldata spendArgs,
         bytes calldata data
-    ) external virtual override lockActive(lockId) onlySpender(lockId) {
+    ) external virtual override lockActive(lockId) onlyLockSpender(lockId) {
         ZetoSpendLockArgs memory args = abi.decode(
             spendArgs,
             (ZetoSpendLockArgs)
@@ -367,7 +369,7 @@ abstract contract ZetoLockable is ZetoCommon, IZetoLockableCapability {
         bytes32 lockId,
         bytes calldata cancelArgs,
         bytes calldata data
-    ) external virtual override lockActive(lockId) onlySpender(lockId) {
+    ) external virtual override lockActive(lockId) onlyLockSpender(lockId) {
         ZetoSpendLockArgs memory args = abi.decode(
             cancelArgs,
             (ZetoSpendLockArgs)
