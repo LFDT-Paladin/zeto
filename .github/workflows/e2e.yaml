@@ -7,12 +7,14 @@ on:
       - '**/README.md'
       - 'doc-site/**'
       - '.github/workflows/docs.yaml'
+      - '.github/workflows/release.yaml'
   pull_request:
     branches: [main]
     paths-ignore:
       - '**/README.md'
       - 'doc-site/**'
       - '.github/workflows/docs.yaml'
+      - '.github/workflows/release.yaml'
   workflow_dispatch:
 
 jobs:
