@@ -38,6 +38,7 @@ jobs:
       - name: Checkout circuits
         uses: actions/checkout@v4
         with:
+          path: zeto
           fetch-depth: 0
 
       - name: Free up disk space on runner
@@ -53,20 +54,22 @@ jobs:
           name: ${{ needs.setup-prerequisites.outputs.artifacts-name }}
           path: ${{ runner.temp }}/zeto-artifacts
 
+      # Using the `keccak256` branch of the `kaleido-io/contracts` repository
+      # which is a fork of the `iden3/contracts` repository with the `keccak256` hash function
+      # used for the Sparse Merkle Tree, with breaking changes since Poseidon is no longer the default.
+      - name: Checkout iden3/contracts
+        uses: actions/checkout@v4
+        with:
+          repository: kaleido-io/contracts
+          ref: keccak256
+          path: contracts
+          fetch-depth: 0
+
       - name: Build contracts
-        working-directory: solidity
+        working-directory: zeto/solidity
         run: |
           npm install
           npx hardhat compile
-
-      - name: Create prover archives (legacy)
-        working-directory: ${{ runner.temp }}/zeto-artifacts
-        run: |
-          # This is the legacy prover archive as the artifacts include the version in the name
-          # Users should download the new naming format that does not include the version in the name
-          tar -czvf zeto-wasm-$ZETO_VER.tar.gz **/*.wasm
-          tar --exclude='*qurrency*' -czvf zeto-test-proving-keys-$ZETO_VER.tar.gz *.zkey *-vkey.json
-          tar -czvf zeto-qurrency-test-proving-keys-$ZETO_VER.tar.gz *qurrency*.zkey *qurrency*-vkey.json
 
       - name: Create prover archives
         working-directory: ${{ runner.temp }}/zeto-artifacts
@@ -75,15 +78,8 @@ jobs:
           tar --exclude='*qurrency*' -czvf zeto-test-proving-keys.tar.gz *.zkey *-vkey.json
           tar -czvf zeto-qurrency-test-proving-keys.tar.gz *qurrency*.zkey *qurrency*-vkey.json
 
-      - name: Create contract archives (legacy)
-        working-directory: solidity
-        env:
-          ARTIFACTS_ROOT: ${{ runner.temp }}/zeto-artifacts
-        run: |
-          tar -czvf $ARTIFACTS_ROOT/zeto-contracts-$ZETO_VER.tar.gz artifacts/contracts artifacts/@iden3
-
       - name: Create contract archives
-        working-directory: solidity
+        working-directory: zeto/solidity
         env:
           ARTIFACTS_ROOT: ${{ runner.temp }}/zeto-artifacts
         run: |
