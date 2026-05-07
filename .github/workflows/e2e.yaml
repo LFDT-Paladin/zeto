@@ -8,6 +8,7 @@ on:
       - 'doc-site/**'
       - '.github/workflows/docs.yaml'
       - '.github/workflows/release.yaml'
+      - '.github/workflows/release-solidity-package.yaml'
   pull_request:
     branches: [main]
     paths-ignore:
@@ -15,6 +16,7 @@ on:
       - 'doc-site/**'
       - '.github/workflows/docs.yaml'
       - '.github/workflows/release.yaml'
+      - '.github/workflows/release-solidity-package.yaml'
   workflow_dispatch:
 
 jobs:
