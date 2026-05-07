@@ -1,4 +1,4 @@
-name: Zeto Solidity Package Release
+name: Zeto Solidity npm Module Release
 
 permissions:
   contents: read
@@ -37,13 +37,16 @@ jobs:
           echo "package_tag: ${{ inputs.package_tag }}"
           echo "======================"
 
+      # Avoid Node 22.22.2: bundled npm breaks global upgrades with MODULE_NOT_FOUND
+      # 'promise-retry' (nodejs/node#62430, npm/cli#9151). Minimum npm 11.11.0 satisfies
+      # trusted publishing and replaces promise-retry with @gar/promise-retry.
       - uses: actions/setup-node@v4
         with:
-          node-version: "22.x"
+          node-version: "22.22.1"
           registry-url: "https://registry.npmjs.org"
 
-      - name: Install latest npm
-        run: npm install -g npm@latest
+      - name: Install npm for trusted publishing
+        run: npm install -g 'npm@^11.11.0'
 
       - name: Install dependencies
         working-directory: solidity
