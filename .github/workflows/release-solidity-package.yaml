@@ -42,11 +42,14 @@ jobs:
       # trusted publishing and replaces promise-retry with @gar/promise-retry.
       - uses: actions/setup-node@v4
         with:
-          node-version: "22.22.1"
+          node-version: "22"
           registry-url: "https://registry.npmjs.org"
 
+      # workaround based on https://github.com/npm/cli/issues/9151#issuecomment-4131466208
       - name: Install npm for trusted publishing
-        run: npm install -g 'npm@^11.11.0'
+        run: |
+          npm install -g npm@~11.10.0
+          npm install -g npm@latest
 
       - name: Install dependencies
         working-directory: solidity
