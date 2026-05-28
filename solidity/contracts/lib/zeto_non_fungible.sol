@@ -28,8 +28,8 @@ import {IZetoStorage} from "./interfaces/IZetoStorage.sol";
 ///          (aka the sender is authorized to spend the input UTXOs)
 ///        - The input UTXOs and output UTXOs are valid in terms of obeying mass conservation rules
 ///
-///      Inherits {ZetoLockable} so the create/update/delegate/spend/
-///      cancel lock lifecycle is shared with the fungible siblings via
+///      Inherits {ZetoLockable} (linked {ZetoLockableLib}) so the
+///      create/update/delegate/spend/cancel lock lifecycle is shared with the fungible siblings via
 ///      a single implementation. The two ZK-circuit-shaped hooks
 ///      ({_doLockTransition} and {_transferLocked}) are overridden here
 ///      to match the NF circuit's fixed 1-in/1-out shape — there is no
@@ -114,7 +114,7 @@ abstract contract ZetoNonFungible is ZetoLockable {
     );
 
     function _doLockTransition(
-        ZetoCreateLockArgs memory args
+        ZetoCreateLockArgs calldata args
     ) internal override {
         // NF createLock: spend exactly one unlocked input and produce
         // exactly one locked output. There is no regular (unlocked)
@@ -152,19 +152,15 @@ abstract contract ZetoNonFungible is ZetoLockable {
 
         processInputsAndOutputs(args.inputs, args.outputs, false);
         processLockedOutputs(args.lockedOutputs);
-        // The freshly-locked output starts under the lock creator as
-        // both owner and spender; record that on the per-UTXO
-        // projection so {locked} can report it without a reverse lookup.
-        _setLockDelegates(args.lockedOutputs, msg.sender);
     }
 
     function _transferLocked(
         bytes32 /* lockId */,
-        uint256[] memory lockedInputs,
-        uint256[] memory lockedOutputs,
-        uint256[] memory outputs,
-        bytes memory proof,
-        bytes memory /* data */
+        uint256[] calldata lockedInputs,
+        uint256[] calldata lockedOutputs,
+        uint256[] calldata outputs,
+        bytes calldata proof,
+        bytes calldata /* data */
     ) internal override {
         // NF spend/cancel: consume exactly one locked input and produce
         // exactly one output. The output may be either a regular
@@ -212,10 +208,6 @@ abstract contract ZetoNonFungible is ZetoLockable {
         // unlocked path, once via the lockable path).
         processInputsAndOutputs(lockedInputs, outputs, true);
         processLockedOutputs(lockedOutputs);
-        // Any newly-locked output produced by this spend defaults to
-        // the current spender as its delegate. (When `lockedOutputs` is
-        // empty -- the common case -- this is a no-op.)
-        _setLockDelegates(lockedOutputs, msg.sender);
     }
 }
 

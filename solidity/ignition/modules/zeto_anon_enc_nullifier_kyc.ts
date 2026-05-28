@@ -20,6 +20,7 @@ import {
   DepositKycVerifierModule,
   WithdrawNullifierVerifierModule,
   BatchWithdrawNullifierVerifierModule,
+  ZetoLockableLibModule,
 } from "./lib/deps";
 
 const VerifierModule = buildModule(
@@ -39,6 +40,7 @@ const BatchVerifierModule = buildModule(
 );
 
 export default buildModule("Zeto_AnonEncNullifierKyc", (m) => {
+  const { zetoLockableLib } = m.useModule(ZetoLockableLibModule);
   const { smtLib, poseidon2, poseidon3 } = m.useModule(SmtLibModule);
   const { verifier } = m.useModule(VerifierModule);
   const { verifier: batchVerifier } = m.useModule(BatchVerifierModule);
@@ -59,5 +61,6 @@ export default buildModule("Zeto_AnonEncNullifierKyc", (m) => {
     smtLib,
     poseidon2,
     poseidon3,
+    zetoLockableLib,
   };
 });

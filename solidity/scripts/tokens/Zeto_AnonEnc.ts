@@ -16,6 +16,7 @@
 
 import { ethers, ignition } from "hardhat";
 import zetoModule from "../../ignition/modules/zeto_anon_enc";
+import { withZetoLockableLib } from "../lib/zeto_libraries";
 
 export async function deployDependencies() {
   const [deployer] = await ethers.getSigners();
@@ -26,9 +27,11 @@ export async function deployDependencies() {
     verifier,
     batchVerifier,
     batchWithdrawVerifier,
+    zetoLockableLib,
   } = await ignition.deploy(zetoModule);
   return {
     deployer,
+    libraries: withZetoLockableLib(zetoLockableLib),
     args: [
       "Zeto Anon Enc",
       "ZAE",

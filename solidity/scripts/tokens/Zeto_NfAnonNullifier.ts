@@ -16,11 +16,12 @@
 
 import { ethers, ignition } from "hardhat";
 import zetoModule from "../../ignition/modules/zeto_nf_anon_nullifier";
+import { withZetoLockableLib, smtLibraries } from "../lib/zeto_libraries";
 
 export async function deployDependencies() {
   const [deployer] = await ethers.getSigners();
 
-  const { verifier, lockVerifier, smtLib, poseidon2, poseidon3 } =
+  const { verifier, lockVerifier, smtLib, poseidon2, poseidon3, zetoLockableLib } =
     await ignition.deploy(zetoModule);
   return {
     deployer,
@@ -40,10 +41,9 @@ export async function deployDependencies() {
         batchBurnVerifier: "0x0000000000000000000000000000000000000000",
       },
     ],
-    libraries: {
-      SmtLib: smtLib.target,
-      PoseidonUnit2L: poseidon2.target,
-      PoseidonUnit3L: poseidon3.target,
-    },
+    libraries: withZetoLockableLib(
+      zetoLockableLib,
+      smtLibraries({ smtLib, poseidon2, poseidon3 }),
+    ),
   };
 }

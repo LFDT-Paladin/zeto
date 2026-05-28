@@ -74,6 +74,8 @@ npx hardhat run scripts/deploy_cloneable.ts
 
 This deploys the **implementation only**. Leaf tokens lock the impl with `_disableInitializers()`; **`initialize` runs on proxies** created by **`ZetoTokenFactory`**. Tests use **`USE_FACTORY=true`** in `test/lib/deploy.ts` to register the impl and deploy initialized clones. Running the script **by itself** does not yield a ready-to-use initialized token unless you finish that factory flow.
 
+Every token implementation links the external **`ZetoLockableLib`** library (deployed once per chain via Ignition). Token deploy scripts in `scripts/tokens/` pass it in the `libraries` map alongside `SmtLib` / Poseidon where applicable.
+
 For a single initialized deployment without the factory path, use **`deploy_upgradeable.ts`**.
 
 Cheap repeat deployments: OpenZeppelin [minimal proxies / Clones](https://docs.openzeppelin.com/contracts/5.x/api/utils#Clones).

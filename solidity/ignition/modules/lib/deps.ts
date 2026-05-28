@@ -27,6 +27,11 @@ export const SmtLibModule = buildModule("SmtLib", (m) => {
   return { smtLib, poseidon2, poseidon3, poseidon5, poseidon6 };
 });
 
+export const ZetoLockableLibModule = buildModule("ZetoLockableLib", (m) => {
+  const zetoLockableLib = m.library("ZetoLockableLib", []);
+  return { zetoLockableLib };
+});
+
 export const DepositVerifierModule = buildModule(
   "Groth16Verifier_Deposit",
   (m) => {
