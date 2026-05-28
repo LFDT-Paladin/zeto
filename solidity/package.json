@@ -7,7 +7,8 @@
     "prettier": "npx prettier contracts scripts ignition test --check",
     "prettier:fix": "npm run prettier -- --write",
     "pretest": "npm run prettier:fix",
-    "test": "npx hardhat test"
+    "test": "npx hardhat test",
+    "size": "npx hardhat size-contracts"
   },
   "keywords": [],
   "repository": {
@@ -21,6 +22,7 @@
     "@nomicfoundation/hardhat-ignition-ethers": "^0.15.0",
     "@nomicfoundation/hardhat-toolbox": "^5.0.0",
     "circomlibjs": "^0.1.7",
+    "hardhat-contract-sizer": "^2.10.1",
     "maci-crypto": "1.1.1",
     "mlkem": "^2.3.1",
     "prettier": "^3.3.3",

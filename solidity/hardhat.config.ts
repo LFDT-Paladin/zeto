@@ -17,7 +17,9 @@
 import { HardhatUserConfig, vars } from "hardhat/config";
 import "@nomicfoundation/hardhat-toolbox";
 import "@openzeppelin/hardhat-upgrades";
+import "hardhat-contract-sizer";
 import crypto from "crypto";
+import { EIP170_EXEMPT_CONTRACTS } from "./config/eip170";
 
 const keys = [
   process.env.ETH_PRIVATE_KEY_1 || crypto.randomBytes(32).toString("hex"),
@@ -49,11 +51,16 @@ const config: HardhatUserConfig = {
   paths: {
     sources: "contracts"
   },
+  contractSizer: {
+    alphaSort: true,
+    runOnCompile: true,
+    strict: true,
+    except: [...EIP170_EXEMPT_CONTRACTS],
+  },
   networks: {
     hardhat: {
-      // a small number of verifiers are bigger than the default 24576 bytes
-      // so we need to allow unlimited contract size to avoid test errors
-      allowUnlimitedContractSize: true,
+      // Enforce EIP-170 (24_576 B) like mainnet; see docs/EIP170-contract-size.md
+      allowUnlimitedContractSize: false,
     },
     besu: {
       url: "http://localhost:8545",
