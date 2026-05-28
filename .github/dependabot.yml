@@ -1,0 +1,39 @@
+# Dependabot configuration.
+# Updates are grouped per ecosystem so each ecosystem opens a single PR.
+version: 2
+updates:
+  # GitHub Actions
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    groups:
+      github-actions:
+        patterns:
+          - "*"
+
+  # Go modules
+  - package-ecosystem: "gomod"
+    directories:
+      - "/"
+      - "/go-sdk/src"
+      - "/go-sdk/integration-test"
+    schedule:
+      interval: "weekly"
+    groups:
+      gomod:
+        patterns:
+          - "*"
+
+  # npm (Solidity + circuits/JS)
+  - package-ecosystem: "npm"
+    directories:
+      - "/solidity"
+      - "/zkp/js"
+      - "/zkp/circuits"
+    schedule:
+      interval: "weekly"
+    groups:
+      npm:
+        patterns:
+          - "*"

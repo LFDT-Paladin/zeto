@@ -2,8 +2,6 @@ module github.com/LFDT-Paladin/zeto/go-sdk
 
 go 1.25.0
 
-toolchain go1.25.3
-
 require (
 	github.com/LFDT-Paladin/smt v0.2.0
 	github.com/stretchr/testify v1.11.1

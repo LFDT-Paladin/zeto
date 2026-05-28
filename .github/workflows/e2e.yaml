@@ -41,44 +41,48 @@ jobs:
           - 5432:5432
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
 
       - name: Free up disk space on runner
         uses: ./.github/actions/free-up-disk-space
 
       - name: Set up Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.5.0
         with:
           go-version: 1.25.9
 
       - name: Setup node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
         with:
           node-version: 22
 
       - name: Checkout Zeto
-        uses: actions/checkout@v4
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           path: zeto
           fetch-depth: 0
+          persist-credentials: false
 
       # Using the `keccak256` branch of the `kaleido-io/contracts` repository
       # which is a fork of the `iden3/contracts` repository with the `keccak256` hash function
       # used for the Sparse Merkle Tree, with breaking changes since Poseidon is no longer the default.
       - name: Checkout iden3/contracts
-        uses: actions/checkout@v4
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           repository: kaleido-io/contracts
           ref: keccak256
           path: contracts
           fetch-depth: 0
+          persist-credentials: false
 
       - name: Setup temp dir for the artifacts
         run: |
           mkdir -p ${{ runner.temp }}/zeto-artifacts
 
       - name: Download zeto artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: ${{ needs.setup-prerequisites.outputs.artifacts-name }}
           path: ${{ runner.temp }}/zeto-artifacts
