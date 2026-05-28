@@ -19,6 +19,7 @@ import {
   DepositVerifierModule,
   WithdrawVerifierModule,
   BatchWithdrawVerifierModule,
+  ZetoLockableLibModule,
 } from "./lib/deps";
 
 const VerifierModule = buildModule("Groth16Verifier_Anon", (m) => {
@@ -45,6 +46,7 @@ const BatchBurnVerifierModule = buildModule(
 );
 
 export default buildModule("Zeto_AnonBurnable", (m) => {
+  const { zetoLockableLib } = m.useModule(ZetoLockableLibModule);
   const { verifier } = m.useModule(VerifierModule);
   const { verifier: batchVerifier } = m.useModule(BatchVerifierModule);
   const { verifier: depositVerifier } = m.useModule(DepositVerifierModule);
@@ -62,5 +64,6 @@ export default buildModule("Zeto_AnonBurnable", (m) => {
     batchVerifier,
     batchWithdrawVerifier,
     batchBurnVerifier,
+    zetoLockableLib,
   };
 });

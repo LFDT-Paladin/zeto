@@ -30,9 +30,9 @@ import {IZetoStorage} from "./interfaces/IZetoStorage.sol";
 /// @dev Adds the ERC20-backed deposit/withdraw lifecycle and a multi-input
 ///      {transfer} flow on top of the lock-aware {ZetoLockable} base.
 ///
-///      The lock-lifecycle plumbing (state, modifiers, external entry
-///      points, views) lives in {ZetoLockable}; this contract supplies
-///      only the two ZK-circuit-shaped hooks
+///      The lock-lifecycle plumbing (state, external entry points, views)
+///      lives in the linked external {ZetoLockableLib}; this contract
+///      supplies only the two ZK-circuit-shaped hooks
 ///      ({_doLockTransition} and {_transferLocked}) that pad
 ///      inputs/outputs to the next supported batch size before
 ///      {constructPublicInputs}.
@@ -162,7 +162,7 @@ abstract contract ZetoFungible is ZetoLockable, ReentrancyGuardUpgradeable {
     // ------------------------------------------------------------------
 
     function _doLockTransition(
-        ZetoCreateLockArgs memory args
+        ZetoCreateLockArgs calldata args
     ) internal override {
         validateTransactionProposal(
             args.inputs,
@@ -206,19 +206,15 @@ abstract contract ZetoFungible is ZetoLockable, ReentrancyGuardUpgradeable {
 
         processInputsAndOutputs(paddedInputs, args.outputs, false);
         processLockedOutputs(args.lockedOutputs);
-        // The freshly-locked outputs all start under the lock creator
-        // as both owner and spender; record that on the per-UTXO
-        // projection so {locked} can report it without a reverse lookup.
-        _setLockDelegates(args.lockedOutputs, msg.sender);
     }
 
     function _transferLocked(
         bytes32 /* lockId */,
-        uint256[] memory lockedInputs,
-        uint256[] memory lockedOutputs,
-        uint256[] memory outputs,
-        bytes memory proof,
-        bytes memory /* data */
+        uint256[] calldata lockedInputs,
+        uint256[] calldata lockedOutputs,
+        uint256[] calldata outputs,
+        bytes calldata proof,
+        bytes calldata /* data */
     ) internal override {
         validateTransactionProposal(
             lockedInputs,
@@ -253,10 +249,6 @@ abstract contract ZetoFungible is ZetoLockable, ReentrancyGuardUpgradeable {
         verifyProof(proofStruct, publicInputs, isBatch, true);
         processInputsAndOutputs(paddedInputs, paddedOutputs, true);
         processLockedOutputs(lockedOutputs);
-        // Any newly-locked outputs produced by this spend default to the
-        // current spender as their delegate. (When `lockedOutputs` is
-        // empty -- the common case -- this is a no-op.)
-        _setLockDelegates(lockedOutputs, msg.sender);
     }
 
     /**

@@ -16,13 +16,15 @@
 
 import { ethers, ignition } from "hardhat";
 import zetoModule from "../../ignition/modules/zeto_nf_anon";
+import { withZetoLockableLib } from "../lib/zeto_libraries";
 
 export async function deployDependencies() {
   const [deployer] = await ethers.getSigners();
 
-  const { verifier } = await ignition.deploy(zetoModule);
+  const { verifier, zetoLockableLib } = await ignition.deploy(zetoModule);
   return {
     deployer,
+    libraries: withZetoLockableLib(zetoLockableLib),
     args: [
       "Zeto NF Anon",
       "ZNFA",
