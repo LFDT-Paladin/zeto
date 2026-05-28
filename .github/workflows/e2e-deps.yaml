@@ -13,7 +13,9 @@ jobs:
       artifacts-name: ${{ steps.artifacts-name.outputs.artifacts-name }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          persist-credentials: false
 
       - name: Free up disk space on runner
         uses: ./.github/actions/free-up-disk-space
@@ -39,6 +41,7 @@ jobs:
         with:
           path: zeto
           fetch-depth: 0
+          persist-credentials: false
 
       - name: Setup temp dir for the artifacts
         run: |

@@ -27,15 +27,19 @@ jobs:
         with:
           fetch-depth: 0
           ref: ${{ inputs.ref != '' && inputs.ref || github.ref }}
+          persist-credentials: false
 
       - name: Print workflow inputs
         shell: bash
         run: |
           echo "=== Workflow Inputs ==="
           echo "ref: ${{ inputs.ref != '' && inputs.ref || github.ref }}"
-          echo "package_version: ${{ inputs.package_version }}"
-          echo "package_tag: ${{ inputs.package_tag }}"
+          echo "package_version: ${INPUTS_PACKAGE_VERSION}"
+          echo "package_tag: ${INPUTS_PACKAGE_TAG}"
           echo "======================"
+        env:
+          INPUTS_PACKAGE_VERSION: ${{ inputs.package_version }}
+          INPUTS_PACKAGE_TAG: ${{ inputs.package_tag }}
 
       # Avoid Node 22.22.2: bundled npm breaks global upgrades with MODULE_NOT_FOUND
       # 'promise-retry' (nodejs/node#62430, npm/cli#9151). Minimum npm 11.11.0 satisfies
@@ -59,7 +63,9 @@ jobs:
         id: prep_version
         shell: bash
         run: |
-          echo "clean_version=$(echo "${{ inputs.package_version }}" | sed 's/^v//')" >> $GITHUB_OUTPUT
+          echo "clean_version=$(echo "${INPUTS_PACKAGE_VERSION}" | sed 's/^v//')" >> $GITHUB_OUTPUT
+        env:
+          INPUTS_PACKAGE_VERSION: ${{ inputs.package_version }}
 
       - name: Update package.json name and version
         working-directory: solidity
@@ -79,17 +85,19 @@ jobs:
           SCOPED_NAME="@lfdecentralizedtrust/${BASE_NAME}"
 
           # Update name (with scope) and version
-          jq --arg name "$SCOPED_NAME" --arg version "${{ steps.prep_version.outputs.clean_version }}" \
+          jq --arg name "$SCOPED_NAME" --arg version "${STEPS_PREP_VERSION_OUTPUTS_CLEAN_VERSION}" \
             '.name = $name | .version = $version' package.json > temp.json && mv temp.json package.json
 
           echo "Updated package.json:"
           cat package.json
+        env:
+          STEPS_PREP_VERSION_OUTPUTS_CLEAN_VERSION: ${{ steps.prep_version.outputs.clean_version }}
 
       - name: Parse NPM tags
         id: parse_tags
         shell: bash
         run: |
-          TAG_LIST="${{ inputs.package_tag }}"
+          TAG_LIST="${INPUTS_PACKAGE_TAG}"
 
           # Group all writes to the GITHUB_OUTPUT file
           {
@@ -103,13 +111,17 @@ jobs:
             echo "$ADDITIONAL_TAGS" | tr ';' '\n'
             echo "EOF"
           } >> $GITHUB_OUTPUT
+        env:
+          INPUTS_PACKAGE_TAG: ${{ inputs.package_tag }}
 
       - name: Publish to npm with primary tag
         working-directory: solidity
         shell: bash
         run: |
           set -e
-          npm publish --provenance --access public --tag ${{ steps.parse_tags.outputs.primary_tag }}
+          npm publish --provenance --access public --tag ${STEPS_PARSE_TAGS_OUTPUTS_PRIMARY_TAG}
+        env:
+          STEPS_PARSE_TAGS_OUTPUTS_PRIMARY_TAG: ${{ steps.parse_tags.outputs.primary_tag }}
 
       - name: Add additional dist-tags
         if: steps.parse_tags.outputs.additional_tags != ''
@@ -121,7 +133,7 @@ jobs:
           # Get the package name from package.json
           PACKAGE_NAME=$(jq -r '.name' package.json)
           # The version for `dist-tag add` must not have the 'v' prefix
-          PACKAGE_SPEC="${PACKAGE_NAME}@${{ steps.prep_version.outputs.clean_version }}"
+          PACKAGE_SPEC="${PACKAGE_NAME}@${STEPS_PREP_VERSION_OUTPUTS_CLEAN_VERSION}"
 
           echo "Adding tags for $PACKAGE_SPEC..."
 
@@ -131,4 +143,7 @@ jobs:
               echo "Adding tag: $tag"
               npm dist-tag add "$PACKAGE_SPEC" "$tag"
             fi
-          done <<< "${{ steps.parse_tags.outputs.additional_tags }}"
+          done <<< "${STEPS_PARSE_TAGS_OUTPUTS_ADDITIONAL_TAGS}"
+        env:
+          STEPS_PREP_VERSION_OUTPUTS_CLEAN_VERSION: ${{ steps.prep_version.outputs.clean_version }}
+          STEPS_PARSE_TAGS_OUTPUTS_ADDITIONAL_TAGS: ${{ steps.parse_tags.outputs.additional_tags }}
