@@ -13,6 +13,10 @@ Privacy-preserving token implementations for fungible and non-fungible assets, b
 
   Hardhat and related tooling are pulled in via `@nomicfoundation/hardhat-toolbox`; you do not need to run `hardhat init` in this repository.
 
+### Contract size (EIP-170)
+
+Mainnet limits deployed bytecode to **24,576 bytes**. This repo enforces that on the Hardhat network and at compile time via `hardhat-contract-sizer` (see [`docs/EIP170-contract-size.md`](docs/EIP170-contract-size.md)). Run `npm run size` to print sizes after compile.
+
 ### Circuits and proving keys
 
 Hardhat tests load circuit WASM via **`zeto-js`** (`file:../zkp/js`). Before running tests:

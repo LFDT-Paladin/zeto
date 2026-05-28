@@ -64,9 +64,13 @@ import {
   encodeToBytes as encodeToBytesForLockedEnc,
 } from "./zeto_anon_enc";
 import { deployZeto } from "./lib/deploy";
+import { describeZetoToken } from "./lib/eip170";
 const poseidonHash = Poseidon.poseidon4;
 
-describe("Zeto based fungible token with anonymity using nullifiers and encryption", function () {
+describeZetoToken(
+  "Zeto_AnonEncNullifier",
+  "Zeto based fungible token with anonymity using nullifiers and encryption",
+  function () {
   let deployer: Signer;
   let Alice: User;
   let Bob: User;

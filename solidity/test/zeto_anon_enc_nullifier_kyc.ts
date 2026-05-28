@@ -57,9 +57,13 @@ import {
   encodeToBytesForWithdraw,
 } from "./utils";
 import { deployZeto } from "./lib/deploy";
+import { describeZetoToken } from "./lib/eip170";
 const poseidonHash = Poseidon.poseidon4;
 
-describe("Zeto based fungible token with anonymity using nullifiers and encryption with KYC", function () {
+describeZetoToken(
+  "Zeto_AnonEncNullifierKyc",
+  "Zeto based fungible token with anonymity using nullifiers and encryption with KYC",
+  function () {
   let deployer: Signer;
   let Alice: User;
   let Bob: User;
