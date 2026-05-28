@@ -17,7 +17,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          persist-credentials: false
 
       - name: Install circom
         uses: supplypike/setup-bin@v4
@@ -40,6 +42,7 @@ jobs:
         with:
           path: zeto
           fetch-depth: 0
+          persist-credentials: false
 
       - name: Free up disk space on runner
         uses: ./.github/actions/free-up-disk-space
@@ -64,6 +67,7 @@ jobs:
           ref: keccak256
           path: contracts
           fetch-depth: 0
+          persist-credentials: false
 
       - name: Build contracts
         working-directory: zeto/solidity

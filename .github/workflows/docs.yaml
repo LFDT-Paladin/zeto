@@ -25,6 +25,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          persist-credentials: false
 
       - name: Setup Docs Deploy
         run: |
@@ -45,14 +46,18 @@ jobs:
       - name: Update doc site for release
         if: github.event.action == 'released' && github.ref_name != env.LATEST_TAG
         working-directory: doc-site
-        run: mike deploy ${{ github.event.release.tag_name }} --push
+        run: mike deploy ${GITHUB_EVENT_RELEASE_TAG_NAME} --push
+        env:
+          GITHUB_EVENT_RELEASE_TAG_NAME: ${{ github.event.release.tag_name }}
 
       - name: Update doc site for latest release
         if: github.event.action == 'released' && github.ref_name == env.LATEST_TAG
         working-directory: doc-site
         run: |
-          mike deploy ${{ github.event.release.tag_name }} latest -u --push
+          mike deploy ${GITHUB_EVENT_RELEASE_TAG_NAME} latest -u --push
           mike set-default --push latest
+        env:
+          GITHUB_EVENT_RELEASE_TAG_NAME: ${{ github.event.release.tag_name }}
 
       - name: Update doc site for `main` branch
         if: ${{ github.event_name == 'push' }}
