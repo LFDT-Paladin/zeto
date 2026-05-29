@@ -43,7 +43,6 @@ import {
   calculateCancelHash,
 } from "./utils";
 import { deployZeto } from "./lib/deploy";
-
 describe("Zeto based non-fungible token with anonymity using nullifiers without encryption", function () {
   let deployer: Signer;
   let Alice: User;

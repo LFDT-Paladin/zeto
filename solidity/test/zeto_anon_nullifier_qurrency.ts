@@ -55,10 +55,8 @@ import {
   encodeToBytesForWithdraw,
 } from "./utils";
 import { deployZeto } from "./lib/deploy";
-import { describeZetoToken } from "./lib/eip170";
 
-describeZetoToken(
-  "Zeto_AnonNullifierQurrency",
+describe(
   "Zeto based fungible token with anonymity using nullifiers with Kyber encryption for auditability",
   function () {
   let deployer: Signer;

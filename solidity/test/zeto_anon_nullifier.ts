@@ -83,7 +83,6 @@ describe("Zeto based fungible token with anonymity using nullifiers without encr
       // accommodate for longer block times on public networks
       this.timeout(120000);
     }
-
     let [d, a, b, c, e] = await ethers.getSigners();
     deployer = d;
     Alice = await newUser(a);
