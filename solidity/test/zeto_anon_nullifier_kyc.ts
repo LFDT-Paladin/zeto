@@ -47,7 +47,6 @@ import {
   calculateCancelHash,
 } from "./utils";
 import { deployZeto } from "./lib/deploy";
-import { describeZetoToken } from "./lib/eip170";
 import smt from "../ignition/modules/test/smt";
 
 if (!process.env.CIRCUITS_ROOT) {
@@ -119,8 +118,7 @@ function encodeLockedProof(proof: any) {
   );
 }
 
-describeZetoToken(
-  "Zeto_AnonNullifierKyc",
+describe(
   "Zeto based fungible token with anonymity, KYC, using nullifiers without encryption",
   function () {
   let deployer: Signer;

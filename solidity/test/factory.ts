@@ -17,6 +17,8 @@
 import { ethers, network } from "hardhat";
 import { Signer } from "ethers";
 import { expect } from "chai";
+import { getLinkedContractFactory } from "../scripts/lib/common";
+import { withZetoLockableLib } from "../scripts/lib/zeto_libraries";
 
 describe("(factory) Zeto based fungible token with anonymity without encryption or nullifier", function () {
   let deployer: Signer;
@@ -292,7 +294,14 @@ describe("(factory) Zeto based fungible token with anonymity without encryption 
 
     // deploy a real Zeto token so that the "implementation" contract can
     // pass the code length check in the ERC1967Proxy contract
-    const Zeto = await ethers.getContractFactory("Zeto_Anon");
+    const ZetoLockableLib = await ethers.getContractFactory("ZetoLockableLib");
+    const zetoLockableLib = await ZetoLockableLib.deploy();
+    await zetoLockableLib.waitForDeployment();
+
+    const Zeto = await getLinkedContractFactory(
+      "Zeto_Anon",
+      withZetoLockableLib(zetoLockableLib),
+    );
     const zeto = await Zeto.deploy();
     await zeto.waitForDeployment();
 

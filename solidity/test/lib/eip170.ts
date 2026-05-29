@@ -1,22 +1,23 @@
+import { artifacts } from "hardhat";
 import {
-  EIP170_EXEMPT_CONTRACTS_SET,
-  eip170SkipSuffix,
+  EIP170_BYTE_LIMIT,
+  EIP170_EXEMPT_TOKEN_SET,
 } from "../../config/eip170";
 
-export { EIP170_EXEMPT_CONTRACTS_SET, eip170SkipSuffix };
-
 /**
- * Use instead of `describe` for suites that deploy a token implementation
- * that may be on the EIP-170 exemption list (Hardhat enforces the limit when
- * `allowUnlimitedContractSize` is false).
+ * Assert a token implementation fits EIP-170 before deploy when it is not exempt.
+ * Hardhat Network runs with allowUnlimitedContractSize enabled (see hardhat.config.ts);
+ * exempt tokens may exceed the limit.
  */
-export function describeZetoToken(
-  tokenName: string,
-  suiteTitle: string,
-  fn: (this: Mocha.Suite) => void,
-): void {
-  const runner = EIP170_EXEMPT_CONTRACTS_SET.has(tokenName)
-    ? describe.skip
-    : describe;
-  runner(suiteTitle + eip170SkipSuffix(tokenName), fn);
+export async function assertEip170Compliant(tokenName: string): Promise<void> {
+  if (EIP170_EXEMPT_TOKEN_SET.has(tokenName)) {
+    return;
+  }
+  const artifact = await artifacts.readArtifact(tokenName);
+  const deployedBytes = (artifact.deployedBytecode.length - 2) / 2;
+  if (deployedBytes > EIP170_BYTE_LIMIT) {
+    throw new Error(
+      `${tokenName} deployed bytecode is ${deployedBytes} bytes, exceeding EIP-170 limit ${EIP170_BYTE_LIMIT}`,
+    );
+  }
 }

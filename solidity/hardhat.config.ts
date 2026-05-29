@@ -59,8 +59,10 @@ const config: HardhatUserConfig = {
   },
   networks: {
     hardhat: {
-      // Enforce EIP-170 (24_576 B) like mainnet; see docs/EIP170-contract-size.md
-      allowUnlimitedContractSize: false,
+      // EIP-170 runtime limit is enforced for non-exempt tokens in deployZeto().
+      // Must be true here so exempt oversize implementations can deploy in tests:
+      // hardhat_reset does not reliably toggle allowUnlimitedContractSize (HH 2.26+).
+      allowUnlimitedContractSize: true,
     },
     besu: {
       url: "http://localhost:8545",

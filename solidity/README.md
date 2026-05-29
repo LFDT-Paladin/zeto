@@ -15,7 +15,7 @@ Privacy-preserving token implementations for fungible and non-fungible assets, b
 
 ### Contract size (EIP-170)
 
-Mainnet limits deployed bytecode to **24,576 bytes**. This repo enforces that on the Hardhat network and at compile time via `hardhat-contract-sizer` (see [`docs/EIP170-contract-size.md`](docs/EIP170-contract-size.md)). Run `npm run size` to print sizes after compile.
+Mainnet limits deployed bytecode to **24,576 bytes**. This repo enforces that on the Hardhat network and at compile time via `hardhat-contract-sizer`. Run `npm run size` to print sizes after compile.
 
 ### Circuits and proving keys
 

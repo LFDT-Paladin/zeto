@@ -56,7 +56,6 @@ import {
   calculateCancelHash,
 } from "./utils";
 import { deployZeto } from "./lib/deploy";
-
 const poseidonHash = Poseidon.poseidon4;
 
 describe("Zeto based fungible token with anonymity and encryption", function () {

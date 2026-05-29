@@ -12,8 +12,10 @@ import {
 import fungibilities from "../../scripts/tokens.json";
 import { logger } from "./utils";
 import { ethers } from "hardhat";
+import { assertEip170Compliant } from "./eip170";
 
 export async function deployZeto(tokenName: string) {
+  await assertEip170Compliant(tokenName);
   let zeto, erc20, deployer;
 
   // for testing with public chains, skip deployment if

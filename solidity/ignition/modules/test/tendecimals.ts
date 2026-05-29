@@ -15,8 +15,14 @@
 // limitations under the License.
 
 import { buildModule } from "@nomicfoundation/hardhat-ignition/modules";
+import { ZetoLockableLibModule } from "../lib/deps";
 
 export default buildModule("TenDecimals", (m) => {
-  const tendecimals = m.contract("TenDecimals", []);
+  const { zetoLockableLib } = m.useModule(ZetoLockableLibModule);
+  const tendecimals = m.contract("TenDecimals", [], {
+    libraries: {
+      ZetoLockableLib: zetoLockableLib,
+    },
+  });
   return { tendecimals };
 });
