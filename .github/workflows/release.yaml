@@ -4,7 +4,7 @@ name: release
 on:
   push:
     tags:
-      - 'v*.*.*'
+      - "v*.*.*"
 
 env:
   ZETO_VER: ${{ github.ref_name }}
@@ -22,14 +22,14 @@ jobs:
           persist-credentials: false
 
       - name: Install circom
-        uses: supplypike/setup-bin@v4
+        uses: supplypike/setup-bin@8365380a806a88e7a0f0d07059b175ca2f5418d7 # v5.0.1
         with:
           uri: https://github.com/iden3/circom/releases/download/v2.2.2/circom-linux-amd64
           name: circom
           version: 2.2.2
 
       - name: Setup node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
         with:
           node-version: 20
 
@@ -38,7 +38,7 @@ jobs:
           npm install -g snarkjs
 
       - name: Checkout circuits
-        uses: actions/checkout@v4
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           path: zeto
           fetch-depth: 0
@@ -52,7 +52,7 @@ jobs:
           mkdir -p ${{ runner.temp }}/zeto-artifacts
 
       - name: Download zeto artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: ${{ needs.setup-prerequisites.outputs.artifacts-name }}
           path: ${{ runner.temp }}/zeto-artifacts
@@ -61,7 +61,7 @@ jobs:
       # which is a fork of the `iden3/contracts` repository with the `keccak256` hash function
       # used for the Sparse Merkle Tree, with breaking changes since Poseidon is no longer the default.
       - name: Checkout iden3/contracts
-        uses: actions/checkout@v4
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           repository: kaleido-io/contracts
           ref: keccak256
@@ -90,7 +90,7 @@ jobs:
           tar -czvf $ARTIFACTS_ROOT/zeto-contracts.tar.gz artifacts/contracts artifacts/@iden3
 
       - name: Publish Release Artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: zeto-wasm-and-proving-keys
           path: |
@@ -109,11 +109,11 @@ jobs:
     steps:
       - name: Download Artifacts
         id: download
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
       - name: Release Zeto Version
-        uses: ncipollo/release-action@v1
+        uses: ncipollo/release-action@339a81892b84b4eeb0f6e744e4574d79d0d9b8dd # v1.21.0
         with:
-          allowUpdates: 'true'
+          allowUpdates: "true"
           artifacts: zeto-wasm-and-proving-keys/*.tar.gz
           tag: ${{ env.ZETO_VER }}
           token: ${{ secrets.PAT }}
