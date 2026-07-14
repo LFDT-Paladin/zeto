@@ -1,6 +1,6 @@
 site_name: Zeto
-repo_name: hyperledger-labs/zeto
-repo_url: https://github.com/hyperledger-labs/zeto
+repo_name: LFDT-Paladin/zeto
+repo_url: https://github.com/LFDT-Paladin/zeto
 theme:
   name: material
   custom_dir: overrides
@@ -11,13 +11,13 @@ theme:
     repo: fontawesome/brands/github
   palette:
     # Palette toggle for light mode
-    - media: '(prefers-color-scheme: light)'
+    - media: "(prefers-color-scheme: light)"
       scheme: zeto
       toggle:
         icon: material/brightness-7
         name: Switch to dark mode
     # Palette toggle for dark mode
-    - media: '(prefers-color-scheme: dark)'
+    - media: "(prefers-color-scheme: dark)"
       scheme: zeto-dark
       toggle:
         icon: material/brightness-4

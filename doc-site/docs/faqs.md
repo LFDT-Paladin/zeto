@@ -12,7 +12,7 @@ In summary, a Zeto wallet is a sophisticated software that will be more complex 
 
 ## What "SDK" should I use in my application to work with Zeto tokens?
 
-As explained above, working with Zeto tokens requires a sophisticated client such as [Paladin](https://github.com/LF-Decentralized-Trust-labs/paladin). Even though the Zeto project provides a [go-sdk](https://github.com/hyperledger-labs/zeto/tree/main/go-sdk), to build a robust client for Zeto is a major engineering effort. Starting with Paladin is highly recommended instead of re-implementing one from scratch.
+As explained above, working with Zeto tokens requires a sophisticated client such as [Paladin](https://github.com/LF-Decentralized-Trust-labs/paladin). Even though the Zeto project provides a [go-sdk](https://github.com/LFDT-Paladin/zeto/tree/main/go-sdk), to build a robust client for Zeto is a major engineering effort. Starting with Paladin is highly recommended instead of re-implementing one from scratch.
 
 ## Why do I need Zeto tokens if I already get privacy with ZK rollups or Validium Layer 2's?
 

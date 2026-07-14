@@ -10,7 +10,7 @@ This enables DeFi users to maintain strong privacy while engaging in DeFi activi
 
 ## Sample Implementation
 
-A sample implementation of the above flow is available in the integration test at [usdc-shielding.ts](https://github.com/hyperledger-labs/zeto/blob/main/solidity/test/usdc-shielding.ts).
+A sample implementation of the above flow is available in the integration test at [usdc-shielding.ts](https://github.com/LFDT-Paladin/zeto/blob/main/solidity/test/usdc-shielding.ts).
 
 ## Regulatory Compliance
 
