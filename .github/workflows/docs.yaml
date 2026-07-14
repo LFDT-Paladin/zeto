@@ -7,22 +7,22 @@ on:
     branches:
       - main
     paths:
-      - 'doc-site/docs/**'
-      - '.github/workflows/docs.yaml'
+      - "doc-site/docs/**"
+      - ".github/workflows/docs.yaml"
   pull_request:
     paths:
-      - 'doc-site/docs/**'
-      - '.github/workflows/docs.yaml'
+      - "doc-site/docs/**"
+      - ".github/workflows/docs.yaml"
 jobs:
   build:
     runs-on: ubuntu-latest
     env:
-      LATEST_TAG: ''
+      LATEST_TAG: ""
     permissions:
       contents: write
     steps:
       - name: Checkout source
-        uses: actions/checkout@v4
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           fetch-depth: 0
           persist-credentials: false
