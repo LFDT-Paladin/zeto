@@ -119,11 +119,11 @@ describe.skip("(Gas cost analysis) Zeto based fungible token with anonymity usin
 
     circuit = await loadCircuit("anon_enc_nullifier_kyc");
     ({ provingKeyFile: provingKey } = loadProvingKeys(
-      "anon_enc_nullifier_kyc"
+      "anon_enc_nullifier_kyc",
     ));
     batchCircuit = await loadCircuit("anon_enc_nullifier_kyc_batch");
     ({ provingKeyFile: batchProvingKey } = loadProvingKeys(
-      "anon_enc_nullifier_kyc_batch"
+      "anon_enc_nullifier_kyc_batch",
     ));
   });
 
@@ -149,7 +149,7 @@ describe.skip("(Gas cost analysis) Zeto based fungible token with anonymity usin
       const endingBalance = await erc20.balanceOf(Alice.ethAddress);
       expect(endingBalance - startingBalance).to.be.equal(atMostHalfAmount);
       console.log(
-        `ERC20 successfully minted ${atMostHalfAmount} to Alice for deposit`
+        `ERC20 successfully minted ${atMostHalfAmount} to Alice for deposit`,
       );
       const tx1 = await erc20
         .connect(Alice.signer)
@@ -163,7 +163,7 @@ describe.skip("(Gas cost analysis) Zeto based fungible token with anonymity usin
       await txDep.wait();
       const endingBalanceDep = await erc20.balanceOf(zeto.target);
       expect(endingBalanceDep - startingBalanceDep).to.be.equal(
-        atLeastHalfAmount
+        atLeastHalfAmount,
       );
     });
 
@@ -181,12 +181,12 @@ describe.skip("(Gas cost analysis) Zeto based fungible token with anonymity usin
               1,
               outputCommitments[0],
               encodedProof,
-              depositGasCostHistory
+              depositGasCostHistory,
             );
             await smtAlice.add(utxoSingle.hash, utxoSingle.hash);
             await smtBob.add(utxoSingle.hash, utxoSingle.hash);
             unspentAliceUTXOs.push(utxoSingle);
-          })()
+          })(),
         );
 
         // If we reach the concurrency limit, wait for the current batch to finish
@@ -202,7 +202,7 @@ describe.skip("(Gas cost analysis) Zeto based fungible token with anonymity usin
       }
       writeGasCostsToCSV(
         `${reportPrefix}deposit_gas_costs.csv`,
-        depositGasCostHistory
+        depositGasCostHistory,
       );
     }).timeout(6000000000000);
 
@@ -227,7 +227,7 @@ describe.skip("(Gas cost analysis) Zeto based fungible token with anonymity usin
             }
 
             await doMint(zeto, deployer, mintUTXOs, mintGasCostHistory);
-          })()
+          })(),
         );
 
         // If we reach the concurrency limit, wait for the current batch to finish
@@ -242,7 +242,7 @@ describe.skip("(Gas cost analysis) Zeto based fungible token with anonymity usin
       }
       writeGasCostsToCSV(
         `${reportPrefix}mint_gas_costs.csv`,
-        mintGasCostHistory
+        mintGasCostHistory,
       );
     }).timeout(6000000000000);
 
@@ -253,11 +253,11 @@ describe.skip("(Gas cost analysis) Zeto based fungible token with anonymity usin
       const identitiesRoot = await smtKyc.root();
       const proof3 = await smtKyc.generateCircomVerifierProof(
         kycHash(Alice.babyJubPublicKey),
-        identitiesRoot
+        identitiesRoot,
       );
       const proof4 = await smtKyc.generateCircomVerifierProof(
         kycHash(Bob.babyJubPublicKey),
-        identitiesRoot
+        identitiesRoot,
       );
       const identityMerkleProofs = [
         proof3.siblings.map((s) => s.bigInt()), // identity proof for the sender (Alice)
@@ -288,7 +288,7 @@ describe.skip("(Gas cost analysis) Zeto based fungible token with anonymity usin
                 // Alice generates inclusion proofs for the UTXOs to be spent
                 const inProof = await smtAlice.generateCircomVerifierProof(
                   _iUtxo.hash,
-                  utxosRoot
+                  utxosRoot,
                 );
                 _mtps.push(inProof.siblings.map((s) => s.bigInt()));
                 const _oUtox = newUTXO(1, Bob);
@@ -299,7 +299,7 @@ describe.skip("(Gas cost analysis) Zeto based fungible token with anonymity usin
                 _nullifiers.push(ZERO_UTXO);
                 const inProof = await smtAlice.generateCircomVerifierProof(
                   0n,
-                  utxosRoot
+                  utxosRoot,
                 );
                 _outUtxos.push(ZERO_UTXO);
                 _mtps.push(inProof.siblings.map((s) => s.bigInt()));
@@ -321,9 +321,9 @@ describe.skip("(Gas cost analysis) Zeto based fungible token with anonymity usin
               identitiesRoot.bigInt(),
               identityMerkleProofs,
               owners,
-              transferGasCostHistory
+              transferGasCostHistory,
             );
-          })()
+          })(),
         );
 
         // If we reach the concurrency limit, wait for the current batch to finish
@@ -345,7 +345,7 @@ describe.skip("(Gas cost analysis) Zeto based fungible token with anonymity usin
       }
       writeGasCostsToCSV(
         `${reportPrefix}transfer_gas_costs.csv`,
-        transferGasCostHistory
+        transferGasCostHistory,
       );
     }).timeout(6000000000000);
 
@@ -374,7 +374,7 @@ describe.skip("(Gas cost analysis) Zeto based fungible token with anonymity usin
                 // Alice generates inclusion proofs for the UTXOs to be spent
                 const inProof = await smtBob.generateCircomVerifierProof(
                   _iUtxo.hash,
-                  root
+                  root,
                 );
                 _mtps.push(inProof.siblings.map((s) => s.bigInt()));
               } else {
@@ -382,7 +382,7 @@ describe.skip("(Gas cost analysis) Zeto based fungible token with anonymity usin
                 _nullifiers.push(ZERO_UTXO);
                 const inProof = await smtBob.generateCircomVerifierProof(
                   0n,
-                  root
+                  root,
                 );
                 _mtps.push(inProof.siblings.map((s) => s.bigInt()));
               }
@@ -394,7 +394,7 @@ describe.skip("(Gas cost analysis) Zeto based fungible token with anonymity usin
                 _nullifiers,
                 ZERO_UTXO,
                 root.bigInt(),
-                _mtps
+                _mtps,
               );
 
             // Bob withdraws UTXOs to ERC20 tokens
@@ -406,9 +406,9 @@ describe.skip("(Gas cost analysis) Zeto based fungible token with anonymity usin
               outputCommitments[0],
               root.bigInt(),
               encodedProof,
-              withdrawGasCostHistory
+              withdrawGasCostHistory,
             );
-          })()
+          })(),
         );
 
         // If we reach the concurrency limit, wait for the current batch to finish
@@ -423,7 +423,7 @@ describe.skip("(Gas cost analysis) Zeto based fungible token with anonymity usin
       }
       writeGasCostsToCSV(
         `${reportPrefix}withdraw_gas_costs.csv`,
-        withdrawGasCostHistory
+        withdrawGasCostHistory,
       );
       // Bob checks ERC20 balance
       const endingBalance = await erc20.balanceOf(Bob.ethAddress);
@@ -441,7 +441,7 @@ describe.skip("(Gas cost analysis) Zeto based fungible token with anonymity usin
     identitiesRoot: BigInt,
     identitiesMerkleProof: BigInt[][],
     owners: User[],
-    gasHistories: number[]
+    gasHistories: number[],
   ) {
     let nullifiers: BigNumberish[];
     let outputCommitments: BigNumberish[];
@@ -459,7 +459,7 @@ describe.skip("(Gas cost analysis) Zeto based fungible token with anonymity usin
       identitiesRoot,
       identitiesMerkleProof,
       owners,
-      ephemeralKeypair.privKey
+      ephemeralKeypair.privKey,
     );
 
     nullifiers = _nullifiers.map((nullifier) => nullifier.hash) as [
@@ -479,7 +479,7 @@ describe.skip("(Gas cost analysis) Zeto based fungible token with anonymity usin
       encryptedValues,
       encryptionNonce,
       encodedProof,
-      ephemeralKeypair.pubKey
+      ephemeralKeypair.pubKey,
     );
     if (txResult?.gasUsed && Array.isArray(gasHistories)) {
       gasHistories.push(txResult?.gasUsed);
@@ -505,23 +505,23 @@ describe.skip("(Gas cost analysis) Zeto based fungible token with anonymity usin
     identitiesRoot: BigInt,
     identitiesMerkleProof: BigInt[][],
     owners: User[],
-    ephemeralPrivateKey: BigInt
+    ephemeralPrivateKey: BigInt,
   ) {
     const nullifiers = _nullifiers.map((nullifier) => nullifier.hash) as [
       BigNumberish,
       BigNumberish,
     ];
     const inputCommitments: BigNumberish[] = inputs.map(
-      (input) => input.hash
+      (input) => input.hash,
     ) as BigNumberish[];
     const inputValues = inputs.map((input) => BigInt(input.value || 0n));
     const inputSalts = inputs.map((input) => input.salt || 0n);
     const outputCommitments: BigNumberish[] = outputs.map(
-      (output) => output.hash
+      (output) => output.hash,
     ) as BigNumberish[];
     const outputValues = outputs.map((output) => BigInt(output.value || 0n));
     const outputOwnerPublicKeys: BigNumberish[][] = owners.map(
-      (owner) => owner.babyJubPublicKey
+      (owner) => owner.babyJubPublicKey,
     ) as BigNumberish[][];
     const encryptionNonce: BigNumberish = newEncryptionNonce() as BigNumberish;
     const encryptInputs = stringifyBigInts({
@@ -564,12 +564,12 @@ describe.skip("(Gas cost analysis) Zeto based fungible token with anonymity usin
     const startProofGeneration = Date.now();
     const { proof, publicSignals } = (await groth16.prove(
       provingKeyToUse,
-      witness
+      witness,
     )) as { proof: BigNumberish[]; publicSignals: BigNumberish[] };
     const timeProofGeneration = Date.now() - startProofGeneration;
 
     console.log(
-      `Witness calculation time: ${timeWithnessCalculation}ms. Proof generation time: ${timeProofGeneration}ms.`
+      `Witness calculation time: ${timeWithnessCalculation}ms. Proof generation time: ${timeProofGeneration}ms.`,
     );
 
     const encodedProof = encodeProof(proof);
@@ -593,7 +593,7 @@ describe.skip("(Gas cost analysis) Zeto based fungible token with anonymity usin
     encryptedValues: BigNumberish[],
     encryptionNonce: BigNumberish,
     encodedProof: any,
-    ecdhPublicKey: BigInt[]
+    ecdhPublicKey: BigInt[],
   ) {
     const startTx = Date.now();
     const tx = await zeto
@@ -606,13 +606,13 @@ describe.skip("(Gas cost analysis) Zeto based fungible token with anonymity usin
         ecdhPublicKey,
         encryptedValues,
         encodedProof,
-        "0x"
+        "0x",
       );
     const result: ContractTransactionReceipt | null = await tx.wait();
     console.log(
       `Transfer transaction took: ${Date.now() - startTx}ms. Gas used: ${
         result?.gasUsed
-      }`
+      }`,
     );
     return result;
   }
