@@ -1,6 +1,6 @@
 module github.com/LFDT-Paladin/zeto/go-sdk/integration-test
 
-go 1.25.7
+go 1.26.0
 
 require (
 	github.com/LFDT-Paladin/smt v0.2.0
@@ -16,7 +16,7 @@ require (
 	github.com/ProjectZKM/Ziren/crates/go-runtime/zkvm_runtime v0.0.0-20260127004537-287a9d08ff86 // indirect
 	github.com/aidarkhanov/nanoid v1.0.8 // indirect
 	github.com/bits-and-blooms/bitset v1.24.4 // indirect
-	github.com/btcsuite/btcd/btcec/v2 v2.3.2 // indirect
+	github.com/btcsuite/btcd/btcec/v2 v2.3.5 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/consensys/gnark-crypto v0.20.1 // indirect
 	github.com/crate-crypto/go-eth-kzg v1.5.0 // indirect
@@ -31,7 +31,9 @@ require (
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/gorilla/websocket v1.5.3 // indirect
 	github.com/holiman/uint256 v1.3.2 // indirect
-	github.com/hyperledger/firefly-common v1.5.10 // indirect
+	github.com/hyperledger-firefly/common v1.6.3 // indirect
+	github.com/hyperledger/firefly-common v1.5.9 // indirect
+	github.com/hyperledger/firefly-signer v1.1.22 // indirect
 	github.com/iden3/wasmer-go v0.0.1 // indirect
 	github.com/jackc/pgpassfile v1.0.0 // indirect
 	github.com/jackc/pgservicefile v0.0.0-20221227161230-091c0ba34f0a // indirect
@@ -64,7 +66,7 @@ require (
 	github.com/cloudflare/circl v1.6.1
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
 	github.com/dchest/blake512 v1.0.0 // indirect
-	github.com/hyperledger/firefly-signer v1.1.22
+	github.com/hyperledger-firefly/signer v1.2.1
 	github.com/iden3/go-iden3-crypto v0.0.17
 	github.com/iden3/go-rapidsnark/prover v0.0.15
 	github.com/iden3/go-rapidsnark/types v0.0.3

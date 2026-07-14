@@ -4,19 +4,19 @@ on:
   push:
     branches: [main]
     paths-ignore:
-      - '**/README.md'
-      - 'doc-site/**'
-      - '.github/workflows/docs.yaml'
-      - '.github/workflows/release.yaml'
-      - '.github/workflows/release-solidity-package.yaml'
+      - "**/README.md"
+      - "doc-site/**"
+      - ".github/workflows/docs.yaml"
+      - ".github/workflows/release.yaml"
+      - ".github/workflows/release-solidity-package.yaml"
   pull_request:
     branches: [main]
     paths-ignore:
-      - '**/README.md'
-      - 'doc-site/**'
-      - '.github/workflows/docs.yaml'
-      - '.github/workflows/release.yaml'
-      - '.github/workflows/release-solidity-package.yaml'
+      - "**/README.md"
+      - "doc-site/**"
+      - ".github/workflows/docs.yaml"
+      - ".github/workflows/release.yaml"
+      - ".github/workflows/release-solidity-package.yaml"
   workflow_dispatch:
 
 jobs:
@@ -51,7 +51,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: 1.25.9
+          go-version: 1.26
 
       - name: Setup node.js
         uses: actions/setup-node@v4
