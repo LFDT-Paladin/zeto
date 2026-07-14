@@ -1,8 +1,6 @@
 module github.com/LFDT-Paladin/zeto/go-sdk
 
-go 1.25.0
-
-toolchain go1.25.3
+go 1.26.0
 
 require (
 	github.com/LFDT-Paladin/smt v0.2.0
@@ -13,7 +11,7 @@ require (
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/fsnotify/fsnotify v1.9.0 // indirect
 	github.com/google/uuid v1.6.0 // indirect
-	github.com/hyperledger/firefly-common v1.5.10 // indirect
+	github.com/hyperledger-firefly/common v1.6.3 // indirect
 	github.com/kr/pretty v0.3.1 // indirect
 	github.com/leanovate/gopter v0.2.11 // indirect
 	github.com/mattn/go-colorable v0.1.14 // indirect
@@ -35,7 +33,7 @@ require (
 	github.com/cloudflare/circl v1.6.1
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
 	github.com/dchest/blake512 v1.0.0 // indirect
-	github.com/hyperledger/firefly-signer v1.1.22
+	github.com/hyperledger-firefly/signer v1.2.1
 	github.com/iden3/go-iden3-crypto v0.0.17
 	github.com/iden3/go-rapidsnark/types v0.0.3
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect

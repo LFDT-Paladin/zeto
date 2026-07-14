@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"math/big"
 
-	"github.com/hyperledger/firefly-signer/pkg/abi"
+	"github.com/hyperledger-firefly/signer/pkg/abi"
 	"github.com/iden3/go-rapidsnark/types"
 )
 
