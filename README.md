@@ -10,7 +10,7 @@ Zeto implements several practical smart contracts on EVM for privacy-preserving 
 
 We provide a variety of token implementations that achieve targeted subsets of these properties. Each token is provided in two variants: one which accepts 2 input UTXOs and 2 output UTXOs per transaction, and a corresponding `_batch` version accepting 10 inputs and outputs per transaction, albeit with higher ZKP overhead.
 
-Refer to the [Zeto website](https://hyperledger-labs.github.io/zeto/head/) for more information.
+Refer to the [Zeto website](https://lfdt-paladin.github.io/zeto/latest/) for more information.
 
 # Subprojects
 

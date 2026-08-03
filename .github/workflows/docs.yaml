@@ -7,25 +7,26 @@ on:
     branches:
       - main
     paths:
-      - 'doc-site/docs/**'
-      - '.github/workflows/docs.yaml'
+      - "doc-site/docs/**"
+      - ".github/workflows/docs.yaml"
   pull_request:
     paths:
-      - 'doc-site/docs/**'
-      - '.github/workflows/docs.yaml'
+      - "doc-site/docs/**"
+      - ".github/workflows/docs.yaml"
 jobs:
   build:
     runs-on: ubuntu-latest
     env:
-      LATEST_TAG: ''
+      LATEST_TAG: ""
     permissions:
       contents: write
     steps:
       - name: Checkout source
-        uses: actions/checkout@v4
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           fetch-depth: 0
           fetch-tags: true
+          persist-credentials: false
 
       - name: Setup Docs Deploy
         run: |
@@ -48,14 +49,18 @@ jobs:
       - name: Update doc site for release
         if: github.event.action == 'released' && github.ref_name != env.LATEST_TAG
         working-directory: doc-site
-        run: mike deploy ${{ github.event.release.tag_name }} --push
+        run: mike deploy ${GITHUB_EVENT_RELEASE_TAG_NAME} --push
+        env:
+          GITHUB_EVENT_RELEASE_TAG_NAME: ${{ github.event.release.tag_name }}
 
       - name: Update doc site for latest release
         if: github.event.action == 'released' && github.ref_name == env.LATEST_TAG
         working-directory: doc-site
         run: |
-          mike deploy ${{ github.event.release.tag_name }} latest -u --push
+          mike deploy ${GITHUB_EVENT_RELEASE_TAG_NAME} latest -u --push
           mike set-default --push latest
+        env:
+          GITHUB_EVENT_RELEASE_TAG_NAME: ${{ github.event.release.tag_name }}
 
       - name: Update doc site for `main` branch
         if: ${{ github.event_name == 'push' }}

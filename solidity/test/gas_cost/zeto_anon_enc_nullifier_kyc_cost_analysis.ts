@@ -556,7 +556,7 @@ describe.skip("(Gas cost analysis) Zeto based fungible token with anonymity usin
       provingKeyToUse = batchProvingKey;
     }
     const witness = await lock.acquire("proofGen", async () => {
-      // this lock is added for https://github.com/hyperledger-labs/zeto/issues/80, which only happens for Transfer circuit, not deposit/mint
+      // this lock is added for https://github.com/LFDT-Paladin/zeto/issues/80, which only happens for Transfer circuit, not deposit/mint
       return circuitToUse.calculateWTNSBin(inputObj, true);
     });
     const timeWithnessCalculation = Date.now() - startWitnessCalculation;
