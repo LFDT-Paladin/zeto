@@ -1,8 +1,8 @@
 # Zeto_NfAnonNullifier
 
-| Anonymity          | History Masking    | Encryption | KYC | Non-repudiation | Gas Cost (estimate) |
-| ------------------ | ------------------ | ---------- | --- | --------------- | ------------------- |
-| :heavy_check_mark: | :heavy_check_mark: | -          | -   | -               | 1,450,258           |
+| Anonymity          | History Masking    | Locking            | Encryption | KYC | Non-repudiation | Gas Cost (estimate) |
+| ------------------ | ------------------ | ------------------ | ---------- | --- | --------------- | ------------------- |
+| :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | -          | -   | -               | 1,450,258           |
 
 This implements a non-fungible token using nullifiers, thus hiding the spending graph.
 

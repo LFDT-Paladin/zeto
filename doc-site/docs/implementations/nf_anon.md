@@ -1,8 +1,8 @@
 # Zeto_NfAnon
 
-| Anonymity          | History Masking | Encryption | KYC | Non-repudiation | Gas Cost (estimate) |
-| ------------------ | --------------- | ---------- | --- | --------------- | ------------------- |
-| :heavy_check_mark: | -               | -          | -   | -               | 271,890             |
+| Anonymity          | History Masking | Locking            | Encryption | KYC | Non-repudiation | Gas Cost (estimate) |
+| ------------------ | --------------- | ------------------ | ---------- | --- | --------------- | ------------------- |
+| :heavy_check_mark: | -               | :heavy_check_mark: | -          | -   | -               | 271,890             |
 
 This implements a basic non-fungible token.
 

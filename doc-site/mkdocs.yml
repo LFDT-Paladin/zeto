@@ -1,6 +1,6 @@
 site_name: Zeto
-repo_name: hyperledger-labs/zeto
-repo_url: https://github.com/hyperledger-labs/zeto
+repo_name: LFDT-Paladin/zeto
+repo_url: https://github.com/LFDT-Paladin/zeto
 theme:
   name: material
   custom_dir: overrides

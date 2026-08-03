@@ -1,8 +1,8 @@
 # Zeto_AnonEncNullifierNonRepudiation
 
-| Anonymity          | History Masking    | Encryption         | KYC | Non-repudiation    | Gas Cost (estimate) |
-| ------------------ | ------------------ | ------------------ | --- | ------------------ | ------------------- |
-| :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | -   | :heavy_check_mark: | 2,763,071           |
+| Anonymity          | History Masking    | Locking            | Encryption         | KYC | Non-repudiation    | Gas Cost (estimate) |
+| ------------------ | ------------------ | ------------------ | ------------------ | --- | ------------------ | ------------------- |
+| :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | -   | :heavy_check_mark: | 2,763,071           |
 
 The concept of "non-repudiation" is introduced in this implementation pattern.
 

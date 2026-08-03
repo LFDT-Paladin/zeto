@@ -9,3 +9,11 @@
 **Nullifier**
 
 : It's a special type of hash that is securely, and secretly, bound to an UTXO. It's sole purpose is to demonstrate that a UTXO has been spent, although which particular UTXO is known only to the owner. Only the owner of an UTXO can produce the proper nullifier for the UTXO, which can be proven with a ZKP. Nullifiers are used when history masking is required, so that no one other than the owner of a UTXO can find out which UTXO have been spent by a transaction.
+
+**Lock**
+
+: A mechanism that pins one or more UTXOs under a unique `lockId`, restricting who can authorize their consumption. Locks follow the `ILockableCapability` interface lifecycle: `createLock`, `updateLock`, `delegateLock`, `spendLock`, and `cancelLock`. See [Locks for multi-step trade flows](../advanced/locks.md) for details.
+
+**Spender**
+
+: The Ethereum address currently authorized to spend, cancel, or delegate a lock. When a lock is created, the creator is both the owner and the spender. After `delegateLock`, only the designated spender can act on the lock.

@@ -11,7 +11,7 @@
 - Party B sends transaction `Tx2` to transfer some value to party C. This works the same as `Tx1`
 - All parties get the commitments, `#1, #2, ... #7`, from the onchain events
 
-The above diagram illustrates that the secrets are transmitted from the sender to the receiver in an off-chain secure channel. Other means of sharing the secrets are avaiable in Zeto token implementations. For instance, the [Zeto_AnonEnc](https://github.com/hyperledger-labs/zeto/blob/main/solidity/contracts/zeto_anon_enc.sol) implementation includes encrypted secrets in the transaction input, and emits an event with the encrypted values. The encrypted values can only be decrypted by the receiver.
+The above diagram illustrates that the secrets are transmitted from the sender to the receiver in an off-chain secure channel. Other means of sharing the secrets are avaiable in Zeto token implementations. For instance, the [Zeto_AnonEnc](https://github.com/LFDT-Paladin/zeto/blob/main/solidity/contracts/zeto_anon_enc.sol) implementation includes encrypted secrets in the transaction input, and emits an event with the encrypted values. The encrypted values can only be decrypted by the receiver.
 
 ## EC Cryptography
 
