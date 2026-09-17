@@ -1,10 +1,10 @@
 # Zeto_AnonEnc
 
-| Anonymity          | History Masking | Encryption         | KYC | Non-repudiation | Gas Cost (estimate) |
-| ------------------ | --------------- | ------------------ | --- | --------------- | ------------------- |
-| :heavy_check_mark: | -               | :heavy_check_mark: | -   | -               | 425,338             |
+| Anonymity          | History Masking | Locking            | Encryption         | KYC | Non-repudiation | Gas Cost (estimate) |
+| ------------------ | --------------- | ------------------ | ------------------ | --- | --------------- | ------------------- |
+| :heavy_check_mark: | -               | :heavy_check_mark: | :heavy_check_mark: | -   | -               | 425,338             |
 
-This verison of the ZKP circuit adds encryption that makes it possible to provide data availability onchain. The circuit uses the sender's private key and the receiver's public key to generate a shared secret with ECDH, which guarantees that the receiver will be able to decrypt the values. The encrypted values include the value and salt of the output UTXO for the receiver. With these values the receiver is guaranteed to be able to spend the UTXO sent to them.
+This version of the ZKP circuit adds encryption that makes it possible to provide data availability onchain. The circuit uses the sender's private key and the receiver's public key to generate a shared secret with ECDH, which guarantees that the receiver will be able to decrypt the values. The encrypted values include the value and salt of the output UTXO for the receiver. With these values the receiver is guaranteed to be able to spend the UTXO sent to them.
 
 The statements in the proof include:
 

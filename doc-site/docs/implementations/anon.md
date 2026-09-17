@@ -1,8 +1,8 @@
 # Zeto_Anon
 
-| Anonymity          | History Masking | Encryption | KYC | Non-repudiation | Gas Cost (estimate) |
-| ------------------ | --------------- | ---------- | --- | --------------- | ------------------- |
-| :heavy_check_mark: | -               | -          | -   | -               | 326,583             |
+| Anonymity          | History Masking | Locking            | Encryption | KYC | Non-repudiation | Gas Cost (estimate) |
+| ------------------ | --------------- | ------------------ | ---------- | --- | --------------- | ------------------- |
+| :heavy_check_mark: | -               | :heavy_check_mark: | -          | -   | -               | 326,583             |
 
 This is the simplest version of the ZKP circuit. Because the secrets required to open the commitment hashes, namely the output UTXO value and salt, are NOT published as part of the transaction payload, using this version requires the secrets to be transmitted from the sender to the receiver in off-chain channels.
 

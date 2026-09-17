@@ -1,8 +1,8 @@
 # Zeto_AnonNullifierQurrency
 
-| Anonymity          | History Masking    | Encryption         | KYC | Non-repudiation | Gas Cost (estimate) |
-| ------------------ | ------------------ | ------------------ | --- | --------------- | ------------------- |
-| :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | -   | -               | 2,066,430           |
+| Anonymity          | History Masking    | Locking | Encryption         | KYC | Non-repudiation | Gas Cost (estimate) |
+| ------------------ | ------------------ | ------- | ------------------ | --- | --------------- | ------------------- |
+| :heavy_check_mark: | :heavy_check_mark: | :soon:  | :heavy_check_mark: | -   | -               | 2,066,430           |
 
 ![pqc](../images/pqc-dark-100px.png)
 
