@@ -1,8 +1,8 @@
 # Zeto_AnonNullifier
 
-| Anonymity          | History Masking    | Encryption | KYC | Non-repudiation | Gas Cost (estimate) |
-| ------------------ | ------------------ | ---------- | --- | --------------- | ------------------- |
-| :heavy_check_mark: | :heavy_check_mark: | -          | -   | -               | 2,005,587           |
+| Anonymity          | History Masking    | Locking            | Encryption | KYC | Non-repudiation | Gas Cost (estimate) |
+| ------------------ | ------------------ | ------------------ | ---------- | --- | --------------- | ------------------- |
+| :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | -          | -   | -               | 2,005,587           |
 
 To mask the association between the consumed UTXOs and the output UTXOs, we hide which UTXOs are being consumed by each transaction.
 

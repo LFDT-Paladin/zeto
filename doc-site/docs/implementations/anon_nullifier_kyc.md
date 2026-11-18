@@ -1,8 +1,8 @@
 # Zeto_AnonNullifierKyc
 
-| Anonymity          | History Masking    | Encryption | KYC                | Non-repudiation | Gas Cost (estimate) |
-| ------------------ | ------------------ | ---------- | ------------------ | --------------- | ------------------- |
-| :heavy_check_mark: | :heavy_check_mark: | -          | :heavy_check_mark: | -               | 2,310,424           |
+| Anonymity          | History Masking    | Locking            | Encryption | KYC                | Non-repudiation | Gas Cost (estimate) |
+| ------------------ | ------------------ | ------------------ | ---------- | ------------------ | --------------- | ------------------- |
+| :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | -          | :heavy_check_mark: | -               | 2,310,424           |
 
 The concept of "KYC with privacy" is introduced in this implementation pattern.
 

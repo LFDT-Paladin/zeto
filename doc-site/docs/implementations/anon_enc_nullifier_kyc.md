@@ -1,8 +1,8 @@
 # Zeto_AnonEncNullifier
 
-| Anonymity          | History Masking    | Encryption         | KYC                | Non-repudiation | Gas Cost (estimate) |
-| ------------------ | ------------------ | ------------------ | ------------------ | --------------- | ------------------- |
-| :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | -               | 2,414,345           |
+| Anonymity          | History Masking    | Locking            | Encryption         | KYC                | Non-repudiation | Gas Cost (estimate) |
+| ------------------ | ------------------ | ------------------ | ------------------ | ------------------ | --------------- | ------------------- |
+| :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | -               | 2,414,345           |
 
 This implementation adds encryption, as described in the section above for Zeto_AnonEnc, to the pattern Zeto_AnonNullifierKyc above.
 

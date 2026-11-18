@@ -23,9 +23,9 @@ There are 4 subprojects. Navigate to each subproject to run the tests and learn 
 
 # How to use
 
-If the provided token implementations satisfy your requirements, they can be deployed as-is. They can also be modified and used as templates for implementations which achieve different combinations of security goals.
+If the provided token implementations satisfy your requirements, they can be deployed as-is (after updating the corresponding proof verifier contract). They can also be modified and used as templates for implementations which achieve different combinations of security goals.
 
-**Warning:** We provide a testing framework for Zeto tokens, which initializes the zero-knowledge proof infrastructure locally. This is not sufficient to establish trust in the generated proofs! For deployment, the proving keys **must** be generated either in a well-documented, decentralized ceremony, or by one trusted, central party. Refer to the [snarkjs documentation](https://github.com/iden3/snarkjs) for details on how to conduct this ceremony.
+**Warning:** We provide a testing framework for Zeto tokens, which initializes the zero-knowledge proof infrastructure locally. This is not sufficient to establish trust in the generated proofs! For deployment, the proving keys **must** be generated either in a well-documented, decentralized ceremony, or by one trusted, central party. Refer to the [snarkjs documentation](https://github.com/iden3/snarkjs) for details on how to conduct this ceremony. Note that the solidity proof verifier contracts must be refreshed accordingly. The existing verifier contracts only work with the test proving keys. They are also susceptible to proof forgery attacks, breaking the soundness guarantees of ZK proofs. Therefore, DO NOT deploy the existing verifier contracts for production.
 
 ## Related projects
 

@@ -25,6 +25,7 @@ jobs:
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           fetch-depth: 0
+          fetch-tags: true
           persist-credentials: false
 
       - name: Setup Docs Deploy
@@ -34,7 +35,9 @@ jobs:
 
       - name: Get the latest tag
         run: |
-          git fetch --tags
+          # Force-sync tags from origin; plain `git fetch --tags` fails when a
+          # local tag (from checkout) points at a different commit than remote.
+          git fetch origin --tags --force
           latest_tag=$(git tag -l | sort -V | grep -v "rc" | tail -n 1)
           echo "latest tag: $latest_tag"
           echo "LATEST_TAG=$latest_tag" >> $GITHUB_ENV
